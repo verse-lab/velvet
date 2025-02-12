@@ -14,7 +14,7 @@ class MonadOrder extends Monad w, PreOrderFunctor w where
 
 class LawfulMonadLift (w : outParam (Type u -> Type v)) [Monad m] [Monad w] extends MonadLiftT m w where
   monadMapPure {α : Type u} (x : α) : monadLift (pure x) = pure x
-  monadMapBind {α : Type u} {β : Type u} (x : m α) (f : α -> m β) : monadLift (bind x f) = bind (monadLift x) (monadLift ∘ f)
+  monadMapBind {α : Type u} {β : Type u} (x : m α) (f : α -> m β) : monadLift (bind x f) = bind (monadLift x) (fun x => monadLift (f x))
 
 export LawfulMonadLift (monadMapPure monadMapBind)
 
