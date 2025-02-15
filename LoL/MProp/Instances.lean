@@ -1,19 +1,21 @@
 import LoL.MProp.EffectObservations
+import LoL.NonDetT
+
+instance : Nonempty PProp := ⟨PProp.mk True⟩
 
 instance : MPropPartialOrder Id Prop where
-  μ := id
-  μSur := by exact Function.surjective_id
-  μOrd := by simp
+  μ := (·.prop)
+  μSur := by exists (fun x => PProp.mk x); simp [Function.LeftInverse]
+  μOrd := by solve_by_elim
 
 instance (σ : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (StateT σ m) (σ -> l) where
   μ := fun sp s => Prod.fst <$> sp s |> inst.μ
   μSur := by
+    exists fun sp s => (·, s) <$> MProp.ι (sp s)
     intro x; simp [funext_iff];
-    apply (Classical.skolem (p := fun s b => MPropPartialOrder.μ (Prod.fst <$> b) = x s)).mp
-    intro s; rcases inst.μSur (x s) with ⟨y, h⟩; exists (y >>= fun y => pure (y, s))
-    simp [h]
+    intro s; apply inst.μSur.property
   μOrd := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x s
@@ -26,9 +28,9 @@ instance (ρ : Type) (l : Type) (m : Type -> Type)
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ReaderT ρ m) (ρ -> l) where
   μ := fun rp r => rp r |> inst.μ
   μSur := by
+    exists fun rp r => MProp.ι (rp r)
     intro x; simp [funext_iff];
-    apply (Classical.skolem (p := fun r b => MPropPartialOrder.μ b = x r)).mp
-    intro r; rcases inst.μSur (x r) with ⟨y, h⟩; exists y
+    intro r; apply inst.μSur.property
   μOrd := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x r
@@ -53,9 +55,8 @@ def MPropExcept (df : Prop) (ε : Type) (l : Type) (m : Type -> Type)
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l where
   μ := fun e => inst.μ $ Except.getD df <$> e
   μSur := by
-    intro x; simp [funext_iff];
-    rcases inst.μSur x with ⟨y, h⟩
-    exists Functor.map (β := Except _ _) .ok y; simp [h]
+    exists fun x => Functor.map (β := Except _ _) .ok (MProp.ι x)
+    intro x; simp [funext_iff]; apply inst.μSur.property
   μOrd := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x
@@ -66,14 +67,15 @@ def MPropExcept (df : Prop) (ε : Type) (l : Type) (m : Type -> Type)
     apply leM; rintro (e | p) <;> simp [Except.bind', ExceptT.instMonad, ExceptT.bind, ExceptT.bindCont]
     apply le
 
-namespace PatialCorrectness
+namespace PartialCorrectness
 scoped
 instance (ε : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l := MPropExcept True ε l m
-end PatialCorrectness
+end PartialCorrectness
 
 namespace TotalCorrectness
+scoped
 instance (ε : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
   [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l := MPropExcept False ε l m
@@ -84,3 +86,38 @@ end TotalCorrectness
 
 #guard_msgs (drop info) in
 #synth MPropPartialOrder (ReaderT Bool (StateM Int)) (Bool -> Int -> Prop)
+
+
+namespace AngelicChoice
+
+instance NonDetMProp :
+   MPropPartialOrder NonDetM.{0} Prop where
+  μ := (∃ x ∈ ·.takeAll, x.prop)
+  μSur := by
+    exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
+  μOrd := by
+    intros α f g le x; simp; induction x <;> simp_all [bind, NonDetM.bind, NonDetM.takeAll, NonDetM.takeAll_union]
+    rename_i y _ ih; rintro x (h|h) xp
+    · specialize le y ?_; simp; exists x
+      rcases le with ⟨z, _, _⟩; exists z; simp [*]
+    specialize ih () x ?_ ?_ <;> try assumption
+    rcases ih with ⟨z, _, _⟩; exists z; simp [*]
+
+end AngelicChoice
+
+namespace DemonicChoice
+
+instance NonDetMProp :
+   MPropPartialOrder NonDetM.{0} Prop where
+  μ := (∀ x ∈ ·.takeAll, x.prop)
+  μSur := by
+    exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
+  μOrd := by
+    intros α f g le x; simp; induction x <;> simp_all [bind, NonDetM.bind, NonDetM.takeAll, NonDetM.takeAll_union]
+    rename_i y _ ih; rintro h x (hh|hh);
+    · specialize le y ?_ _ hh <;> simp_all
+    specialize ih () ?_
+    · intros; apply h; simp [*]
+    solve_by_elim
+
+end DemonicChoice
