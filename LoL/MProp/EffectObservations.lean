@@ -39,12 +39,14 @@ lemma MProp.cancelM {l} [Monad m] [MProp m l] {α : Type v} (x : m α) (f : _ ->
 abbrev MProp.lift {m : Type u -> Type v} {l : Type u} [Monad m] [LawfulMonad m] [MProp m l] :
   {α : Type u} -> m α -> Cont l α := fun x f => μ $ f <$> x >>= MProp.ι
 
-noncomputable
-instance (l : Type u) {m : Type u -> Type v} [Monad m] [LawfulMonad m] [MProp m l] : LawfulMonadLift m (Cont l) where
+instance (l : Type u) {m : Type u -> Type v} [Monad m] [LawfulMonad m] [MProp m l] : MonadLiftT m (Cont l) where
   monadLift := MProp.lift
-  monadMapPure := by
+
+
+instance (l : Type u) {m : Type u -> Type v} [Monad m] [LawfulMonad m] [MProp m l] : LawfulMonadLift m (Cont l) where
+  lift_pure := by
     intro α x; simp [monadLift, pure]; unfold MProp.lift; simp [map_pure, MProp.cancel]
-  monadMapBind := by
+  lift_bind := by
     intros α β x f; simp [monadLift, bind]; unfold MProp.lift; ext g
     rw (config := { occs := .pos [2] }) [map_eq_pure_bind]
     simp only [bind_assoc, pure_bind]

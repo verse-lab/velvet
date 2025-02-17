@@ -39,3 +39,7 @@ lemma W_ext (t : Type v) (α : Type u) [Preorder t] (w w' : W t α) :
 instance (t : Type v) [Preorder t] : Monad (W t) where
   pure x := ⟨fun f => f x, by solve_by_elim⟩
   bind x f := ⟨fun g => x.wp (fun a => (f a).wp g), by simp; intros; solve_by_elim [W.wp_montone]⟩
+
+class Logic (t : Type u) extends PartialOrder t where
+  and : t -> t -> t
+  pure : Prop -> t

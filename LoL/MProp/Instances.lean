@@ -107,9 +107,17 @@ end AngelicChoice
 
 namespace DemonicChoice
 
+abbrev List.forall {α} (f : α -> Prop) : List α -> Prop
+  | [] => True
+  | x :: xs => f x ∧ List.forall f xs
+
+@[simp]
+theorem List.forall_forall {α} (f : α -> Prop) (xs : List α) : List.forall f xs ↔ ∀ x ∈ xs, f x := by
+  induction xs <;> simp [List.forall, *]
+
 instance NonDetMProp :
    MPropPartialOrder NonDetM.{0} Prop where
-  μ := (∀ x ∈ ·.takeAll, x.prop)
+  μ := (List.forall (·.prop) ·.takeAll)
   μSur := by
     exists (NonDetM.one ·); intros x; simp [NonDetM.takeAll]
   μOrd := by
