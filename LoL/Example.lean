@@ -2,8 +2,6 @@ import LoL.MProp.HoareTriples
 import LoL.Meta
 import LoL.Tactic
 
-abbrev myM := StateT Nat (ExceptT String Id)
-
 
 lemma monadMap_if {α : Type} {m n} [inst: MonadLiftT m n] (t e : m α) (p : Prop) [Decidable p] :
   monadLift (n:= n) (if p then t else e) = if p then monadLift t else monadLift e := by split <;> rfl
@@ -22,14 +20,15 @@ lemma bindE {α β} : bind (α := α) (β := β) (m := Cont (Nat -> Prop)) = (fu
     --   unfold liftM; simp only [monadMapBind, monadMap_if]; simp only [monadLift]
     --   ))
 
-namespace myM
+namespace Tot
 open TotalCorrectness
 
-#gen_spec getE for MProp.lift (m := myM) (get (m := myM))
-#gen_spec setE (s : Nat) for MProp.lift <| set (m := myM) s
-#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) (throw (α := α) (m := myM) e)
-#gen_spec pureE (α : Type) (x : α) for MProp.lift (m := myM) (pure (f := myM) x)
-#gen_spec MProp.μ_pure for MProp.μ (m := myM) ∘ pure
+abbrev myM := StateT Nat (ExceptT String Id)
+
+#gen_spec getE                           for MProp.lift (m := myM) get
+#gen_spec setE (s : Nat)                 for MProp.lift (m := myM) <| set s
+#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) <| throw (α := α) e
+#gen_spec pureE (α : Type) (x : α)       for MProp.lift (m := myM) <| pure x
 
 def decr (n : Nat) : myM Unit := do
   let s <- get
@@ -44,7 +43,7 @@ lemma decr_spec (n sOld : Nat) :
     -- prepare the goal
     simp only [triple, decr];
     -- propagate the lifting into Specification monad
-    simp_lift myM
+    simp_lift Tot.myM
     -- simplify basic monadic operations
     simp [wpSimp, bindE, if_app]
     -- simplify logic implication
@@ -54,18 +53,17 @@ lemma decr_spec (n sOld : Nat) :
     omega
 
 
-end myM
+end Tot
 
-export myM (decr)
+export Tot (decr myM)
 
-namespace myMPart
+namespace Part
 open PartialCorrectness
 
-#gen_spec getE for MProp.lift (m := myM) (get (m := myM))
-#gen_spec setE (s : Nat) for MProp.lift <| set (m := myM) s
-#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) (throw (α := α) (m := myM) e)
-#gen_spec pureE (α : Type) (x : α) for MProp.lift (m := myM) (pure (f := myM) x)
-#gen_spec MProp.μ_pure for MProp.μ (m := myM) ∘ pure
+#gen_spec getE                           for MProp.lift (m := myM) get
+#gen_spec setE (s : Nat)                 for MProp.lift (m := myM) <| set s
+#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) <| throw (α := α) e
+#gen_spec pureE (α : Type) (x : α)       for MProp.lift (m := myM) <| pure x
 
 lemma decr_spec (n s : Nat) :
   triple
@@ -84,31 +82,30 @@ lemma decr_spec (n s : Nat) :
     -- actual proof
     omega
 
-end myMPart
+end Part
 
+namespace NonDet
 open TotalCorrectness
 open DemonicChoice
 
-abbrev myM' := StateT Nat (ExceptT String NonDetM)
+abbrev myM := StateT Nat (ExceptT String NonDetM)
 
+#gen_spec getE                           for MProp.lift (m := myM) get
+#gen_spec setE (s : Nat)                 for MProp.lift (m := myM) <| set s
+#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM) <| throw (α := α) e
+#gen_spec pureE (α : Type) (x : α)       for MProp.lift (m := myM) <| pure x
 
-#gen_spec getE for MProp.lift (m := myM') (get (m := myM'))
-#gen_spec setE (s : Nat) for MProp.lift (m := myM') (set (m := myM') s)
-#gen_spec throwE (α : Type) (e : String) for MProp.lift (m := myM') (throw (α := α) (m := myM') e)
-#gen_spec pureE (α : Type) (x : α) for MProp.lift (m := myM') (pure (f := myM') x)
-#gen_spec MProp.μ_pure for MProp.μ (m := myM') ∘ pure
-
-#gen_spec moreE (α : Type) (x : α) (m : NonDetM α) for MProp.lift (m := myM') <| (StateT.lift $ ExceptT.lift $ NonDetM.more x (fun _ => m))
-#gen_spec noneE (α : Type) for MProp.lift (m := myM') <| (StateT.lift $ ExceptT.lift $ NonDetM.none (α := α))
-#gen_spec chooseEE (α : Type) (xs : List α) for MProp.lift <| choose (m := myM') xs
+#gen_spec moreE (α : Type) (x : α) (m : NonDetM α) for MProp.lift (m := myM) <| (StateT.lift $ ExceptT.lift $ NonDetM.more x (fun _ => m))
+#gen_spec noneE (α : Type) for MProp.lift (m := myM) <| (StateT.lift $ ExceptT.lift $ NonDetM.none (α := α))
+#gen_spec chooseEE (α : Type) (xs : List α) for MProp.lift <| choose (m := myM) xs
 @[wpSimp high]
-lemma chooseE {α} (xs : List α) : (MProp.lift <| choose (m := myM') xs) = fun f s => ∀ x ∈ xs, f x s := by
+lemma chooseE {α} (xs : List α) : (MProp.lift <| choose (m := myM) xs) = fun f s => ∀ x ∈ xs, f x s := by
   induction xs <;> simp [choose, NonDetM.choose]
   { rfl }
   erw [moreE]; simp; ext f s; simp; intros h
   rename_i ih; simp [funext_iff] at ih; rw [<-ih]; rw [chooseEE]
 
-def decr' (n : Nat) : myM' Unit := do
+def decr' (n : Nat) : myM Unit := do
   let n <- choose <| List.range <| n + 1
   let s <- get
   if n > s then throw "error"
@@ -122,7 +119,7 @@ lemma decr_spec (n s : Nat) :
     -- prepare the goal
     simp only [triple, decr']
     -- propagate the lifting into Specification monad
-    simp_lift myM'
+    simp_lift NonDet.myM
     -- simplify basic monadic operations
     simp [wpSimp]
     -- simplify logic implication
