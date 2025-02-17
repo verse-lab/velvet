@@ -12,8 +12,6 @@ lemma if_app {α β} p [Decidable p] (t e : α -> β)  : (if p then t else e) = 
 @[wpSimp]
 lemma bindE {α β} : bind (α := α) (β := β) (m := Cont (Nat -> Prop)) = (fun x f g ↦ x fun a ↦ f a g) := by rfl
 
-#check Lean.Elab.Tactic.evalTactic
-
     -- Lean.Elab.Tactic.evalTactic `(tactic| (
     --   unfold Function.comp; dsimp
     --   rw [MProp.μ_lift]; simp only [MProp.μ_pure];
@@ -41,7 +39,7 @@ lemma decr_spec (n sOld : Nat) :
     (decr n)
     fun _ => do { let s <- get; return s + n = sOld } := by
     -- prepare the goal
-    simp only [triple, decr];
+    simp only [triple, decr]
     -- propagate the lifting into Specification monad
     simp_lift Tot.myM
     -- simplify basic monadic operations

@@ -20,4 +20,5 @@ export LawfulMonadLift (lift_pure lift_bind)
 
 alias EffectObservation := LawfulMonadLift
 
-class abbrev SpecMonad [Monad m] := MonadOrder w, MonadLiftT m w, LawfulMonadLift m w
+class abbrev SpecMonad (m : Type u -> Type w) (w : Type u -> Type v) [Monad m] :=
+  MonadOrder w, MonadLiftT m w, LawfulMonadLift m w
