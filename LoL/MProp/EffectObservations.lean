@@ -74,7 +74,15 @@ instance OfMPropPartialOrdered {m : Type -> Type} {l : Type} [Monad m] [PartialO
   μOrd := MPropPartialOrder.μOrd
   bind := by intros; apply PartialOrder.le_antisymm <;> apply MPropPartialOrder.μOrd <;> simp_all only [le_refl]
 
-lemma MProp.μ_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l] : MProp.μ (m := m) = (liftM (n := Cont l) · (MProp.μ ∘ pure (f := m))) := by
+lemma MProp.μ_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l] :
+  MProp.μ (m := m) = (liftM (n := Cont l) · (MProp.μ ∘ pure (f := m))) := by
   funext x; simp [liftM, monadLift, MProp.lift, Function.comp]
   rw [MProp.bind (g := pure)]; simp
   ext; simp [MProp.cancel]
+
+lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Preorder l] [MPropOrdered m l]
+  (h) (x : m α) (f g : α -> Cont l β) :
+    f <= g ->
+    (lift x >>= f) h ≤ (lift x >>= g) h := by
+    intro fLg; simp [Bind.bind]
+    apply Cont.monotone_lift; intros h; apply fLg

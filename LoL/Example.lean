@@ -34,16 +34,16 @@ def decr (n : Nat) : myM Unit := do
   set (s - n)
 
 lemma decr_spec (n sOld : Nat) :
-  triple
+  mtriple
     do { let s <- get; return n <= s ∧ s = sOld }
     (decr n)
     fun _ => do { let s <- get; return s + n = sOld } := by
     -- prepare the goal
-    simp only [triple, decr]
+    simp only [mtriple, triple, decr]
     -- propagate the lifting into Specification monad
     simp_lift Tot.myM
     -- simplify basic monadic operations
-    simp [wpSimp, bindE, if_app]
+    simp [wpSimp]
     -- simplify logic implication
     intros s; simp
 
@@ -64,12 +64,12 @@ open PartialCorrectness
 #gen_spec pureE (α : Type) (x : α)       for MProp.lift (m := myM) <| pure x
 
 lemma decr_spec (n s : Nat) :
-  triple
+  mtriple
     do { return (<- get) = s }
     (decr n)
     fun _ => do { return (<- get) <= s } := by
     -- prepare the goal
-    simp only [triple, decr]
+    simp only [mtriple, triple, decr]
     -- propagate the lifting into Specification monad
     simp_lift myM
     -- simplify basic monadic operations
@@ -109,13 +109,15 @@ def decr' (n : Nat) : myM Unit := do
   if n > s then throw "error"
   set (s - n)
 
+-- myM Prop
+
 lemma decr_spec (n s : Nat) :
-  triple
+  mtriple
     do { return (<- get) = s ∧ n <= s }
     (decr' n)
     fun _ => do { return (<- get) <= s } := by
     -- prepare the goal
-    simp only [triple, decr']
+    simp only [mtriple, triple, decr']
     -- propagate the lifting into Specification monad
     simp_lift NonDet.myM
     -- simplify basic monadic operations
