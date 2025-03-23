@@ -1,4 +1,5 @@
 import Mathlib.Order.Lattice
+
 import LoL.MonadUtil
 import LoL.SpecMonad
 
@@ -21,16 +22,15 @@ instance : Coe PProp Prop where
 
 class MProp [Monad m] (l : outParam (Type v)) where
   μ : m PProp -> l
-  μ_surjective : { ι : l -> m PProp // μ.LeftInverse ι }
+  ι : l -> m PProp
+  μ_surjective : μ.LeftInverse ι
   bind : ∀ {α : Type v} (x : m α) (f g : α -> m PProp),
     μ ∘ f = μ ∘ g ->
     μ (x >>= f) = μ (x >>= g)
 
-def MProp.ι {m} {l : Type u} [Monad m] [MProp m l] : l -> m PProp :=
-  μ_surjective.val
 
 lemma MProp.cancel {m} {l : Type u} [Monad m] [MProp m l] (x : l) : μ (MProp.ι (m := m) x) = x :=
-  μ_surjective.property x
+  μ_surjective x
 
 lemma MProp.cancelM {l} [Monad m] [MProp m l] {α : Type v} (x : m α) (f : _ -> _) :
     μ (x >>= MProp.ι ∘ μ ∘ f) = μ (x >>= f) := by
@@ -63,17 +63,11 @@ lemma Cont.monotone_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMo
   unfold Cont.monotone; intros; simp [MProp.lift]
   apply MPropOrdered.μ_ord_bind; intro; simp [MProp.cancel, *]
 
-/-
-  m = State σ ---> l = σ -> Prop
-  m = Reader ρ ---> l = ρ -> Prop
-  m = Except ε ---> l = Prop
-  ...
-
-  m = StateT σ m' ---> l = σ -> l'
--/
 class MPropPartialOrder (l : outParam (Type v)) [Monad m] [PartialOrder l] where
   μ : m PProp -> l
-  μ_surjective : { ι : l -> m PProp // μ.LeftInverse ι }
+  ι : l -> m PProp
+  μ_surjective : μ.LeftInverse ι
+  μ_pure_injective : ∀ (p : Prop), ι (μ (pure p)) = pure (f := m) p
   μ_top (x : l) : x <= μ (pure True)
   μ_bot (x : l) : μ (pure False) <= x
   μ_nontriv : μ (pure True) ≠ μ (pure False) -- pick_outcomes
@@ -84,6 +78,7 @@ class MPropPartialOrder (l : outParam (Type v)) [Monad m] [PartialOrder l] where
 
 instance OfMPropPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [PartialOrder l] [MPropPartialOrder m l] : MPropOrdered m l where
   μ := MPropPartialOrder.μ
+  ι := MPropPartialOrder.ι
   μ_surjective := MPropPartialOrder.μ_surjective
   μ_ord_bind := MPropPartialOrder.μ_ord_bind
   bind := by intros; apply PartialOrder.le_antisymm
@@ -126,3 +121,9 @@ lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [Law
     (lift x >>= f) ≤ (lift x >>= g) := by
     intro fLg h; simp [Bind.bind]
     apply Cont.monotone_lift; intros h; apply fLg
+
+class MPropDetertministic (l : outParam (Type v)) [Monad m] [Lattice l] [MPropPartialOrder m l] where
+  /-- 😈 -/
+  demonic {α} (c : m α) (p q : α -> l) : MProp.lift c p ⊓ MProp.lift c q ≤ MProp.lift c (p ⊓ q)
+  /-- 😇 -/
+  angelic {α} (c : m α) (p q : α -> l) : MProp.lift c (p ⊔ q) ≤ MProp.lift c p ⊔ MProp.lift c q
