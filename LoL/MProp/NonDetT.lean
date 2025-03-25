@@ -19,21 +19,19 @@ instance : SemilatticeInf l := inst.toLattice.toSemilatticeInf
 variable  [MPropPartialOrder m l]
 
 structure NonDetT (m : Type u -> Type v) (l : Type u)
-  [Monad m] [PartialOrder l] [MPropPartialOrder m l] (α : Type u) where
+  [Monad m] [CompleteBooleanAlgebra l] [MPropPartialOrder m l] [MPropDetertministic m l]
+  (α : Type u) where
   tp   : Type w
   tp₀  : Inhabited tp
   pre  : tp -> l
   sem  : tp -> m α
 
 @[simp]
-lemma meet_pure_true l : min (MProp.pure (m := m) True) l = l := by
-  apply le_antisymm <;> simp
-  apply MPropPartialOrder.μ_top
+lemma meet_pure_true l : min (MProp.pure (m := m) True) l = l := by simp
 @[simp]
-lemma pure_true_meet l : min l (MProp.pure (m := m) True) = l := by
-  apply le_antisymm <;> simp
-  apply MPropPartialOrder.μ_top
+lemma pure_true_meet l : min l (MProp.pure (m := m) True) = l := by simp
 
+variable [MPropDetertministic m l]
 
 def NonDetT.pure (x : α) : NonDetT m l α :=
   ⟨PUnit, inferInstance, fun _ => MProp.pure (m := m) True, fun _ => return x⟩
@@ -169,9 +167,19 @@ lemma bind_eq (x y : NonDetT m l α) {f g : α → NonDetT m l β} :
   (x.bind f) ≈ (y.bind g) := by apply NonDetT.equiv_bind
 
 abbrev LawfullNonDetT m l
-  [Monad m] [CompleteBooleanAlgebra l] [MPropPartialOrder m l] α :=
+  [Monad m] [CompleteBooleanAlgebra l] [MPropPartialOrder m l] [MPropDetertministic m l] α :=
   Quotient (NonDetT.Setoid (m := m) α)
 
+def η {α} {m : Type 1 -> Type} {l : Type}
+  [Monad m] [Monad (fun t => m (PLift t))]
+  [CompleteBooleanAlgebra l]
+  [CompleteBooleanAlgebra (PLift l)]
+  [MPropPartialOrder m (PLift l)]
+  [MPropPartialOrder (fun t => m (PLift t)) l]
+  [MPropDetertministic m (PLift l)]
+  [MPropDetertministic (fun t => m (PLift t)) l] :
+  NonDetT.{1, 0, 0} m (PLift l) (NonDetT.{0, 0, 0} (fun t => m (PLift t)) l α) -> NonDetT.{1, 0, 0} m (PLift l) (PLift α)
+  | { tp, tp₀, pre, sem } => sorry
 -- abbrev LawfullNonDetT.mk : NonDetT m l α -> LawfullNonDetT m l α := Quotient.mk (NonDetT.Setoid α)
 
 def LawfullNonDetT.pure (x : α) : LawfullNonDetT m l α := ⟦NonDetT.pure x⟧
@@ -219,11 +227,11 @@ instance [LawfulMonad m] : LawfulMonad (LawfullNonDetT m l) := by
     rename_i nd; simp only [Functor.map, LawfullNonDetT.map, NonDetT.Setoid]
     simp only [Function.comp_id, Quotient.lift_mk, Quotient.eq]
     constructor
-    { exists (·.1); rcases nd with ⟨tp, pre, sem⟩
+    { exists (·.1); rcases nd with ⟨tp, inh, pre, sem⟩
       simp [NonDetT.bind, NonDetT.pure];
       repeat' constructor <;> simp }
     exists (fun x => (x, fun _ => .unit))
-    rcases nd with ⟨tp, pre, sem⟩
+    rcases nd with ⟨tp, inh, pre, sem⟩
     simp [NonDetT.bind, NonDetT.pure];
     repeat' constructor <;> simp }
   { intros α β x f; simp [pure, LawfullNonDetT.pure, bind]
@@ -243,16 +251,23 @@ instance [LawfulMonad m] : LawfulMonad (LawfullNonDetT m l) := by
     induction g using Quotient.fun_ind; rename_i ndg
     simp; simp [NonDetT.Setoid, NonDetT.pure, NonDetT.bind]
     constructor
-    {
-      exists (fun t => ⟨t.1.1, fun x => ⟨t.1.2 x, t.2⟩ ⟩)
-      constructor
-      { simp only [Prod.forall]
-        intro t ft₁ ft₂; rw [inf_assoc]; congr
-         } }
+    { exists (fun t => ⟨t.1.1, fun x => ⟨t.1.2 x, t.2⟩ ⟩)
+      constructor <;> simp only [Prod.forall, implies_true]
+      intro t ft₁ ft₂; rw [inf_assoc]; congr
+      simp [wlp_bind, wlp_and] }
+    unfold NonDetT.hasMorphism NonDetT.isMorphism; dsimp
+    have f' : (out : β) → (ndg out).tp := sorry
+    exists (fun t => ⟨⟨t.1, fun x => (t.2 x).1⟩, f'⟩ )
+    simp only [Prod.forall]
+    constructor
+    { rintro t ft; simp [inf_assoc, wlp_bind, wlp_and]; congr 2
+      ext a } }
+  intros α β f x;
+  simp [pure, LawfullNonDetT.pure, bind, Functor.map, LawfullNonDetT.map]
+  induction x using Quotient.ind; rename_i ndx
+  simp only [LawfullNonDetT.bind_quot, Quotient.lift_mk]; rfl
 
 
-    }
-  intros; sorry
 
 
 notation "NonDetT" t => NonDetT t _
