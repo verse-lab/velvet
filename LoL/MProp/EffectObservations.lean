@@ -1,4 +1,4 @@
-import Mathlib.Order.Lattice
+import Mathlib.Order.CompleteLattice
 
 import LoL.MonadUtil
 import LoL.SpecMonad
@@ -7,17 +7,13 @@ universe u v w
 
 variable (m : Type v -> Type u)
 
-structure PProp : Type v where
-  prop : Prop
-
-set_option allowUnsafeReducibility true in
-attribute [reducible] PProp
+abbrev PProp : Type u := ULift Prop
 
 instance : Coe Prop PProp where
   coe p := ⟨p⟩
 
 instance : Coe PProp Prop where
-  coe p := p.prop
+  coe p := p.down
 
 
 class MProp [Monad m] (l : outParam (Type v)) where
@@ -67,10 +63,10 @@ class MPropPartialOrder (l : outParam (Type v)) [Monad m] [PartialOrder l] where
   μ : m PProp -> l
   ι : l -> m PProp
   μ_surjective : μ.LeftInverse ι
-  μ_pure_injective : ∀ (p : Prop), ι (μ (pure p)) = pure (f := m) p
+  -- μ_pure_injective : ∀ (p : Prop), ι (μ (pure p)) = pure (f := m) p
   μ_top (x : l) : x <= μ (pure True)
   μ_bot (x : l) : μ (pure False) <= x
-  μ_nontriv : μ (pure True) ≠ μ (pure False) -- pick_outcomes
+  -- μ_nontriv : μ (pure True) ≠ μ (pure False) -- pick_outcomes
   μ_ord_pure (p₁ p₂ : Prop) : (p₁ -> p₂) -> μ (pure p₁) ≤ μ (pure p₂)
   μ_ord_bind {α : Type v} :
     ∀ (f g : α -> m PProp), μ ∘ f ≤ μ ∘ g ->
@@ -88,10 +84,10 @@ instance OfMPropPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [Pa
 def MProp.pure {l : Type u} {m : Type u -> Type v} [Monad m] [PartialOrder l] [inst : MPropPartialOrder m l]
   := MProp.μ ∘ Pure.pure (f := m)
 
-macro "⌜" p:term "⌝" : term => `(MProp.pure (inst := by assumption) { prop := $p })
+macro "⌜" p:term "⌝" : term => `(MProp.pure (inst := by assumption) { down := $p })
 
 @[app_unexpander MProp.pure] def unexpandPure : Lean.PrettyPrinter.Unexpander
-  | `($(_) { prop := $p:term }) => `(⌜$p:term⌝)
+  | `($(_) { down := $p:term }) => `(⌜$p:term⌝)
   | `($(_) $p:term) => `(⌜$p:term⌝)
   | _ => throw ()
 
@@ -122,8 +118,8 @@ lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [Law
     intro fLg h; simp [Bind.bind]
     apply Cont.monotone_lift; intros h; apply fLg
 
-class MPropDetertministic (l : outParam (Type v)) [Monad m] [Lattice l] [MPropPartialOrder m l] where
+class MPropDetertministic (l : outParam (Type v)) [Monad m] [CompleteLattice l] [MPropPartialOrder m l] where
   /-- 😈 -/
-  demonic {α} (c : m α) (p q : α -> l) : MProp.lift c p ⊓ MProp.lift c q ≤ MProp.lift c (p ⊓ q)
+  demonic {α ι : Type v} (c : m α) (p : ι -> α -> l) [Nonempty ι] : ⨅ i, MProp.lift c (p i) ≤ MProp.lift c (fun x => ⨅ i, p i x)
   /-- 😇 -/
   angelic {α} (c : m α) (p q : α -> l) : MProp.lift c (p ⊔ q) ≤ MProp.lift c p ⊔ MProp.lift c q

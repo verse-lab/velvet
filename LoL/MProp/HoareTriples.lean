@@ -61,7 +61,7 @@ lemma mtriple_bind {β} (pre : m PProp) (x : m α) (cut : α -> m PProp)
   (∀ y, mtriple (cut y) (f y) post) ->
   mtriple pre (x >>= f) post := by apply triple_bind
 
-theorem Triple.forIn_list {α β}
+theorem triple_forIn_list {α β}
   {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
   (inv : List α → β → m PProp)
   (hstep : ∀ hd tl b,
@@ -75,7 +75,14 @@ theorem Triple.forIn_list {α β}
     simp only [List.forIn_cons]
     apply mtriple_bind; apply hstep; intros y
     cases y <;> simp <;> solve_by_elim [(mtriple_pure ..).mpr, le_refl]
+
+theorem μ_bind_wp (c : m α) (mpost : α -> m PProp) :
+  MProp.μ (l := l) (c >>= mpost) = wp c (MProp.μ ∘ mpost) := by
+    simp [wp, liftM, monadLift, MProp.lift]; apply MProp.bind; ext; simp
+    rw [MProp.μ_surjective]
+
 end
+
 
 section
 variable [SemilatticeInf l] [MPropPartialOrder m l]
@@ -104,7 +111,7 @@ lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
 lemma mtriple_mspec (pre : m PProp) (c : m α) (post : α -> m PProp) :
   mspec pre post ≤ wp c <-> mtriple pre c post := by apply triple_spec
 
-class abbrev MonadLogic (m : Type u -> Type v) (l : Type u) [Monad m] := Logic l, MPropPartialOrder m l
+-- class abbrev MonadLogic (m : Type u -> Type v) (l : Type u) [Monad m] := Logic l, MPropPartialOrder m l
 end
 
 section
@@ -147,7 +154,21 @@ lemma wp_and [MPropDetertministic m l] (c : m α) (post₁ post₂ : α -> l) :
   wp c (fun x => post₁ x ⊓ post₂ x) = wp c post₁ ⊓ wp c post₂ := by
   apply le_antisymm
   { simp; constructor <;> apply wp_cons <;> simp }
-  apply MPropDetertministic.demonic
+  have h := MPropDetertministic.demonic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
+  simp at h
+  apply le_trans; apply le_trans'; apply h
+  { simp [wp]; constructor; exact inf_le_right
+    exact inf_le_left }
+  apply wp_cons (m := m); simp; intros; constructor
+  { refine iInf_le_of_le true ?_; simp }
+  refine iInf_le_of_le false ?_; simp
+
+lemma wp_iInf {ι : Type u} [Nonempty ι] [MPropDetertministic m l] (c : m α) (post : ι -> α -> l) :
+  wp c (fun x => ⨅ i, post i x) = ⨅ i, wp c (post i) := by
+    apply le_antisymm
+    { refine le_iInf ?_; intros i; apply wp_cons; intro y
+      exact iInf_le (fun i ↦ post i y) i }
+    apply MPropDetertministic.demonic (ι := ι) (m := m) (c := c) (p := post)
 
 lemma wp_or [MPropDetertministic m l] (c : m α) (post₁ post₂ : α -> l) :
   wp c (fun x => post₁ x ⊔ post₂ x) = wp c post₁ ⊔ wp c post₂ := by
@@ -214,5 +235,18 @@ lemma wlp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
     simp; apply wp_cons; simp }
   rw [sup_comm]; simp [<-himp_eq, <-wp_and]
   apply wp_cons; simp
+
+lemma wlp_himp (c : m α) (post post' : α -> l) :
+  wp c (fun x => post' x ⇨ post x) = wlp c post' ⇨ wp c post := by
+    rw [himp_eq, wlp]; simp [himp_eq, wp_or]
+    apply le_antisymm <;> simp
+    { rw [<-compl_compl (x := wp c post'ᶜ ⊓ (wp c post')ᶜ)]
+      rw [<-himp_eq]; simp; rw [@inf_sup_left]; simp [<-wp_and]
+      apply wp_cons; simp }
+    rw [<-le_himp_iff, himp_eq]; simp
+    refine le_sup_of_le_left ?_
+    refine le_sup_of_le_right ?_
+    simp
+
 
 end
