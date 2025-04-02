@@ -70,16 +70,16 @@ instance : LawfulMonad NonDetM where
   pure_bind      := by intros; sorry
   pure_seq       := by intros; sorry
 
-class MonadNonDet (m : Type u → Type v) where
+class MonadFinNonDet (m : Type u → Type v) where
   /-- `(← read) : ρ` reads the state out of monad `m`. -/
   choose : List α → m α
 
-export MonadNonDet (choose)
+export MonadFinNonDet (choose)
 
 universe w
 
-instance {α} {m : Type u → Type v} {n : Type u → Type w} [MonadLift m n] [@MonadNonDet α m] : @MonadNonDet α n where
+instance {α} {m : Type u → Type v} {n : Type u → Type w} [MonadLift m n] [@MonadFinNonDet α m] : @MonadFinNonDet α n where
   choose l := liftM (m := m) <| choose l
 
-instance : @MonadNonDet α NonDetM where
+instance : @MonadFinNonDet α NonDetM where
   choose := NonDetM.choose

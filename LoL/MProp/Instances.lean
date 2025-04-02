@@ -3,7 +3,7 @@ import LoL.NonDetM
 
 instance : Nonempty UProp := inferInstance
 
-instance : MPropPartialOrder Id Prop where
+instance : MPropOrdered Id Prop where
   μ := (·.down)
   ι := fun x => ULift.up x
   μ_surjective := by simp [Function.LeftInverse]
@@ -17,16 +17,16 @@ instance : MPropPartialOrder Id Prop where
 instance : MPropDetertministic Id Prop where
   demonic := by
     intros α c p q;
-    simp [MProp.lift, MProp.ι, MProp.μ_surjective, MProp.μ, MPropPartialOrder.ι, MPropPartialOrder.μ]
+    simp [MProp.lift, MProp.ι, MProp.μ_surjective, MProp.μ, MPropOrdered.ι, MPropOrdered.μ]
   angelic := by
     intros α c p q;
-    simp [MProp.lift, MProp.ι, MProp.μ_surjective, MProp.μ, MPropPartialOrder.ι, MPropPartialOrder.μ]
+    simp [MProp.lift, MProp.ι, MProp.μ_surjective, MProp.μ, MPropOrdered.ι, MPropOrdered.μ]
 
 
 instance (σ : Type) (l : Type) (m : Type -> Type)
   [Inhabited σ]
   [PartialOrder l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (StateT σ m) (σ -> l) where
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (StateT σ m) (σ -> l) where
   μ := fun sp s => Prod.fst <$> sp s |> inst.μ
   μ_top := by intros x s; simp [pure, StateT.pure]; apply inst.μ_top
   μ_bot := by intros x s; simp [pure, StateT.pure]; apply inst.μ_bot
@@ -36,10 +36,10 @@ instance (σ : Type) (l : Type) (m : Type -> Type)
   --   simp [pure, StateT.pure, MProp.ι, inst.μ_pure_injective]; intro p; rfl
   μ_ord_pure := by
     intros p₁ p₂ imp s; simp [pure, StateT.pure]
-    solve_by_elim [MPropPartialOrder.μ_ord_pure]
+    solve_by_elim [MPropOrdered.μ_ord_pure]
   -- μ_nontriv := by
   --   simp [pure, StateT.pure, funext_iff];
-  --   solve_by_elim [MPropPartialOrder.μ_nontriv]
+  --   solve_by_elim [MPropOrdered.μ_nontriv]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x s
@@ -50,19 +50,19 @@ instance (σ : Type) (l : Type) (m : Type -> Type)
 instance (σ : Type) (l : Type) (m : Type -> Type)
   [Inhabited σ]
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] [inst': MPropDetertministic m l]
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] [inst': MPropDetertministic m l]
    : MPropDetertministic (StateT σ m) (σ -> l) where
     demonic := by
       intros α ι c p _ s;
-      simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
-      simp [bind, StateT.bind]; simp [MProp.ι, MPropPartialOrder.ι]
+      simp [MProp.lift, MProp.μ, MPropOrdered.μ]
+      simp [bind, StateT.bind]; simp [MProp.ι, MPropOrdered.ι]
       have h := inst'.demonic (α := α × σ) (c := c s) (ι := ι) (p := fun i x => p i x.1 x.2)
       simp [MProp.lift, MProp.ι, MProp.μ] at h
       apply h
     angelic := by
       intros α c p q s;
-      simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
-      simp [bind, StateT.bind]; simp [MProp.ι, MPropPartialOrder.ι]
+      simp [MProp.lift, MProp.μ, MPropOrdered.μ]
+      simp [bind, StateT.bind]; simp [MProp.ι, MPropOrdered.ι]
       have h := inst'.angelic (α := α × σ) (c := c s) (p := fun x => p x.1 x.2) (q := fun x => q x.1 x.2)
       simp [MProp.lift, MProp.ι, MProp.μ] at h
       apply h
@@ -70,7 +70,7 @@ instance (σ : Type) (l : Type) (m : Type -> Type)
 instance (ρ : Type) (l : Type) (m : Type -> Type)
   [Inhabited ρ]
   [PartialOrder l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ReaderT ρ m) (ρ -> l) where
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ReaderT ρ m) (ρ -> l) where
   μ := fun rp r => rp r |> inst.μ
   ι := fun rp r => MProp.ι (rp r)
   μ_surjective := by
@@ -83,10 +83,10 @@ instance (ρ : Type) (l : Type) (m : Type -> Type)
   μ_bot := by intros x s; simp [pure]; apply inst.μ_bot
   μ_ord_pure := by
     intros p₁ p₂ imp s; simp [pure]
-    solve_by_elim [MPropPartialOrder.μ_ord_pure]
+    solve_by_elim [MPropOrdered.μ_ord_pure]
   -- μ_nontriv := by
   --   simp [pure, ReaderT.pure, funext_iff];
-  --   solve_by_elim [MPropPartialOrder.μ_nontriv]
+  --   solve_by_elim [MPropOrdered.μ_nontriv]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x r
@@ -97,22 +97,22 @@ instance (ρ : Type) (l : Type) (m : Type -> Type)
 instance (σ : Type) (l : Type) (m : Type -> Type)
   [Inhabited σ]
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] [inst': MPropDetertministic m l]
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] [inst': MPropDetertministic m l]
    : MPropDetertministic (ReaderT σ m) (σ -> l) where
   demonic := by
       intros α ι c p _ s;
-      simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
+      simp [MProp.lift, MProp.μ, MPropOrdered.μ]
       simp [bind, ReaderT.bind]
-      simp [MProp.ι, MProp.μ_surjective, MPropPartialOrder.μ_surjective]
+      simp [MPropOrdered.ι, MPropOrdered.μ_surjective, MPropOrdered.μ_surjective]
       have h := inst'.demonic (α := α) (c := c s) (p := fun i x => p i x s)
       simp [MProp.lift, MProp.ι, MProp.μ, MProp.μ_surjective] at h
-      simp [MPropPartialOrder.ι]
+      simp [MPropOrdered.ι]
       apply h
   angelic := by
       intros α c p q s;
-      simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
+      simp [MProp.lift, MProp.μ, MPropOrdered.μ]
       simp [bind, ReaderT.bind]
-      simp [MProp.ι, MProp.μ_surjective, MPropPartialOrder.μ_surjective]
+      simp [MPropOrdered.ι, MPropOrdered.μ_surjective, MPropOrdered.μ_surjective]
       have h := inst'.angelic (α := α) (c := c s) (p := fun x => p x s) (q := fun x => q x s)
       simp [MProp.lift, MProp.ι, MProp.μ, MProp.μ_surjective] at h
       apply h
@@ -130,7 +130,7 @@ lemma Except.bind'_bind {m : Type -> Type} {ε α β} [Monad m] [LawfulMonad m] 
 
 def MPropExcept (df : Prop) (ε : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l where
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ExceptT ε m) l where
   μ := fun e => inst.μ $ Except.getD df <$> e
   μ_top := by intros x; simp [pure, ExceptT.pure, ExceptT.mk]; apply inst.μ_top
   μ_bot := by intros x; simp [pure, ExceptT.pure, ExceptT.mk]; apply inst.μ_bot
@@ -141,10 +141,10 @@ def MPropExcept (df : Prop) (ε : Type) (l : Type) (m : Type -> Type)
   --   simp [pure, ExceptT.pure, ExceptT.mk, MProp.ι, inst.μ_pure_injective]
   -- μ_nontriv := by
   --   simp [pure, ExceptT.pure, Except.getD, ExceptT.mk, funext_iff];
-  --   solve_by_elim [MPropPartialOrder.μ_nontriv]
+  --   solve_by_elim [MPropOrdered.μ_nontriv]
   μ_ord_pure := by
     intros p₁ p₂ imp; simp [pure, ExceptT.pure, ExceptT.mk]
-    solve_by_elim [MPropPartialOrder.μ_ord_pure]
+    solve_by_elim [MPropOrdered.μ_ord_pure]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x
@@ -159,18 +159,18 @@ namespace PartialCorrectness
 scoped
 instance (ε : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l := MPropExcept True ε l m
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ExceptT ε m) l := MPropExcept True ε l m
 
 instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l]
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l]
   [inst': MPropDetertministic m l] : MPropDetertministic (ExceptT ε m) l where
   demonic := by
     intros α ι c p _
-    simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
+    simp [MProp.lift, MProp.μ, MPropOrdered.μ]
     simp [bind, ExceptT.bind, ExceptT.mk]; unfold ExceptT.bindCont
-    simp [MProp.ι, MPropPartialOrder.ι]
-    simp [instMPropPartialOrderExceptTOfLawfulMonad, MPropExcept, MProp.ι]
+    simp [MPropOrdered.ι, MPropOrdered.ι]
+    simp [instMPropOrderedExceptTOfLawfulMonad, MPropExcept, MPropOrdered.ι]
     have h := inst'.demonic (α := Except ε α) (c := c)
       (p := fun i e =>
         match e with
@@ -179,16 +179,16 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
     simp [MProp.lift, MProp.ι, MProp.μ, MProp.μ_surjective] at h
     have h₁ : ∀ p : ι -> α -> l,
       ⨅ i,
-      (MPropPartialOrder.μ (m := m) (do
+      (MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
         Except.getD True <$>
             match a with
-            | Except.ok a => Except.ok <$> MPropPartialOrder.ι (p i a)
+            | Except.ok a => Except.ok <$> MPropOrdered.ι (p i a)
             | Except.error e => pure (Except.error e))) =
       ⨅ i,
-      MPropPartialOrder.μ (do
+      MPropOrdered.μ (do
         bind (m := m) c fun a =>
-        (MPropPartialOrder.ι $ match a with
+        (MPropOrdered.ι $ match a with
             | Except.ok a =>  (p i a)
             | Except.error e => ⌜True⌝)) := by
       intro p; congr; ext i; apply MProp.bind (m := m); ext a; cases a <;> simp
@@ -198,10 +198,10 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
     simp [Except.getD, MProp.μ, iInf_const]; rw [inst.μ_surjective]; rfl
   angelic := by
     intros α c p q
-    simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
+    simp [MProp.lift, MProp.μ, MPropOrdered.μ]
     simp [bind, ExceptT.bind, ExceptT.mk]; unfold ExceptT.bindCont
-    simp [MProp.ι, MPropPartialOrder.ι]
-    simp [instMPropPartialOrderExceptTOfLawfulMonad, MPropExcept, MProp.ι]
+    simp [MProp.ι, MPropOrdered.ι]
+    simp [instMPropOrderedExceptTOfLawfulMonad, MPropExcept, MProp.ι]
     have h := inst'.angelic (α := Except ε α) (c := c)
       (p := fun e =>
         match e with
@@ -213,15 +213,15 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
         | Except.error e => ⌜True⌝ )
     simp [MProp.lift, MProp.ι, MProp.μ, MProp.μ_surjective] at h
     have h₁ : ∀ p : α -> l,
-      MPropPartialOrder.μ (m := m) (do
+      MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
         Except.getD { down := True } <$>
             match a with
-            | Except.ok a => Except.ok <$> MPropPartialOrder.ι (p a)
+            | Except.ok a => Except.ok <$> MPropOrdered.ι (p a)
             | Except.error e => pure (Except.error e)) =
-      MPropPartialOrder.μ (m := m) (do
+      MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
-        (MPropPartialOrder.ι $ match a with
+        (MPropOrdered.ι $ match a with
             | Except.ok a =>  (p a)
             | Except.error e => ⌜True⌝)) := by
       intro p; apply MProp.bind (m := m); ext a; cases a <;> simp
@@ -235,18 +235,18 @@ namespace TotalCorrectness
 scoped
 instance (ε : Type) (l : Type) (m : Type -> Type)
   [PartialOrder l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l] : MPropPartialOrder (ExceptT ε m) l := MPropExcept False ε l m
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ExceptT ε m) l := MPropExcept False ε l m
 
 instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropPartialOrder m l]
+  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l]
   [inst': MPropDetertministic m l] : MPropDetertministic (ExceptT ε m) l where
   demonic := by
     intros α ι c p _
-    simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
+    simp [MProp.lift, MProp.μ, MPropOrdered.μ]
     simp [bind, ExceptT.bind, ExceptT.mk]; unfold ExceptT.bindCont
-    simp [MProp.ι, MPropPartialOrder.ι]
-    simp [instMPropPartialOrderExceptTOfLawfulMonad, MPropExcept, MProp.ι]
+    simp [MProp.ι, MPropOrdered.ι]
+    simp [instMPropOrderedExceptTOfLawfulMonad, MPropExcept, MProp.ι]
     have h := inst'.demonic (α := Except ε α) (c := c)
       (p := fun i e =>
         match e with
@@ -255,16 +255,16 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
     simp [MProp.lift, MProp.ι, MProp.μ, MProp.μ_surjective] at h
     have h₁ : ∀ p : ι -> α -> l,
       ⨅ i,
-      (MPropPartialOrder.μ (m := m) (do
+      (MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
         Except.getD False <$>
             match a with
-            | Except.ok a => Except.ok <$> MPropPartialOrder.ι (p i a)
+            | Except.ok a => Except.ok <$> MPropOrdered.ι (p i a)
             | Except.error e => pure (Except.error e))) =
       ⨅ i,
-      MPropPartialOrder.μ (do
+      MPropOrdered.μ (do
         bind (m := m) c fun a =>
-        (MPropPartialOrder.ι $ match a with
+        (MPropOrdered.ι $ match a with
             | Except.ok a =>  (p i a)
             | Except.error e => ⌜False⌝)) := by
       intro p; congr; ext i; apply MProp.bind (m := m); ext a; cases a <;> simp
@@ -274,10 +274,10 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
     simp [Except.getD, MProp.μ, iInf_const]; rw [inst.μ_surjective]; rfl
   angelic := by
     intros α c p q
-    simp [MProp.lift, MProp.μ, MPropPartialOrder.μ]
+    simp [MProp.lift, MProp.μ, MPropOrdered.μ]
     simp [bind, ExceptT.bind, ExceptT.mk]; unfold ExceptT.bindCont
-    simp [MProp.ι, MPropPartialOrder.ι]
-    simp [instMPropPartialOrderExceptTOfLawfulMonad, MPropExcept, MProp.ι]
+    simp [MProp.ι, MPropOrdered.ι]
+    simp [instMPropOrderedExceptTOfLawfulMonad, MPropExcept, MProp.ι]
     have h := inst'.angelic (α := Except ε α) (c := c)
       (p := fun e =>
         match e with
@@ -289,15 +289,15 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
         | Except.error e => ⌜ False ⌝ )
     simp [MProp.lift, MProp.ι, MProp.μ, MProp.μ_surjective] at h
     have h₁ : ∀ p : α -> l,
-      MPropPartialOrder.μ (m := m) (do
+      MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
         Except.getD { down := False } <$>
             match a with
-            | Except.ok a => Except.ok <$> MPropPartialOrder.ι (p a)
+            | Except.ok a => Except.ok <$> MPropOrdered.ι (p a)
             | Except.error e => pure (Except.error e)) =
-      MPropPartialOrder.μ (m := m) (do
+      MPropOrdered.μ (m := m) (do
         bind (m := m) c fun a =>
-        (MPropPartialOrder.ι $ match a with
+        (MPropOrdered.ι $ match a with
             | Except.ok a =>  (p a)
             | Except.error e => ⌜ False ⌝)) := by
       intro p; apply MProp.bind (m := m); ext a; cases a <;> simp
@@ -309,16 +309,16 @@ instance MPropExceptDetertministic (ε : Type) (l : Type) (m : Type -> Type)
 end TotalCorrectness
 
 #guard_msgs (drop info) in
-#synth MPropPartialOrder (StateM Int) (Int -> Prop)
+#synth MPropOrdered (StateM Int) (Int -> Prop)
 
 #guard_msgs (drop info) in
-#synth MPropPartialOrder (ReaderT Bool (StateM Int)) (Bool -> Int -> Prop)
+#synth MPropOrdered (ReaderT Bool (StateM Int)) (Bool -> Int -> Prop)
 
 
 namespace AngelicChoice
 
 instance NonDetMProp :
-   MPropPartialOrder NonDetM.{0} Prop where
+   MPropOrdered NonDetM.{0} Prop where
   μ := (∃ x ∈ ·.takeAll, x.down)
   ι := (NonDetM.one ·)
   μ_surjective := by
@@ -351,7 +351,7 @@ theorem List.forall_forall {α} (f : α -> Prop) (xs : List α) : List.forall f 
   induction xs <;> simp [List.forall, *]
 
 instance NonDetMProp :
-   MPropPartialOrder NonDetM.{0} Prop where
+   MPropOrdered NonDetM.{0} Prop where
   μ := (List.forall (·.down) ·.takeAll)
   ι := (NonDetM.one ·)
   μ_surjective := by

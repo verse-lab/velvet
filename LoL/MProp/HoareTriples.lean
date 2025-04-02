@@ -8,7 +8,7 @@ universe u v w
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u}
 
 section
-variable  [Preorder l]
+variable  [PartialOrder l]
 section
 variable [MProp m l]
 
@@ -19,7 +19,7 @@ def triple (pre : l) (c : m α) (post : α -> l) : Prop :=
 abbrev mtriple (pre : m UProp) (c : m α) (post : α -> m UProp) : Prop :=
   triple (MProp.μ pre) c (MProp.μ ∘ post)
 
-omit [Preorder l] in
+omit [PartialOrder l] in
 lemma wp_pure (x : α) (post : α -> l) : wp (m := m) (pure x) post = post x := by
   simp [wp, liftM, lift_pure]
   rfl
@@ -44,7 +44,7 @@ lemma wp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
 lemma wp_cons (x : m α) (post post' : α -> l) :
   (∀ y, post y ≤ post' y) ->
   wp x post ≤ wp x post' := by
-    intros h; simp [wp]; apply Cont.monotone_lift; intros y
+    intros h; simp [wp, liftM, monadLift]; apply Cont.monotone_lift; intros y
     apply h
 
 lemma triple_bind {β} (pre : l) (x : m α) (cut : α -> l)
@@ -78,14 +78,14 @@ theorem triple_forIn_list {α β}
 
 theorem μ_bind_wp (c : m α) (mpost : α -> m UProp) :
   MProp.μ (l := l) (c >>= mpost) = wp c (MProp.μ ∘ mpost) := by
-    simp [wp, liftM, monadLift, MProp.lift]; apply MProp.bind; ext; simp
-    rw [MProp.μ_surjective]
+    simp [wp, liftM, monadLift, MProp.lift]; apply MPropOrdered.bind; ext; simp
+    rw [MPropOrdered.μ_surjective]
 
 end
 
 
 section
-variable [SemilatticeInf l] [MPropPartialOrder m l]
+variable [SemilatticeInf l] [MPropOrdered m l]
 
 def spec (pre : l) (post : α -> l) : Cont l α :=
   fun p => pre ⊓ ⌜post ≤ p⌝
@@ -100,13 +100,13 @@ lemma triple_spec (pre : l) (c : m α) (post : α -> l) :
     { intro h; unfold triple
       specialize h post; apply le_trans'; apply h
       unfold spec; simp
-      apply MPropPartialOrder.μ_top }
+      apply MPropOrdered.μ_top }
     intro t p; unfold spec
     by_cases h: post ≤ p
     { apply inf_le_of_left_le; apply le_trans; apply t
       solve_by_elim [Cont.monotone_lift (x := c)] }
-    apply inf_le_of_right_le; apply le_trans'; apply MPropPartialOrder.μ_bot (m := m)
-    apply MPropPartialOrder.μ_ord_pure; solve_by_elim
+    apply inf_le_of_right_le; apply le_trans'; apply MPropOrdered.μ_bot (m := m)
+    apply MPropOrdered.μ_ord_pure; solve_by_elim
 
 lemma mtriple_mspec (pre : m UProp) (c : m α) (post : α -> m UProp) :
   mspec pre post ≤ wp c <-> mtriple pre c post := by apply triple_spec
@@ -115,7 +115,7 @@ lemma mtriple_mspec (pre : m UProp) (c : m α) (post : α -> m UProp) :
 end
 
 section
-variable [inst: CompleteBooleanAlgebra l] [MPropPartialOrder m l]
+variable [inst: CompleteBooleanAlgebra l] [MPropOrdered m l]
 
 instance : SemilatticeInf l := inst.toSemilatticeInf
 
@@ -123,12 +123,12 @@ omit [LawfulMonad m] in
 @[simp]
 lemma trueE : ⌜True⌝ = ⊤ := by
   apply le_antisymm; exact OrderTop.le_top ⌜True⌝
-  apply MPropPartialOrder.μ_top
+  apply MPropOrdered.μ_top
 
 omit [LawfulMonad m] in
 @[simp]
 lemma falseE : ⌜False⌝ = ⊥ := by
-  apply le_antisymm; apply MPropPartialOrder.μ_bot
+  apply le_antisymm; apply MPropOrdered.μ_bot
   simp
 
 @[local simp]
