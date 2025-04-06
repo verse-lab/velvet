@@ -13,7 +13,9 @@ universe u v w
 
 section NonDetermenisticTransformer
 
-variable {m : Type u -> Type v} {l : Type u} {α β : Type u} [Monad m] [inst: CompleteBooleanAlgebra l] [MPropOrdered m l]
+variable {m : Type u -> Type v} {l : Type u} {α β : Type u} [Monad m] [inst: CompleteBooleanAlgebra l]
+section
+variable [HasMProp m l]
 
 private lemma join_himp (x y z : l) : x ⊓ y ⇨ z = xᶜ ⊔ (y ⇨ z) := by
   apply le_antisymm
@@ -42,18 +44,18 @@ private lemma iSup_pi {α} {τ : α -> Type u} (p : (a : α) -> τ a -> l) [inst
     simp
 
 
-structure NonDet (m : Type u -> Type v) (l : Type u) (α : Type u) where
+structure NonDet (m : Type u -> Type v) (l : Type u) [Monad m] [PartialOrder l] (α : Type u) where
   tp  : Type u
   inh : Inhabited tp
-  pre : tp -> l
+  pre [mprop : MPropOrdered m l] : tp -> l
   sem : tp -> m α
 
-structure NonDetCps (m : Type u -> Type v) [Monad m] (l : Type u) [PartialOrder l] (α : Type u) where
+structure NonDetCps (m : Type u -> Type v) [Monad m] (l : Type u) [CompleteBooleanAlgebra l] (α : Type u) where
   tpc : (α -> Type u) -> Type u
   pre {τ : α -> Type u} [mprop : MPropOrdered m l] (cont : (a : α) -> τ a -> l) : tpc τ -> l
   sem {τ : α -> Type u} {β : Type u} (cont : (a : α) -> τ a -> m β) : tpc τ -> m β
 
-structure NonDetT (m : Type u -> Type v) {l : Type u} [Monad m] [CompleteBooleanAlgebra l] [HasMProp m l] (α : Type u)
+structure NonDetT (m : Type u -> Type v) {l : Type u} [Monad m] [HasMProp m l] [CompleteBooleanAlgebra l] (α : Type u)
   extends NonDetCps m l α where
   inh (τ : α -> Type u) : (∀ a, Inhabited (τ a)) -> Inhabited (tpc τ)
   pre_sem_iInf [mprop : MPropOrdered m l] [MPropDetertministic m l]
@@ -100,10 +102,8 @@ def NonDetT.seed (x : NonDetT m α) := x.finally.seed
 def NonDetT.any (x : NonDetT m α) : m α := x.run x.seed
 
 @[simp]
-def NonDet.validSeed (x : NonDet m l α) (pre : l) (seed : x.tp) := pre ≤ x.pre seed
-def NonDetT.validSeed (x : NonDetT m α) (pre : l) (seed : x.tp) := x.finally.validSeed pre seed
-
-variable [MPropDetertministic m l] [LawfulMonad m]
+def NonDet.validSeed [MPropOrdered m l] (x : NonDet m l α) (pre : l) (seed : x.tp) := pre ≤ x.pre seed
+def NonDetT.validSeed [MPropOrdered m l] (x : NonDetT m α) (pre : l) (seed : x.tp) := x.finally.validSeed pre seed
 
 def NonDetT.pure (x : α) : NonDetT m α := {
   tpc τ := τ x
@@ -200,7 +200,7 @@ instance : MonadNonDet (NonDetT m) where
   pick   := .pick
   assume := .assume
 
-instance : MonadLift m (NonDetT m) where
+instance [LawfulMonad m] : MonadLift m (NonDetT m) where
   monadLift {α} c := {
     tpc τ := (a : α) -> τ a
     pre cont t := wlp c fun a => cont a (t a)
@@ -231,37 +231,50 @@ instance : MonadLift m (NonDetT m) where
 instance : LawfulMonad (NonDetT m) := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_ <;> (intros; rfl)
 
-
+end
 section NonDetTSimplifications
 
-omit [MPropDetertministic m l]
-theorem lift_tpc {α : Type u} (x : m α) :
-  (liftM (n := NonDetT m) x).tpc = ((a : α) -> · a) := rfl
-theorem lift_pre {α : Type u} τ (x : m α) :
-  (liftM (n := NonDetT m) x).pre (τ := τ)  =
-  fun cont t => wlp x fun a => cont a (t a) := rfl
-theorem lift_sem {α β : Type u} τ (x : m α) :
-  (liftM (n := NonDetT m) x).sem (β := β) (τ := τ) = fun cont t => x >>= fun a => cont a (t a) := rfl
-omit [LawfulMonad m]
+section
+variable [HasMProp m l]
+
 theorem pick_tpc (τ : Type u) [Inhabited τ] :
   (pick (m := NonDetT m) τ).tpc = ((t : τ) × · t) := rfl
-theorem pick_pre (τ : Type u) τ' [Inhabited τ] :
-  (pick (m := NonDetT m) τ).pre (τ := τ') =
-  (fun cont t => cont t.1 t.2) := rfl
 theorem assume_tpc (as : Prop) : (assume (m := NonDetT m) as).tpc = (· .unit) := rfl
-theorem assume_pre τ (as : Prop) :
-  (assume (m := NonDetT m) as).pre (τ := τ) =
-  fun cont t => ⌜as⌝ ⊓ cont .unit t := rfl
-theorem assume_sem τ (as : Prop) :
-  (assume (m := NonDetT m) as).sem (β := β) (τ := τ) =
-  fun cont t => cont .unit t := rfl
+
 theorem pick_sem (τ : Type u) [Inhabited τ] τ' :
   (pick (m := NonDetT m) τ).sem (β := β) (τ := τ') =
   fun cont t => cont t.1 t.2 := rfl
+theorem assume_sem τ (as : Prop) :
+  (assume (m := NonDetT m) as).sem (β := β) (τ := τ) =
+  fun cont t => cont .unit t := rfl
+
+variable [LawfulMonad m]
+theorem lift_tpc {α : Type u} (x : m α) :
+  (liftM (n := NonDetT m) x).tpc = ((a : α) -> · a) := rfl
+
+theorem lift_sem {α β : Type u} τ (x : m α) :
+  (liftM (n := NonDetT m) x).sem (β := β) (τ := τ) = fun cont t => x >>= fun a => cont a (t a) := rfl
+end
+
+variable [MPropOrdered m l]
+theorem pick_pre (τ : Type u) τ' [Inhabited τ] :
+  (pick (m := NonDetT m) τ).pre (τ := τ') =
+  (fun cont t => cont t.1 t.2) := rfl
+
+theorem assume_pre τ (as : Prop) :
+  (assume (m := NonDetT m) as).pre (τ := τ) =
+  fun cont t => ⌜as⌝ ⊓ cont .unit t := rfl
+
+theorem lift_pre {α : Type u} τ (x : m α) [LawfulMonad m] :
+  (liftM (n := NonDetT m) x).pre (τ := τ)  =
+  fun cont t => wlp x fun a => cont a (t a) := rfl
+
 
 end NonDetTSimplifications
 
 namespace Demonic
+
+variable [MPropOrdered m l] [LawfulMonad m] [MPropDetertministic m l]
 
 @[simp]
 def NonDet.μ (x : NonDet m l UProp) : l :=  ⨅ t : x.tp, x.pre t ⇨ MProp.μ (x.sem t)
@@ -333,6 +346,8 @@ end Demonic
 
 namespace Angelic
 
+variable [MPropOrdered m l] [LawfulMonad m] [MPropDetertministic m l]
+
 @[simp]
 def NonDet.μ (x : NonDet m l UProp) : l :=  ⨆ t : x.tp, x.pre t ⊓ MProp.μ (x.sem t)
 
@@ -402,8 +417,10 @@ lemma NonDetT.run_validSeed (x : NonDetT m α) (pre : l) (post : α -> l) (seed 
 end Angelic
 section ExceptT
 
+variable [HasMProp m l]
+
 @[always_inline]
-instance (ε) [MonadExceptOf ε m] [Inhabited ε] : MonadExceptOf ε (NonDetT m) where
+instance (ε) [MonadExceptOf ε m] [Inhabited ε] [LawfulMonad m] : MonadExceptOf ε (NonDetT m) where
   throw e  := liftM (m := m) (throw e)
   /- TODO: fix me not sure how to implement it -/
   tryCatch := fun _x c =>
@@ -465,6 +482,7 @@ private lemma iSup_bif_pos {α β : Type u} (cnd : Prop) [instD : Decidable cnd]
   simp; intro i; apply le_iSup_of_le  (by simp_all; assumption)
   cases instD <;> simp [bite.fst]; contradiction
 
+variable [HasMProp m l] in
 def NonDetT.ite {α : Type u} (cnd : Prop) [instD : Decidable cnd] (thn : NonDetT m α) (els : NonDetT m α) : NonDetT m α := {
   tpc τ := bif cnd then thn.tpc τ else els.tpc τ
   pre {τ} _ cont t := if h : cnd then thn.pre cont (bite.fst t h) else els.pre cont (bite.snd t h)
@@ -492,7 +510,7 @@ def NonDetT.ite {α : Type u} (cnd : Prop) [instD : Decidable cnd] (thn : NonDet
     ext; rw [@els.pre_mono] <;> try simp [*]
 }
 
-omit [MPropDetertministic m l] [LawfulMonad m] in
+variable [HasMProp m l] in
 @[simp↑ high]
 lemma NonDetT.ite_eq {α : Type u} (x : NonDetT m α) (y : NonDetT m α) (cond : Prop) [dec : Decidable cond] :
   (if cond then x else y) = NonDetT.ite cond x y := by
@@ -509,7 +527,6 @@ lemma NonDetT.ite_eq {α : Type u} (x : NonDetT m α) (y : NonDetT m α) (cond :
     rcases y with ⟨⟨⟩⟩; simp [bite.snd]
     contradiction
 section
-open Demonic
 
 private lemma meet_himp (x x' y z : l) :
   x = x' ->
@@ -524,7 +541,9 @@ private lemma le_coml_sup (x y z : l) :
   rw [inf_comm, <-le_himp_iff, himp_eq]; simp
   rwa [sup_comm]
 
+variable [MPropOrdered m l] [LawfulMonad m] [MPropDetertministic m l]
 
+open Demonic in
 lemma NonDetT.wp_tot_part ε (c : NonDetT (ExceptT ε m) α) post :
   [totl| wp c ⊤] ⊓ [part| wp c post] = [totl| wp c post] := by
   open PartialCorrectness in rw [@NonDetT.wp_eq]
@@ -552,15 +571,15 @@ lemma NonDetT.wp_tot_part ε (c : NonDetT (ExceptT ε m) α) post :
   simp [_root_.wp_tot_part]
 
 set_option quotPrecheck false in
-notation "[totl😇|" t "]" => open TotalCorrectness Angelic in t
+notation "[totlD|" t "]" => open TotalCorrectness Angelic in t
 set_option quotPrecheck false in
-notation "[part😈|" t "]" => open PartialCorrectness Demonic in t
+notation "[partA|" t "]" => open PartialCorrectness Demonic in t
 
 lemma NonDetT.iwp_part_wp_tot_eq ε (c : NonDetT (ExceptT ε m) α) post
   (wp_bot : ∀ α (c : m α), wp c ⊥ = ⊥)
   (wp_top : ∀ α (c : m α), wp c ⊤ = ⊤) :
-  [part😈| iwp c post] = [totl😇| wp c post] := by
-    simp [iwp, NonDetT.wp_eq, Angelic.NonDetT.wp_eq, compl_iInf, -compl_himp, himp_eq]
+  [partA| iwp c post] = [totlD| wp c post] := by
+    simp [iwp, Demonic.NonDetT.wp_eq, Angelic.NonDetT.wp_eq, compl_iInf, -compl_himp, himp_eq]
     simp (disch := assumption) [wp_tot_eq_iwp_part]
     simp [inf_comm]; congr; ext; congr 1
     erw [@c.pre_mono (τ := fun _ => PUnit)] <;> try simp
@@ -577,12 +596,6 @@ lemma NonDetT.iwp_part_wp_tot_eq ε (c : NonDetT (ExceptT ε m) α) post
     refine le_sup_of_le_right ?_; apply wp_cons
     rintro (_|_) <;> simp
 
-
-
-
-
-
 end
-
 
 end NonDetermenisticTransformer
