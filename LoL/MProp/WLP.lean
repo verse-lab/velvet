@@ -162,6 +162,10 @@ set_option quotPrecheck false in
 notation "[totl|" t "]" => open TotalCorrectness in t
 set_option quotPrecheck false in
 notation "[part|" t "]" => open PartialCorrectness in t
+set_option quotPrecheck false in
+notation "[handler" hd "|" t "]" => have : IsHandler hd := ⟨⟩; t
+
+
 
 lemma wp_tot_part ε (c : ExceptT ε m α) post :
   [totl| wp c ⊤] ⊓ [part| wp c post] = [totl| wp c post] := by
@@ -204,7 +208,7 @@ private lemma le_coml_sup (x y z : l) :
 
 lemma wlp_part_wlp_handler ε (α : Type u) (c : ExceptT ε m α) (post : α → l) (hd : ε -> Prop) :
   [part| wlp c post] =
-  wlp (mprop := OfHd (hd := hd) (m := m) (l := l) (hdInst := ⟨⟩)) c post := by
+  [handler hd| wlp c post] := by
     simp [wlp, wp_part_eq, wp_except_handler_eq]
     apply le_antisymm <;> simp
     { constructor

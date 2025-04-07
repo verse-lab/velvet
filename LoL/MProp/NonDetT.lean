@@ -578,7 +578,7 @@ lemma NonDetT.iwp_part_wp_tot ε (c : NonDetT (ExceptT ε m) α) post
 open Demonic in
 lemma NonDetT.wp_tot_wp_handler ε [Inhabited ε] (c : NonDetT (ExceptT ε m) α) :
   [totl| wp c ⊤] =
-    ⨅ (ex : ε), have : IsHandler (· ≠ ex) := ⟨⟩; wp c ⊤ := by
+    ⨅ (ex : ε), [handler (· ≠ ex)| wp c ⊤] := by
     simp [Demonic.NonDetT.wp_eq, Angelic.NonDetT.wp_eq, wp_except_handler_eq]
     erw [iInf_comm (f := fun ex (t : c.tp) =>
         c.pre (mprop := (OfHd (hd := (· ≠ ex)) (hdInst := ⟨⟩) ε l m)) ⊤ t ⇨
