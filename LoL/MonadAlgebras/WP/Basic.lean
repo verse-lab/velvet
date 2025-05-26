@@ -10,7 +10,7 @@ universe u v w
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u}
 
 section
-variable [PartialOrder l]
+variable [CompleteLattice l]
 section
 variable [mprop : MPropOrdered m l]
 
@@ -122,16 +122,15 @@ def Loop.forIn {β : Type u} [Monad m] [∀ α, CCPO (m α)] [MonoBind m]
   (_ : Lean.Loop) (init : β) (f : Unit → β → m (ForInStep β)) : m β :=
   Loop.forIn.loop f init
 
-variable [inst: _root_.CompleteLattice l] [MPropOrdered m l]
+@[instance high]
+instance [md : Monad m] [ccpo : ∀ α, CCPO (m α)] [mono : MonoBind m] : ForIn m Lean.Loop Unit where
+  forIn {β} _ := @Loop.forIn m β md ccpo mono
 
+variable [inst: _root_.CompleteLattice l] [MPropOrdered m l]
 
 namespace PartialCorrectness
 
 variable [∀ α, CCPO (m α)] [MonoBind m] [MPropPartial m]
-
-@[instance high]
-instance [md : Monad m] [ccpo : ∀ α, CCPO (m α)] [mono : MonoBind m] : ForIn m Lean.Loop Unit where
-  forIn {β} _ := @Loop.forIn m β md ccpo mono
 
 omit [LawfulMonad m] in
 lemma wp_csup (xc : Set (m α)) (post : α -> l) :

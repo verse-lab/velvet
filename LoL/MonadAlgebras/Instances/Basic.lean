@@ -24,6 +24,10 @@ instance : Monad DevM where
     | DevM.res x => y x
     | DevM.dev => DevM.dev
 
+class CCPOBot (m : Type u -> Type v) [∀ α, Lean.Order.CCPO (m α)] where
+  compBot {α} : m α
+  prop {α} : @compBot α = Lean.Order.bot
+
 instance : LawfulMonad DevM := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_
   { introv; cases x <;> rfl }
@@ -31,6 +35,9 @@ instance : LawfulMonad DevM := by
   introv; cases x <;> rfl
 
 noncomputable instance : Lean.Order.CCPO (DevM α) := inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder .dev))
+instance : CCPOBot DevM where
+  compBot := .dev
+  prop := by simp [Lean.Order.bot, Lean.Order.CCPO.csup,Lean.Order.flat_csup]
 
 instance : Lean.Order.MonoBind DevM where
   bind_mono_left := by

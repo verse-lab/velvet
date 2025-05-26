@@ -2,34 +2,18 @@
 import LoL.MonadAlgebras.NonDetT.Extract
 import LoL.MonadAlgebras.WP.Tactic
 
-instance {α : Type u} (p : α -> Prop) [Findable p] : Decidable (∃ a, p a) := by
-  apply decidable_of_bool (Findable.find p).isSome
-  constructor
-  { simp [Option.isSome_iff_exists]; intros x _
-    exists x; solve_by_elim [Findable.find_some_p] }
-  simp; intro x px
-  false_or_by_contra; rename_i h
-  simp [<-Option.isNone_iff_eq_none] at h
-  have h := Findable.find_none (p := p) h
-  aesop
-
-open Demonic
-
-noncomputable
-instance : MPropOrdered (NonDetDevT (StateT α Option)) (α -> Prop) := by
-  exact Demonic.instMPropOrderedNonDetDevTOfLawfulMonad
+open PartialCorrectness DemonicChoice
 
 @[spec, wpSimp]
-def WPGen.modify f : WPGen (modify f : NonDetDevT (StateT α Option) PUnit) := by
+def WPGen.modify f : WPGen (l := α -> Prop) (modify f : NonDetT (StateT α DevM) PUnit) := by
   refine ⟨fun post s => post .unit (f s), True, ?_⟩
   intro post _; apply le_of_eq; rfl
 
 @[spec, wpSimp]
-def WPGen.pickSuchThat : WPGen (pickSuchThat τ p : NonDetDevT (StateT α Option) τ) := by
+def WPGen.pickSuchThat : WPGen (pickSuchThat τ p : NonDetT (StateT α DevM) τ) := by
   refine ⟨fun post s => ∀ t, p t -> post t s, True, ?_⟩
   intro post _; apply le_of_eq;
-  simp [NonDetDevT.wp_eq_wp, MonadNonDetDev.pickSuchThat, NonDetDevT.pickSuchThat, NonDetDevT.wp]
-  simp [logicSimp]; aesop
+  simp [MonadNonDet.wp_pickSuchThat, logicSimp]; aesop
 
 attribute [aesop safe cases] Decidable
 attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
@@ -38,33 +22,57 @@ attribute [logicSimp] ite_self
 instance [Repr α] [FinEnum α] : Repr (α -> Bool) where
   reprPrec p := fun n => Repr.reprPrec (FinEnum.toList α |>.map fun x => (x, p x)) n
 
+instance : Repr (ℕ -> Bool) where
+  reprPrec p := fun n => Repr.reprPrec (0 |> fun x => (x, p x)) n
+
 
 class Collection (α : outParam (Type)) (κ : Type) where
   mem : α -> κ -> Prop
   [dec : DecidableRel mem]
   del : α -> κ -> κ
   mem_del {b a} k : mem b (del a k) = (mem b k ∧ b ≠ a)
+  isEmpty : κ -> Prop
+  [dec_isEmpty : DecidablePred isEmpty]
+  isEmpty_prop : ∀ k, isEmpty k = ∀ x, ¬ mem x k
 
-variable {α κ} [col : Collection α κ] [DecidableEq α] [∀ k, Findable (Collection.mem · (α := α) (κ := κ) k)]
+variable {α κ} [col : Collection α κ] [DecidableEq α]
 
 instance : DecidableRel (Collection.mem (α := α) (κ := κ)) := Collection.dec
+instance : DecidablePred (Collection.isEmpty (α := α) (κ := κ)) := Collection.dec_isEmpty
 
 instance [DecidableEq α] : Collection α (List α) where
   mem := (· ∈ ·)
   del x k := List.filter (· ≠ x) k
   mem_del := by simp
+  isEmpty := (List.isEmpty ·)
+  isEmpty_prop := by simp [List.eq_nil_iff_forall_not_mem]
 
-def Collection.toSet (k₀ : κ) : NonDetDevT (StateT (α -> Bool) Option) Unit := do
+def Collection.toSet (k₀ : κ) : NonDetT (StateT (α -> Bool) DevM) Unit := do
   let mut k := k₀
-  while_some a :| Collection.mem a k
+  while ¬ Collection.isEmpty k
   invariant fun (s : α -> Bool) => ∀ x, Collection.mem x k₀ <-> s x ∨ Collection.mem x k
   on_done fun (_ : α -> Bool) => ∀ x, ¬ Collection.mem x k do
+    let a :| Collection.mem a k
+    k := del a k
+    modify (fun s a' => if a' = a then true else s a')
+    pure ()
+
+def Collection.toSet' [ToString κ] (k₀ : κ) : NonDetT (StateT (α -> Bool) DevM) Unit := do
+  let mut k := k₀
+  while ¬ Collection.isEmpty k
+  invariant fun (s : α -> Bool) => ∀ x, Collection.mem x k₀ <-> s x ∨ Collection.mem x k
+  on_done fun (_ : α -> Bool) => ∀ x, ¬ Collection.mem x k
+  do
+    dbg_trace k
+    dbg_trace decide $ ¬ Collection.isEmpty k
+    let a :| Collection.mem a k
     k := del a k
     modify (fun s a' => if a' = a then true else s a')
 
-/-- info: some (Except.ok (), [(0, false), (1, true), (2, true), (3, false)]) -/
+
+/-- info: DevM.res ((), [(0, false), (1, true), (2, true), (3, false)]) -/
 #guard_msgs in
-#eval Collection.toSet [(1 : Fin 4),(2 : Fin 4)] |>.run.run.run (fun _ => False)
+#eval Collection.toSet [(1 : Fin 4),(2 : Fin 4)] |>.run.run (fun _ => False)
 
 lemma Collection.toSet_correct (k : κ) :
   triple (fun s => ∀ x, ¬ s x) (Collection.toSet k) (fun _ s => ∀ x, Collection.mem x k <-> s x) := by

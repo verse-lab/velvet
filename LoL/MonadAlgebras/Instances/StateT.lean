@@ -1,8 +1,8 @@
 import LoL.MonadAlgebras.Defs
-
+import LoL.MonadAlgebras.Instances.Basic
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
-  [PartialOrder l]
+  [CompleteLattice l]
   [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (StateT σ m) (σ -> l) where
   μ := (MPropOrdered.μ $ (fun fs => fs.1 fs.2) <$> · ·)
   μ_ord_pure := by intro f; ext s₁; simp [pure, StateT.pure, MPropOrdered.μ_ord_pure]
@@ -11,8 +11,7 @@ instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x s
     have leM := @inst.μ_ord_bind (α × σ) (fun as => (fun fs => fs.1 fs.2) <$> f as.1 as.2) (fun as => (fun fs => fs.1 fs.2) <$> g as.1 as.2)
     simp only [Function.comp, Pi.hasLe, <-map_bind] at leM
-    apply leM; simp only [implies_true, le]
-
+    apply leM; intro; apply le
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [CompleteLattice l]
@@ -44,7 +43,15 @@ instance [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] : Le
     apply Lean.Order.MonoBind.bind_mono_right (m := m)
     intro x; apply h₁₂
 
-lemma MProp.lift_StateT [Monad m] [LawfulMonad m] [PartialOrder l] [inst: MPropOrdered m l] (x : StateT σ m α) :
+instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] : CCPOBot (StateT σ m) where
+  compBot := fun _ => CCPOBot.compBot
+  prop := by
+    simp [Lean.Order.bot, Lean.Order.CCPO.csup, instCCPOStateTOfMonad_loL]
+    unfold Lean.Order.fun_csup; intro α; ext; simp [StateT.run]
+    apply CCPOBot.prop
+
+
+lemma MProp.lift_StateT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MPropOrdered m l] (x : StateT σ m α) :
   MProp.lift x post = fun s => MProp.lift (x s) (fun xs => post xs.1 xs.2) := by
     simp [MProp.lift, Functor.map, MPropOrdered.μ, StateT.map]
 

@@ -46,15 +46,14 @@ macro_rules
   | `(doElem| while $t
               invariant $inv_yield
               on_done $inv_done do $seq:doSeq) =>
-    match seq with
-    | `(doSeq| $[$seq:doElem]*)
-    | `(doSeq| $[$seq:doElem;]*)
-    | `(doSeq| { $[$seq:doElem]* }) =>
-      `(doElem| while $t do
+      `(doElem|
+        for _ in Lean.Loop.mk do
           invariantGadget $inv_yield
           onDoneGadget $inv_done
-          $[$seq:doElem]*)
-    | _ => Lean.Macro.throwError "while expects a sequence of do-elements"
+          if $t then
+            $seq:doSeq
+          else break)
+    -- | _ => Lean.Macro.throwError "while expects a sequence of do-elements"
   | `(doElem| while_some $x:ident :| $t do $seq:doSeq) =>
     match seq with
     | `(doSeq| $[$seq:doElem]*)

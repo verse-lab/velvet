@@ -1,4 +1,5 @@
 import LoL.MonadAlgebras.Defs
+import LoL.MonadAlgebras.Instances.Basic
 
 abbrev Except.getD {ε α} (default : ε -> α)  : Except ε α -> α
   | Except.ok p => p
@@ -13,7 +14,7 @@ lemma Except.bind'_bind {m : Type u -> Type v} {ε α β} [Monad m] [LawfulMonad
 
 noncomputable
 def MPropExcept (ε : Type u) (df : ε -> Prop) (l : Type u) (m : Type u -> Type v)
-  [PartialOrder l] [OrderTop l] [OrderBot l]
+  [CompleteLattice l]
   [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ExceptT ε m) l where
   μ := fun e => inst.μ $ Except.getD (⌜df ·⌝) <$> e
   μ_ord_pure := by
@@ -38,10 +39,10 @@ class IsHandler {ε : Type*} (handler : outParam (ε -> Prop)) where
 set_option linter.unusedVariables false in
 noncomputable
 instance OfHd {hd : ε -> Prop} [hdInst : IsHandler hd]
-  [PartialOrder l] [OrderTop l] [OrderBot l] [inst: MPropOrdered m l] : MPropOrdered (ExceptT ε m) l := MPropExcept ε hd l m
+  [CompleteLattice l] [inst: MPropOrdered m l] : MPropOrdered (ExceptT ε m) l := MPropExcept ε hd l m
 
 
-lemma MProp.lift_ExceptT ε (hd : ε -> Prop) [IsHandler hd] [PartialOrder l] [OrderTop l] [OrderBot l] [inst: MPropOrdered m l]
+lemma MProp.lift_ExceptT ε (hd : ε -> Prop) [IsHandler hd] [CompleteLattice l] [inst: MPropOrdered m l]
    (c : ExceptT ε m α) post :
   MProp.lift c post = MProp.lift (m := m) c (fun | .ok x => post x | .error e => ⌜hd e⌝) := by
     simp [MProp.lift, OfHd, MPropExcept, Functor.map, ExceptT.map, ExceptT.mk]
@@ -156,6 +157,11 @@ instance [Monad m] [∀ α, CCPO (m α)] [MonoBind m] : MonoBind (ExceptT ε m) 
     cases x
     · apply PartialOrder.rel_refl
     · apply h₁₂
+
+instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] : CCPOBot (ExceptT ε m) where
+  compBot := CCPOBot.compBot (m := m)
+  prop := CCPOBot.prop (m := m)
+
 
 instance (hd : ε -> _) [IsHandler hd] [_root_.CompleteLattice l] [Monad m] [LawfulMonad m] [inst: MPropOrdered m l]
   [∀ α, CCPO (m α)] [MonoBind m]

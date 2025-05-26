@@ -1,7 +1,8 @@
 import LoL.MonadAlgebras.Defs
+import LoL.MonadAlgebras.Instances.Basic
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
-  [PartialOrder l]
+  [CompleteLattice l]
   [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ReaderT σ m) (σ -> l) where
   μ := fun rp r => inst.μ $ (· r) <$> rp r
   μ_ord_pure := by
@@ -12,7 +13,7 @@ instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x r
     have leM := @inst.μ_ord_bind (α) (fun a => (· r) <$> f a r) (fun a => (· r) <$> g a r)
     simp only [Function.comp, Pi.hasLe, <-map_bind] at leM
-    apply leM; simp only [implies_true, le]
+    apply leM; intro; apply le
 
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
@@ -46,7 +47,14 @@ instance [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] : Le
     apply Lean.Order.MonoBind.bind_mono_right (m := m)
     intro x; apply h₁₂
 
-lemma MProp.lift_ReaderT [Monad m] [LawfulMonad m] [PartialOrder l] [inst: MPropOrdered m l] (x : ReaderT σ m α) :
+instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] : CCPOBot (ReaderT σ m) where
+  compBot := fun _ => CCPOBot.compBot
+  prop := by
+    simp [Lean.Order.bot, Lean.Order.CCPO.csup, instCCPOReaderTOfMonad_loL]
+    unfold Lean.Order.fun_csup; intro α; ext; simp [StateT.run]
+    apply CCPOBot.prop
+
+lemma MProp.lift_ReaderT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MPropOrdered m l] (x : ReaderT σ m α) :
   MProp.lift x post = fun s => MProp.lift (x s) (fun xs => post xs s) := by
     simp [MProp.lift, Functor.map, MPropOrdered.μ]
 

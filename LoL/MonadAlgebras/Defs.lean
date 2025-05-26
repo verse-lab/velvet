@@ -69,33 +69,33 @@ instance EffectObservationOfMProp (l : Type u) {m : Type u -> Type v} [Monad m] 
     simp only [map_bind]; apply MProp.bind
     ext; simp [MProp.pure]
 
-class MPropOrdered (l : outParam (Type v)) [Monad m] [PartialOrder l] where
+class MPropOrdered (l : outParam (Type v)) [Monad m] [CompleteLattice l] where
   μ : m l -> l
   μ_ord_pure : ∀ l, μ (pure l) = l
   μ_ord_bind {α : Type v} :
     ∀ (f g : α -> m l), μ ∘ f ≤ μ ∘ g ->
       ∀ x : m α, μ (x >>= f) ≤ μ (x >>= g)
 
-instance OfMPropPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [PartialOrder l] [mprop : MPropOrdered m l] : MProp m l where
+instance OfMPropPartialOrdered {m : Type u -> Type v} {l : Type u} [Monad m] [CompleteLattice l] [mprop : MPropOrdered m l] : MProp m l where
   μ := MPropOrdered.μ
   pure := MPropOrdered.μ_ord_pure
   bind := by intros; apply PartialOrder.le_antisymm
     <;> apply MPropOrdered.μ_ord_bind
     <;> simp_all only [le_refl]
 
-lemma MPropOrdered.bind {α : Type u} {m} {l : Type u} [Monad m] [PartialOrder l] [MPropOrdered m l] :
+lemma MPropOrdered.bind {α : Type u} {m} {l : Type u} [Monad m] [CompleteLattice l] [MPropOrdered m l] :
     ∀ (x : m α) (f g : α -> m l), μ ∘ f = μ ∘ g ->
      μ (x >>= f) = μ (x >>= g) := MProp.bind
 
-lemma Cont.monotone_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [PartialOrder l] [MPropOrdered m l] :
+lemma Cont.monotone_lift {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteLattice l] [MPropOrdered m l] :
   ∀ {α : Type u} (x : m α), MProp.lift x |>.monotone := by
   unfold Cont.monotone; intros; simp [MProp.lift]; rw [map_eq_pure_bind, map_eq_pure_bind]
   apply MPropOrdered.μ_ord_bind; intro; simp [MPropOrdered.μ_ord_pure, *]
 
 @[simp]
-lemma MProp.μ_eq {m l} [Monad m] [PartialOrder l] [MPropOrdered m l] : MProp.μ (m := m) = MPropOrdered.μ (m := m) := by rfl
+lemma MProp.μ_eq {m l} [Monad m] [CompleteLattice l] [MPropOrdered m l] : MProp.μ (m := m) = MPropOrdered.μ (m := m) := by rfl
 
-lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [PartialOrder l] [MPropOrdered m l]
+lemma MProp.lift_bind {α β} {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteLattice l] [MPropOrdered m l]
   (x : m α) (f g : α -> Cont l β) :
     f <= g ->
     (lift x >>= f) ≤ (lift x >>= g) := by
