@@ -1,4 +1,5 @@
--- import LoL.Meta
+import Mathlib.Algebra.BigOperators.Intervals
+
 import LoL.MonadAlgebras.NonDetT.Extract
 import LoL.MonadAlgebras.WP.Tactic
 
@@ -27,7 +28,7 @@ instance [Repr α] [FinEnum α] : Repr (α -> Bool) where
 instance : Repr (ℕ -> Bool) where
   reprPrec p := fun n => Repr.reprPrec (List.range 10 |>.map fun x => (x, p x)) n
 
-
+section
 class Collection (α : outParam (Type)) (κ : Type) where
   mem : α -> κ -> Prop
   [dec : DecidableRel mem]
@@ -83,83 +84,87 @@ lemma Collection.toSet_correct (k : κ) :
   mwp
   { intro k'; mwp; aesop }
   aesop
+end
 
+attribute [aesop unsafe 20% apply] le_antisymm
 
-#exit
-structure Array' (α : Type u) where
-  get : ℕ -> α
-  size : ℕ
+@[simp]
+lemma Array.replicate_get (n : ℕ) [Inhabited α] (a : α) (i : ℕ) (_ : i < n := by omega) :
+  (Array.replicate n a)[i]! = a := by
+  rw [getElem!_pos, Array.getElem_replicate]; aesop
 
-def Array'.replicate (n : ℕ) (a : α) : Array' α :=
-  { get := fun _ => a, size := n }
-
-lemma Array'.replicate_size (n : ℕ) (a : α) : (Array'.replicate n a).size = n := rfl
-
-lemma Array'.replicate_get (n : ℕ) (a : α) (i : ℕ) : (Array'.replicate n a).get i = a := by
-  simp [Array'.replicate]
-
-def Array'.modify (a : Array' α) (i : ℕ) (f : α -> α) : Array' α :=
-  { get := fun j => if j = i then f (a.get j) else a.get j, size := a.size }
-
-def Array'.sum [AddCommMonoid β] (a : Array' α) (f : α -> β) : β :=
-  ∑ i ∈ Finset.range a.size, f (a.get i)
-
-def Array'.sumUpTo [AddCommMonoid α] (a : Array' α) (bound : ℕ) : α :=
-  ∑ i ∈ Finset.range bound, a.get i
-
-lemma Array'.sumUpTo_zero [AddCommMonoid α] (a : Array' α) : a.sumUpTo 0 = 0 := by
-  simp [Array'.sumUpTo]
-
-open Demonic
-
-noncomputable
-instance : MPropOrdered (NonDetT (StateT (Array' ℤ) Id)) (Array' ℤ -> Prop) := by
-  apply instMPropOrderedNonDetTOfLawfulMonad
+@[simp]
+lemma Array.modify_get (a : Array α) [Inhabited α] (i j : ℕ) (f : α -> α) :
+  (a.modify i f)[j]! = if j < a.size then if j = i then f a[j]! else a[j]! else default := by
+  by_cases h : j < a.size
+  { (repeat rw [getElem!_pos]) <;> try solve | aesop
+    rw [@getElem_modify]; aesop }
+  repeat rw [getElem!_neg]
+  all_goals (try split) <;> solve | omega | aesop
 
 
 
-def spmv'' (x_ind : Array' (Array' ℕ)) (x_val : Array' (Array' ℤ)) : NonDetT (StateT (Array' ℤ) Id) Unit := do
-  let mut arrInd : Array' ℕ := Array'.replicate x_ind.size 0
-  repeat
-    decreasing x_ind.sum (·.size) - arrInd.sum id do
-    invariant fun acc : Array' ℤ =>
-      (∀ i < arrInd.size, acc.get i = (x_val.get i).sumUpTo (arrInd.get i))
-    let i :| i < arrInd.size ∧ arrInd.get i < (x_ind.get i).size
-    let ind := arrInd.get i
-    let val := x_val.get i |>.get ind
+def Array.sumUpTo [Inhabited α] [AddCommMonoid β] (a : Array α) (f : ℕ -> α -> β) (bound : ℕ) : β :=
+  ∑ i ∈ Finset.range bound, f i a[i]!
+
+@[simp]
+lemma Array.sumUpToSucc [Inhabited α] [AddCommMonoid α] (a : Array α) (f : ℕ -> α -> α) (bound : ℕ) :
+  a.sumUpTo f (bound + 1) = a.sumUpTo f bound + f bound a[bound]! := by
+  simp [sumUpTo]
+  rw [@Finset.sum_range_succ]
+
+open DemonicChoice PartialCorrectness
+
+variable (mInd : Array (Array ℕ))  (mVal : Array (Array ℤ))
+variable (v : Array ℤ)
+variable (size_eq : mInd.size = mVal.size)
+variable (size_eq' : ∀ i < mInd.size, (mInd[i]!).size = (mVal[i]!).size)
+include size_eq size_eq'
+
+-- set_option linter.unusedVariables false in
+-- abbrev withNameGadget {α : Type*} (n : Lean.Name) (a : α) : α := a
+
+-- def unveilName : Lean.Elab.Tactic.TacticM Unit := do
+--   let goal <- Lean.Elab.Tactic.getMainTarget
+--   match_expr goal with
+--   | withNameGadget _ n _ => do
+--     let .some n := n.name? | throwError "{n} is not a name"
+--     Lean.Elab.Tactic.withMainContext do
+--       Lean.Elab.Tactic.evalTactic (← `(tactic| unfold withNameGadget))
+--     (<- Lean.Elab.Tactic.getMainGoal).setTag n
+--   | _ => pure ()
+
+-- -- add_aesop_rule (by unveil_name)
+
+-- attribute [aesop safe tactic (pattern := withNameGadget _ _)] unveilName
+
+-- example : withNameGadget `a False ∧ True := by
+--   aesop
+
+def spmv : NonDetT (StateT (Array ℤ) DevM) Unit := do
+  let mut arrInd : Array ℕ := Array.replicate mInd.size 0
+  while_some i :| i < arrInd.size ∧ arrInd[i]! < mInd[i]!.size
+    invariant fun acc : Array ℤ =>
+      (acc.size = mVal.size) ∧
+      (arrInd.size = mVal.size) ∧
+      (∀ i < arrInd.size, acc[i]! = (mVal[i]!).sumUpTo (fun j x => x * v[mInd[i]![j]!]!) (arrInd[i]!)) ∧
+      (∀ i < arrInd.size, arrInd[i]! <= (mInd[i]!).size )
+    on_done fun _ : Array ℤ => ∀ i < arrInd.size, arrInd[i]! = (mInd[i]!).size do
+    let ind := arrInd[i]!
+    let vInd := mInd[i]![ind]!
+    let mVal := mVal[i]![ind]!
+    let val := mVal * v[vInd]!
     modify (·.modify i (· + val))
     arrInd := arrInd.modify i (· + 1)
 
 
-
-lemma spmv''_correct (x_ind : Array' (Array' ℕ)) (x_val : Array' (Array' ℤ)) :
+lemma spmv_correct :
   triple
-    (fun acc =>
-      ⌜x_ind.size = x_val.size ∧
-       ∀ i, acc.get i = 0 ∧
-       ∀ i < x_ind.size, (x_ind.get i).size = (x_val.get i).size⌝)
-      (spmv'' x_ind x_val)
-    (fun _ (acc : Array' ℤ) =>
-      ⌜∀ i < x_ind.size, acc.get i = (x_val.get i).sum id⌝) := by
-    unfold spmv''
-    dsimp
-    mwp
-    { intro arr; simp; sorry }
-    simp [Array'.replicate_size, Array'.replicate_get, Array'.sumUpTo_zero]
-
-
-
--- def spmv' (x_ind : Array' (Array' ℕ)) (x_val : Array' (Array' ℤ)) : NonDetT (StateT (Array' ℤ) Id) Unit := do
---   let mut arrInd : Array' ℕ := Array'.replicate x_ind.size 0
---   while_some i :| i < arrInd.size ∧ arrInd.get i < (x_ind.get i).size do
---     let ind := arrInd.get i
---     let val := x_val.get i |>.get ind
---     modify (·.modify i (· + val))
---     arrInd := arrInd.modify i (· + 1)
-
-
--- def spmv (x_ind : Array (Array ℕ)) (x_val : Array (Array ℤ)) : NonDetT (StateT (Array ℤ) Id) Unit := do
---   let mut arrInd : Array ℕ := Array.replicate x_ind.size 0
---   while_some i :| i < arrInd.size ∧ arrInd[i]! < x_ind[i]!.size do
---     modify (·.modify i (· + x_val[i]![arrInd[i]!]!))
---     arrInd := arrInd.modify i (· + 1)
+    (fun acc => ⌜acc.size = mVal.size ∧ ∀ i : ℕ, acc[i]! = 0⌝)
+      (spmv mInd mVal v)
+    (fun _ acc =>
+      ⌜∀ i < mInd.size, acc[i]! = (mVal[i]!).sumUpTo (fun j x => x * v[mInd[i]![j]!]!) (mInd[i]!).size⌝) := by
+    unfold spmv; mwp
+    { intro arrInd
+      mwp; aesop }
+    aesop
