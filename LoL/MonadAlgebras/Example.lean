@@ -1,4 +1,5 @@
 import Mathlib.Algebra.BigOperators.Intervals
+import Mathlib.Algebra.Ring.Int.Defs
 
 import LoL.MonadAlgebras.NonDetT.Extract
 import LoL.MonadAlgebras.WP.Tactic
@@ -54,7 +55,7 @@ def Collection.toSet (k₀ : κ) : NonDetT (StateT (α -> Bool) DevM) Unit := do
   let mut k := k₀
   while ¬ Collection.isEmpty k
   invariant fun (s : α -> Bool) => ∀ x, Collection.mem x k₀ <-> s x ∨ Collection.mem x k
-  on_done ⌜∀ x, ¬ Collection.mem x k⌝ do
+  done_with ⌜∀ x, ¬ Collection.mem x k⌝ do
     let a :| Collection.mem a k
     k := del a k
     modify (fun s a' => if a' = a then true else s a')
@@ -115,21 +116,22 @@ lemma Array.sumUpToSucc [Inhabited α] [AddCommMonoid α] (a : Array α) (f : �
 
 open DemonicChoice PartialCorrectness
 
-variable (mInd : Array (Array ℕ))  (mVal : Array (Array ℤ))
-variable (v : Array ℤ)
+variable [Inhabited α] [Ring α]
+variable (mInd : Array (Array ℕ))  (mVal : Array (Array α))
+variable (v : Array α)
 variable (size_eq : mInd.size = mVal.size)
 variable (size_eq' : ∀ i < mInd.size, (mInd[i]!).size = (mVal[i]!).size)
 include size_eq size_eq'
 
 
-def spmv : NonDetT (StateT (Array ℤ) DevM) Unit := do
+def spmv : NonDetT (StateT (Array α) DevM) Unit := do
   let mut arrInd : Array ℕ := Array.replicate mInd.size 0
   while_some i :| i < arrInd.size ∧ arrInd[i]! < mInd[i]!.size
   invariant ⌜arrInd.size = mVal.size⌝
   invariant ⌜∀ i < arrInd.size, arrInd[i]! <= (mInd[i]!).size⌝
   invariant (·.size = mVal.size)
   invariant (∀ i < arrInd.size, ·[i]! = mVal[i]!.sumUpTo (fun j x => x * v[mInd[i]![j]!]!) arrInd[i]!)
-  on_done ⌜∀ i < arrInd.size, arrInd[i]! = mInd[i]!.size⌝ do
+  done_with ⌜∀ i < arrInd.size, arrInd[i]! = mInd[i]!.size⌝ do
     let ind := arrInd[i]!
     let vInd := mInd[i]![ind]!
     let mVal := mVal[i]![ind]!
@@ -147,3 +149,16 @@ lemma spmv_correct :
     { intro arrInd
       mwp; aesop }
     aesop
+
+def mIndTest : Array (Array ℕ) :=
+  #[#[1,3], #[2,4]]
+
+def mValTest : Array (Array ℤ) :=
+  #[#[10,30], #[20,40]]
+
+def vTest : Array ℤ :=
+  #[10,20,30,40, 50]
+
+/-- info: DevM.res ((), #[1400, 2600]) -/
+#guard_msgs in
+#eval spmv mIndTest mValTest vTest |>.run.run #[0,0]

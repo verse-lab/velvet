@@ -14,9 +14,11 @@ variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Typ
 set_option linter.unusedVariables false in
 def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MPropOrdered m invType] : m PUnit := pure .unit
 
+declare_syntax_cat doneWith
 declare_syntax_cat invariantClause
 declare_syntax_cat invariants
 syntax "invariant" term linebreak : invariantClause
+syntax "done_with" termBeforeDo : doneWith
 
 syntax (invariantClause linebreak)* : invariants
 
@@ -43,18 +45,18 @@ macro "decreasing" t:term : term => `(decreasingGadget $t)
 syntax "let" ident ":|" term : doElem
 syntax "while" term
   (invariantClause)*
-  "on_done" termBeforeDo
+  doneWith
   "do" doSeq : doElem
 syntax "while_some" ident ":|" termBeforeDo "do" doSeq : doElem
 syntax "while_some" ident ":|" term
   (invariantClause)*
-  "on_done" termBeforeDo
+  doneWith
   "do" doSeq : doElem
 macro_rules
   | `(doElem| while $t
               $[invariant $inv:term
               ]*
-              on_done $inv_done do $seq:doSeq) =>
+              done_with $inv_done do $seq:doSeq) =>
       `(doElem|
         for _ in Lean.Loop.mk do
           invariantGadget [ $[$inv:term],* ]
@@ -76,7 +78,7 @@ macro_rules
   | `(doElem| while_some $x:ident :| $t
               $[invariant $inv:term
               ]*
-              on_done $inv_done do
+              done_with $inv_done do
                 $seq:doSeq) =>
     match seq with
     | `(doSeq| $[$seq:doElem]*)
