@@ -1,7 +1,7 @@
 import Mathlib.Order.CompleteLattice.Basic
 
-import LoL.MonadUtil
-import LoL.SpecMonad
+import Loom.MonadUtil
+import Loom.SpecMonad
 
 universe u v w
 

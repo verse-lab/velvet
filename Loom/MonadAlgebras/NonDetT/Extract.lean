@@ -5,9 +5,9 @@ import Mathlib.Order.Basic
 import Mathlib.Data.W.Basic
 import Mathlib.Data.FinEnum
 
-import LoL.MonadAlgebras.WP.Gen
-import LoL.MonadAlgebras.WP.Liberal
-import LoL.MonadAlgebras.NonDetT.Basic
+import Loom.MonadAlgebras.WP.Gen
+import Loom.MonadAlgebras.WP.Liberal
+import Loom.MonadAlgebras.NonDetT.Basic
 
 universe u v w
 

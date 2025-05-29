@@ -1,10 +1,10 @@
 import Lean
 
-import LoL.MonadAlgebras.WP.Attr
+import Loom.MonadAlgebras.WP.Attr
 
 open Lean Parser Meta Elab Term Command Tactic
 
-def findSpec (prog : Expr) : TacticM (Ident × LoL.SpecType) := do
+def findSpec (prog : Expr) : TacticM (Ident × Loom.SpecType) := do
   let specs ← specAttr.find? prog
   let some ⟨specType, specName, _⟩ := specs.max? | throwError s!"no specs found for {prog}"
   -- let spec <- Term.elabTerm (mkIdent specName) none

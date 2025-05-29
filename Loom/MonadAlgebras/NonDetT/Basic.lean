@@ -3,9 +3,9 @@ import Mathlib.Order.CompleteBooleanAlgebra
 import Mathlib.Order.Lattice
 import Mathlib.Order.Basic
 
-import LoL.MonadAlgebras.WP.Basic
-import LoL.MonadAlgebras.WP.Tactic
-import LoL.MonadAlgebras.WP.Gen
+import Loom.MonadAlgebras.WP.Basic
+import Loom.MonadAlgebras.WP.Tactic
+import Loom.MonadAlgebras.WP.Gen
 
 universe u v w
 

@@ -1,5 +1,5 @@
-import LoL.MonadAlgebras.Defs
-import LoL.MonadAlgebras.Instances.Basic
+import Loom.MonadAlgebras.Defs
+import Loom.MonadAlgebras.Instances.Basic
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [CompleteLattice l]
@@ -50,7 +50,7 @@ instance [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] : Le
 instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] : CCPOBot (ReaderT σ m) where
   compBot := fun _ => CCPOBot.compBot
   prop := by
-    simp [Lean.Order.bot, Lean.Order.CCPO.csup, instCCPOReaderTOfMonad_loL]
+    simp [Lean.Order.bot, Lean.Order.CCPO.csup, instCCPOReaderTOfMonad_loom]
     unfold Lean.Order.fun_csup; intro α; ext; simp [StateT.run]
     apply CCPOBot.prop
 
@@ -64,7 +64,7 @@ instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdere
   [MPropPartial m] : MPropPartial (ReaderT σ m) where
   csup_lift {α} chain := by
     intro post hchain
-    simp [instCCPOReaderTOfMonad_loL, CCPO.csup, MProp.lift_ReaderT]
+    simp [instCCPOReaderTOfMonad_loom, CCPO.csup, MProp.lift_ReaderT]
     rw [@Pi.le_def]; simp; unfold fun_csup; intro s
     apply le_trans'
     apply MPropPartial.csup_lift (m := m)

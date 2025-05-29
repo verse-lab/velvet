@@ -1,5 +1,5 @@
-import LoL.MonadAlgebras.Defs
-import LoL.MonadAlgebras.Instances.Basic
+import Loom.MonadAlgebras.Defs
+import Loom.MonadAlgebras.Instances.Basic
 
 abbrev Except.getD {ε α} (default : ε -> α)  : Except ε α -> α
   | Except.ok p => p

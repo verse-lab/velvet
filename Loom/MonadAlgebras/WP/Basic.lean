@@ -1,9 +1,9 @@
-import LoL.MonadAlgebras.Defs
+import Loom.MonadAlgebras.Defs
 
-import LoL.MonadAlgebras.Instances.Basic
-import LoL.MonadAlgebras.Instances.ExceptT
-import LoL.MonadAlgebras.Instances.StateT
-import LoL.MonadAlgebras.Instances.ReaderT
+import Loom.MonadAlgebras.Instances.Basic
+import Loom.MonadAlgebras.Instances.ExceptT
+import Loom.MonadAlgebras.Instances.StateT
+import Loom.MonadAlgebras.Instances.ReaderT
 
 universe u v w
 

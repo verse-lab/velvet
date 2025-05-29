@@ -1,5 +1,5 @@
--- import LoL.MProp.HoareTriples
-import LoL.Meta
+-- import Loom.MProp.HoareTriples
+import Loom.Meta
 
 open Lean Lean.Expr Lean.Meta
 open Lean Elab Command Term Meta Tactic

@@ -1,10 +1,10 @@
 import Mathlib.Order.CompleteBooleanAlgebra
 
-import LoL.MonadAlgebras.Defs
-import LoL.MonadAlgebras.WP.Basic
+import Loom.MonadAlgebras.Defs
+import Loom.MonadAlgebras.WP.Basic
 
-import LoL.MonadAlgebras.Instances.Basic
-import LoL.MonadAlgebras.Instances.ExceptT
+import Loom.MonadAlgebras.Instances.Basic
+import Loom.MonadAlgebras.Instances.ExceptT
 
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u}
 variable [inst: CompleteBooleanAlgebra l] [mprop: MPropOrdered m l]

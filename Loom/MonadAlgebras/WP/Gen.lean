@@ -3,8 +3,8 @@ import Mathlib.Order.CompleteBooleanAlgebra
 import Mathlib.Order.Lattice
 import Mathlib.Order.Basic
 
-import LoL.MonadAlgebras.WP.Basic
-import LoL.MonadAlgebras.WP.Liberal
+import Loom.MonadAlgebras.WP.Basic
+import Loom.MonadAlgebras.WP.Liberal
 
 universe u v w
 

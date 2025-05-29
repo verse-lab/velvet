@@ -1,4 +1,4 @@
-import LoL.MonadAlgebras.Defs
+import Loom.MonadAlgebras.Defs
 universe u v w
 
 instance : MPropOrdered Id Prop where

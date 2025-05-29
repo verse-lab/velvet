@@ -1,10 +1,10 @@
 import Mathlib.Algebra.BigOperators.Intervals
 import Mathlib.Algebra.Ring.Int.Defs
 
-import LoL.MonadAlgebras.NonDetT.Extract
-import LoL.MonadAlgebras.WP.Tactic
+import Loom.MonadAlgebras.NonDetT.Extract
+import Loom.MonadAlgebras.WP.Tactic
 
-import LoL.Meta
+import Loom.Meta
 
 open PartialCorrectness DemonicChoice
 
@@ -146,9 +146,53 @@ lemma spmv_correct :
     (fun _ acc =>
       ⌜∀ i < mInd.size, acc[i]! = mVal[i]!.sumUpTo (fun j x => x * v[mInd[i]![j]!]!) mInd[i]!.size⌝) := by
     unfold spmv; mwp
-    { intro arrInd
-      mwp; aesop }
-    aesop
+    { -- proving the invariant preservation
+      intro arrInd
+      -- aesop? begin
+      mwp;
+      intro x a
+      simp_all only [Array.size_modify, Array.modify_get, ↓reduceIte, true_and, and_imp]
+      obtain ⟨left, right⟩ := a
+      obtain ⟨left_1, right⟩ := right
+      obtain ⟨left_2, right⟩ := right
+      simp_all only [implies_true, true_and]
+      split
+      next h =>
+        simp_all only [↓reduceIte, true_and]
+        intro t a a_1
+        obtain ⟨w, h⟩ := h
+        obtain ⟨left_3, right_1⟩ := h
+        simp_all only
+        apply And.intro
+        · intro i a_2
+          split
+          next h =>
+            subst h
+            simp_all only
+            exact a_1
+          next h => simp_all only
+        · intro i a_2
+          split
+          next h =>
+            subst h
+            simp_all only [Array.sumUpToSucc]
+          next h => simp_all only
+      next h =>
+        simp_all only [not_exists, not_and, not_lt, implies_true, and_self, true_and]
+        intro i a
+        apply le_antisymm
+        · simp_all only
+        · simp_all only }
+      -- aesop end
+    -- assuming the invariant holds, prove the rest
+    intro x a
+    -- aesop? begin
+    simp_all only [Array.size_replicate, Array.replicate_get, zero_le, implies_true, Pi.top_apply, «Prop».top_eq_true,
+      and_true, true_and]
+    intro i a_1
+    obtain ⟨left, right⟩ := a
+    rfl
+    -- aesop end
 
 def mIndTest : Array (Array ℕ) :=
   #[#[1,3], #[2,4]]
