@@ -245,7 +245,7 @@ lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLat
     simp [cont_ih]
 
 noncomputable
-def NonDetT.μ : NonDetT m l -> l := fun x => NonDetT.wp x id
+def NonDetT.μ {l : Type u} [CompleteLattice l] [MPropOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
 
 instance : MonadLift m (NonDetT m) where
   monadLift x := NonDetT.vis x pure
@@ -254,7 +254,7 @@ variable [LawfulMonad m]
 
 noncomputable
 scoped
-instance {l : outParam (Type u)} [CompleteBooleanAlgebra l] [MPropOrdered m l] [LawfulMonad m] : MPropOrdered (NonDetT m) l where
+instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] : MPropOrdered (NonDetT m) l where
   μ := NonDetT.μ
   μ_ord_pure := by
     intro l; simp [NonDetT.μ, NonDetT.wp]; rfl
