@@ -199,3 +199,23 @@ lemma wlp_part_wlp_handler ε (α : Type u) (c : ExceptT ε m α) (post : α →
       rintro (_|_) <;> simp }
     rw [sup_comm, <-himp_eq]; simp [<-wp_and]
     apply wp_cons; rintro (_|_) <;> simp
+
+lemma TotalCorrectness.DivM.wlp_eq (α : Type) (x : DivM α) (post : α -> Prop) :
+  (open TotalCorrectness in wlp x post) = (open PartialCorrectness in wp x post) := by
+  simp [wlp, TotalCorrectness.DivM.wp_eq, PartialCorrectness.DivM.wp_eq]
+  split <;> simp
+
+lemma PartialCorrectness.DivM.wlp_eq (α : Type) (x : DivM α) (post : α -> Prop) :
+  wlp x post = wp x post := by
+  simp [wlp, TotalCorrectness.DivM.wp_eq, PartialCorrectness.DivM.wp_eq]
+  split <;> simp
+
+omit [MPropDet m l] in
+lemma StateT.wlp_eq (c : StateT σ m α) (post : α -> σ -> l) :
+  wlp c post = fun s => wlp (m := m) (c s) (fun xs => post xs.1 xs.2) := by
+  simp [wlp, StateT.wp_eq]; rfl
+
+omit [MPropDet m l] in
+lemma ReaderT.wlp_eq (c : ReaderT σ m α) (post : α -> σ -> l) :
+  wlp c post = fun s => wlp (m := m) (c s) (post · s) := by
+  simp [wlp, ReaderT.wp_eq]; rfl

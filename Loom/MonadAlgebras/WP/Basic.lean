@@ -325,6 +325,22 @@ lemma ExceptionAsFailure.ExceptT.wp_lift (c : m α) (post : α -> l) :
   wp (liftM (n := ExceptT ε m) c) post = wp (m := m) c post := by
   apply ExceptT.wp_lift_hd
 
+open TotalCorrectness in
+lemma TotalCorrectness.DivM.wp_eq (α : Type) (x : DivM α) (post : α -> Prop) :
+  wp x post =
+    match x with
+    | .div => False
+    | .res r => post r := by
+  simp [wp, liftM, monadLift, MProp.lift, Functor.map, TotalCorrectness.instMPropOrderedDivMProp]
+  cases x <;> simp [LE.pure]
+
+lemma PartialCorrectness.DivM.wp_eq (α : Type) (x : DivM α) (post : α -> Prop) :
+  wp x post =
+    match x with
+    | .div => True
+    | .res r => post r := by
+  simp [wp, liftM, monadLift, MProp.lift, Functor.map, PartialCorrectness.instMPropOrderedDivMProp]
+  cases x <;> simp [LE.pure]
 
 lemma StateT.wp_eq (c : StateT σ m α) (post : α -> σ -> l) :
   wp c post = fun s => wp (m := m) (c s) (fun xs => post xs.1 xs.2) := by
