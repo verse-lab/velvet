@@ -360,6 +360,7 @@ macro "extractable_tactic" : tactic =>
 
 namespace DemonicChoice
 
+omit [MonoBind m] in
 lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet Findable s) :
   wp s post ⊓ s.prop ⊤ <= wp s.extract post := by
   unhygienic induction inst
