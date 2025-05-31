@@ -397,7 +397,7 @@ noncomputable
 def _root_.ExtractNonDet.prop {α : Type u} (s : NonDetT m α) :  ExtractNonDet WeakFindable s -> l
   | .pure x => ⊤
   | .vis x f ex => wlp x fun y => (ex y).prop
-  | .pickSuchThat _ p f ex => (⨅ t, ⌜p t⌝ ⇨ (ex t).prop)
+  | .pickSuchThat _ p f ex => ⨅ t ∈ WeakFindable.find p, (ex t).prop
   | .assume p _ ex => ⌜p .unit⌝ ⊓ (ex .unit).prop
 
 
@@ -426,11 +426,11 @@ lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNo
     apply wp_cons; aesop (add norm inf_comm) }
   { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]; split
     simp [CCPOBot.prop, wp_bot]
-    rw [← @iInf_inf_eq]; simp [meet_himp _ _ _ _ rfl]
-    rename_i y _
+    rw [← @iInf_inf_eq]
+    rename_i y h
     refine iInf_le_of_le y ?_
     have := WeakFindable.find_some_p (p := p) (by assumption)
-    simp [this]; apply a_ih }
+    simp [this, h]; apply a_ih }
   { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]
     have: ∀ a : PUnit.{u_1 + 1}, a = .unit := by aesop
     simp [this, iInf_const, iSup_const]; apply le_trans'; apply a_ih
