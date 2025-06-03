@@ -85,3 +85,13 @@ instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdere
   [inst': NoFailure m] : NoFailure (StateT σ m) where
   noFailure := by
     intro _ _; simp [MProp.lift_StateT, inst'.noFailure]; rfl
+
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l] :
+  TProp m l (StateT σ m) (σ -> l) (fun p _ => p) where
+    ι_mon := by simp [Monotone, LE.le]; aesop
+    μ_lift := by
+      intro x;
+      have h := MProp.lift_StateT (x := liftM (n := StateT σ m) x) (post := fun p _ => p)
+      simp [MProp.lift] at h;
+      simp [h, liftM, monadLift, MonadLift.monadLift, Functor.map, MPropOrdered.μ]
+      simp [StateT.lift, StateT.map]

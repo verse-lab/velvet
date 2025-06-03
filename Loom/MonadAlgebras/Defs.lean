@@ -127,3 +127,11 @@ class MPropTotal (m : Type u -> Type v) [Monad m] [∀ α, Lean.Order.CCPO (m α
 class NoFailure (m : Type u -> Type v) [Monad m] [CompleteLattice l] [MPropOrdered m l] where
   noFailure {α : Type u} (c : m α) :
     MProp.lift c (fun _ => ⊤) = ⊤
+
+class TProp
+  (m : Type u -> Type v) (l : Type u) [Monad m] [CompleteLattice l] [MPropOrdered m l]
+  (n : Type u -> Type w) (k : outParam (Type u)) [Monad n] [CompleteLattice k] [MPropOrdered n k]
+  [MonadLiftT m n] (ι : outParam (l -> k))
+  where
+    [ι_mon : Monotone ι]
+    μ_lift (x : m l) : MPropOrdered.μ (ι <$> liftM (n := n) x) = ι (MPropOrdered.μ x)

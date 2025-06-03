@@ -119,6 +119,19 @@ instance
     rw [map_eq_pure_bind]; apply MPropOrdered.bind; ext (_|_) <;> simp
 
 
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
+  [IsHandler (ε := ε) hd]
+  [inst: MPropOrdered m l] :
+  TProp m l (ExceptT ε m) l (fun p => p) where
+    ι_mon := by simp [Monotone, LE.le]
+    μ_lift := by
+      intro x;
+      have h := MProp.lift_ExceptT (hd := hd) (c := liftM (n := ExceptT ε m) x) (post := fun p => p)
+      simp [MProp.lift] at h;
+      simp [h, liftM, monadLift, MonadLift.monadLift, Functor.map, MPropOrdered.μ, OfHd, MPropExcept]
+      simp [ExceptT.map, ExceptT.lift, ExceptT.mk]
+
+
 end ExeceptHandler
 
 namespace ExceptionAsSuccess

@@ -170,6 +170,14 @@ instance [NoFailure m] : NoFailure (NonDetT m) where
     rw [this, NonDetT.wp_eq_wp]; clear this
     induction c <;> simp [NonDetT.wp, pure, *]
 
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
+  [inst: MPropOrdered m l] :
+  TProp m l (NonDetT m) l (fun p => p) where
+    ι_mon := by simp [Monotone, LE.le]
+    μ_lift := by
+      simp [liftM, monadLift, MonadLift.monadLift, MPropOrdered.μ, NonDetT.μ, NonDetT.wp,
+        pure, wp, MProp.lift]
+
 end DemonicChoice
 
 namespace AngelicChoice
@@ -256,6 +264,14 @@ lemma MonadNonDet.wp_assume {as : Prop} post : _root_.wp (MonadNonDet.assume (m 
 lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
   _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨆ a, ⌜p a⌝ ⊓ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
+
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
+  [inst: MPropOrdered m l] :
+  TProp m l (NonDetT m) l (fun p => p) where
+    ι_mon := by simp [Monotone, LE.le]
+    μ_lift := by
+      simp [liftM, monadLift, MonadLift.monadLift, MPropOrdered.μ, NonDetT.μ, NonDetT.wp,
+        pure, wp, MProp.lift]
 
 end AngelicChoice
 
