@@ -172,7 +172,7 @@ instance [NoFailure m] : NoFailure (NonDetT m) where
 
 instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
   [inst: MPropOrdered m l] :
-  MPropLiftT m l (NonDetT m) l where
+  MPropLift m l (NonDetT m) l where
     μ_lift := by
       intros; simp [liftM, monadLift, MonadLift.monadLift, MPropOrdered.μ, NonDetT.μ, NonDetT.wp,
         pure, wp, MProp.lift, Functor.map, NonDetT.wp, NonDetT.bind]
@@ -266,7 +266,7 @@ lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
 
 instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l]
   [inst: MPropOrdered m l] :
-  MPropLiftT m l (NonDetT m) l where
+  MPropLift m l (NonDetT m) l where
     μ_lift := by
       intros; simp [liftM, monadLift, MonadLift.monadLift, MPropOrdered.μ, NonDetT.μ, NonDetT.wp,
         pure, wp, MProp.lift, Functor.map, NonDetT.wp, NonDetT.bind]
