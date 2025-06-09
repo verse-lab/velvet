@@ -130,8 +130,8 @@ inductive ExtractNonDet (findable : {τ : Type u} -> (τ -> Prop) -> Type u) {m}
   | pickSuchThat {α} (τ : Type u) (p : τ -> Prop) (f : τ → NonDetT m α)
     {_ : findable p}
      : (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont τ p f)
-  | assume {α} (p : PUnit -> Prop) (f : PUnit → NonDetT m α) :
-    (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont PUnit p f)
+  -- | assume {α} (p : PUnit -> Prop) (f : PUnit → NonDetT m α) :
+  --   (∀ x, ExtractNonDet findable (f x)) → ExtractNonDet findable (.pickCont PUnit p f)
 
 set_option linter.unusedVariables false in
 def ExtractNonDet.bind {findable : {τ : Type u} -> (τ -> Prop) -> Type u} :
@@ -144,9 +144,9 @@ def ExtractNonDet.bind {findable : {τ : Type u} -> (τ -> Prop) -> Type u} :
   | .pickSuchThat _ p f inst, inst' => by
     dsimp [Bind.bind, NonDetT.bind]; constructor
     assumption; intro y; apply ExtractNonDet.bind <;> solve_by_elim
-  | .assume _ f inst, inst' => by
-    dsimp [Bind.bind, NonDetT.bind]; apply ExtractNonDet.assume
-    intro y; apply ExtractNonDet.bind <;> solve_by_elim
+  -- | .assume _ f inst, inst' => by
+  --   dsimp [Bind.bind, NonDetT.bind]; apply ExtractNonDet.assume
+  --   intro y; apply ExtractNonDet.bind <;> solve_by_elim
 
 instance ExtractNonDet.pure' : ExtractNonDet findable (Pure.pure (f := NonDetT m) x) := by
   dsimp [Pure.pure, NonDetT.pure]; constructor
@@ -156,9 +156,9 @@ instance ExtractNonDet.liftM (x : m α) :
     dsimp [_root_.liftM, monadLift, MonadLift.monadLift]; constructor
     intro y; apply ExtractNonDet.pure'
 
-instance ExtractNonDet.assume' {p : Prop} : ExtractNonDet findable (MonadNonDet.assume (m :=  NonDetT m) p) := by
-  dsimp [MonadNonDet.assume, NonDetT.assume]; apply ExtractNonDet.assume
-  intro y; apply ExtractNonDet.pure
+-- instance ExtractNonDet.assume' {p : Prop} : ExtractNonDet findable (MonadNonDet.assume (m :=  NonDetT m) p) := by
+--   dsimp [MonadNonDet.assume, NonDetT.assume]; apply ExtractNonDet.assume
+--   intro y; apply ExtractNonDet.pure
 
 instance ExtractNonDet.pickSuchThat' {τ : Type u} (p : τ -> Prop) [Findable p] :
   ExtractNonDet Findable (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) := by
@@ -201,7 +201,7 @@ def NonDetT.extractGen {findable : {τ : Type u} -> (τ -> Prop) -> Type u} {α 
     match findOf p ‹_› with
     | none => CCPOBot.compBot
     | some x =>  extractGen findOf (f x)
-  | .pickCont _ _ f, .assume _ _ _ => extractGen findOf (f .unit)
+  -- | .pickCont _ _ f, .assume _ _ _ => extractGen findOf (f .unit)
 
 @[inline]
 def NonDetT.extract {α : Type u} (s : NonDetT m α) (ex : ExtractNonDet Findable s := by solve_by_elim) : m α :=
@@ -218,7 +218,7 @@ macro "extract_step" : tactic =>
       | eapply ExtractNonDet.bind
       | eapply ExtractNonDet.pure'
       | eapply ExtractNonDet.liftM
-      | eapply ExtractNonDet.assume'
+      -- | eapply ExtractNonDet.assume'
       | eapply ExtractNonDet.pickSuchThat'
       | eapply ExtractNonDet.pickSuchThat_weak
       | split)
@@ -363,7 +363,6 @@ def ExtractNonDet.prop {α : Type u} (s : NonDetT m α) :  ExtractNonDet WeakFin
   | .pure x => ⊤
   | .vis x f ex => wlp x fun y => (ex y).prop
   | .pickSuchThat _ p f ex => ⨅ t ∈ WeakFindable.find p, (ex t).prop
-  | .assume p _ ex => ⌜p .unit⌝ ⊓ (ex .unit).prop
 
 namespace DemonicChoice
 
@@ -375,22 +374,16 @@ lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet 
   { simp [NonDetT.wp_vis, NonDetT.prop]; rw [inf_comm, wlp_join_wp]
     simp [NonDetT.extract, wp_bind]
     apply wp_cons; aesop (add norm inf_comm) }
-  { simp [NonDetT.wp_pickCont, NonDetT.prop, NonDetT.extract]; split
-    { have := Findable.find_none (p := p) (by simpa);
-      have : (∀ x, p x = False) := by simpa
-      simp [this] }
-    rw [<-inf_assoc]; refine inf_le_of_left_le ?_
-    rw [← @iInf_inf_eq]; simp [meet_himp _ _ _ _ rfl]
-    rename_i y _
-    refine iInf_le_of_le y ?_
-    have := Findable.find_some_p (p := p) (by assumption)
-    simp [this]; apply a_ih }
-  simp [NonDetT.wp_pickCont, NonDetT.prop, NonDetT.extract]
-  have: ∀ a : PUnit.{u_1 + 1}, a = .unit := by aesop
-  simp [this, iInf_const, iSup_const]; apply le_trans'; apply a_ih
-  simp; constructor
-  { rw [<-inf_assoc, <-le_himp_iff]; exact inf_le_left }
-  refine inf_le_of_right_le ?_; exact inf_le_left
+  simp [NonDetT.wp_pickCont, NonDetT.prop, NonDetT.extract]; split
+  { have := Findable.find_none (p := p) (by simpa);
+    have : (∀ x, p x = False) := by simpa
+    simp [this] }
+  rw [<-inf_assoc]; refine inf_le_of_left_le ?_
+  rw [← @iInf_inf_eq]; simp [meet_himp _ _ _ _ rfl]
+  rename_i y _
+  refine iInf_le_of_le y ?_
+  have := Findable.find_some_p (p := p) (by assumption)
+  simp [this]; apply a_ih
 
 omit [MonoBind m] in
 lemma ExtractNonDet.extract_refines (pre : l) (s : NonDetT m α) (inst : ExtractNonDet Findable s) :
@@ -402,13 +395,13 @@ lemma ExtractNonDet.extract_refines (pre : l) (s : NonDetT m α) (inst : Extract
 
 variable [MPropPartial m]
 
-omit [CCPOBot m] [MPropDet m l] [LawfulMonad m] in
+omit [CCPOBot m] [MPropDet m l] [LawfulMonad m] [MonoBind m] in
 lemma wp_csup (xc : Set (m α)) (post : α -> l) :
   Lean.Order.chain xc ->
   ⨅ c ∈ xc, wp c post ≤ wp (Lean.Order.CCPO.csup xc) post := by
   apply MPropPartial.csup_lift
 
-omit [CCPOBot m] [MPropDet m l] [LawfulMonad m] in
+omit [CCPOBot m] [MPropDet m l] [LawfulMonad m] [MonoBind m] in
 lemma wp_bot :
   wp (bot : m α) = fun _ => (⊤ : l) := by
   ext post; refine eq_top_iff.mpr ?_
@@ -416,60 +409,52 @@ lemma wp_bot :
   refine le_iInf₂ ?_
   intro; erw [Set.mem_empty_iff_false]; simp
 
+omit [MonoBind m] [MPropDet m l] in
 lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
-  wp s post ⊓ inst.prop <= wp s.extractWeak post := by
+  wp s post <= wp s.extractWeak post := by
   unhygienic induction inst
   { simp [wp_pure, NonDetT.extractWeak] }
-  { simp [NonDetT.wp_vis, ExtractNonDet.prop]; rw [inf_comm, wlp_join_wp]
+  { simp [NonDetT.wp_vis, ExtractNonDet.prop];
     simp [NonDetT.extractWeak, wp_bind]
     apply wp_cons; aesop (add norm inf_comm) }
-  { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]; split
-    simp [CCPOBot.prop, wp_bot]
-    rw [← @iInf_inf_eq]
-    rename_i y h
-    refine iInf_le_of_le y ?_
-    have := WeakFindable.find_some_p (p := p) (by assumption)
-    simp [this, h]; apply a_ih }
-  { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]
-    have: ∀ a : PUnit.{u_1 + 1}, a = .unit := by aesop
-    simp [this, iInf_const, iSup_const]; apply le_trans'; apply a_ih
-    simp; constructor
-    { rw [<-inf_assoc]; apply inf_le_of_left_le; rw [<-le_himp_iff] }
-    rw [<-inf_assoc]; exact inf_le_right }
+  simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]; split
+  simp [CCPOBot.prop, wp_bot]
+  rename_i y h
+  refine iInf_le_of_le y ?_
+  have := WeakFindable.find_some_p (p := p) (by assumption)
+  simp [this, h]; apply a_ih
+
+omit [MonoBind m] [MPropDet m l] in
 lemma ExtractNonDet.extract_refines_triple_weak (pre : l) (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   triple pre s post ->
   pre <= inst.prop ->
   triple pre s.extractWeak post := by
   intro tr imp; apply le_trans'; apply ExtractNonDet.extract_refines_wp_weak
-  simp; aesop
+  solve_by_elim
 
 end DemonicChoice
 
 namespace AngelicChoice
 
 variable [MPropTotal m]
-omit [MonoBind m] in
+omit [MonoBind m] [MPropDet m l] in
 lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
-  wp s.extractWeak post ⊓ inst.prop <= wp s post := by
+  wp s.extractWeak post <= wp s post := by
   unhygienic induction inst
   { simp [wp_pure, NonDetT.extractWeak] }
-  { simp [NonDetT.wp_vis, ExtractNonDet.prop, NonDetT.extractWeak, wp_bind]; rw [inf_comm, wlp_join_wp]
+  { simp [NonDetT.wp_vis, ExtractNonDet.prop, NonDetT.extractWeak, wp_bind];
     apply wp_cons; aesop (add norm inf_comm) }
-  { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]; split
-    { simp [*, CCPOBot.prop, TotalCorrectness.wp_bot] }
-    simp [*]; apply le_iSup_of_le; simp; constructor; rotate_left
-    apply a_ih; rename_i h; simp [x.find_some_p h] }
-  simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak, LE.pure];
-  split_ifs <;> simp; apply le_iSup_of_le
-  apply a_ih
+  simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]; split
+  { simp [*, CCPOBot.prop, TotalCorrectness.wp_bot] }
+  apply le_iSup_of_le; simp; constructor; rotate_left
+  apply a_ih; rename_i h; simp [x.find_some_p h]
 
-omit [MonoBind m] in
+omit [MonoBind m] [MPropDet m l] in
 lemma ExtractNonDet.extract_refines_triple (pre : l) (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   triple pre s.extractWeak post ->
   pre <= inst.prop ->
   triple pre s post := by
-  intro tr imp; apply le_trans'; apply ExtractNonDet.extract_refines_wp_weak <;> solve_by_elim
-  simp; aesop
+  intro tr imp; apply le_trans' <;> solve_by_elim [ExtractNonDet.extract_refines_wp_weak]
 
 
 end AngelicChoice
