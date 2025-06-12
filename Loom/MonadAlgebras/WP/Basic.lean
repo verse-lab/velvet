@@ -45,6 +45,15 @@ lemma wp_cons (x : m α) (post post' : α -> l) :
     intros h; simp [wp, liftM, monadLift]; apply Cont.monotone_lift; intros y
     apply h
 
+lemma triple_cons (x : m α) (pre pre' : l) (post post' : α -> l) :
+  pre' ≤ pre ->
+  (∀ y, post y ≤ post' y) ->
+  triple pre x post ->
+  triple pre' x post' := by
+    intros hpre hpost h
+    apply le_trans'; apply wp_cons; apply hpost
+    solve_by_elim [le_trans]
+
 lemma triple_bind {β} (pre : l) (x : m α) (cut : α -> l)
   (f : α -> m β) (post : β -> l) :
   triple pre x cut ->
