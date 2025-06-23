@@ -1,6 +1,7 @@
 import Lean
 
 import Loom.MonadAlgebras.WP.Attr
+import Loom.MonadAlgebras.WP.DoNames'
 
 open Lean Parser Meta Elab Term Command Tactic
 
@@ -37,11 +38,6 @@ elab "show_all_goals" : tactic => do
   setGoals (← getUnassignedExprMVars).toList
   synthesizeSyntheticMVarsNoPostponing
 
-elab "foo" : tactic => withMainContext do
-  let mid <- mkFreshExprSyntheticOpaqueMVar (<- getMainTarget)
-  (<- getMainGoal).assign mid
-
-
 macro "try_resolve_spec_goals" : tactic => `(tactic| try is_not_wpgen_goal; solve | rfl | solve_by_elim | simp)
 
 def generateWPStep : TacticM Unit := withMainContext do
@@ -58,20 +54,53 @@ def generateWPStep : TacticM Unit := withMainContext do
 
 
 elab "wpgen_app" : tactic => generateWPStep
-macro "wpgen_step" : tactic => `(tactic| (wpgen_app <;> intros <;> try_resolve_spec_goals))
+macro "wpgen_step" : tactic => `(tactic| first
+  | (wpgen_app <;> intros <;> try_resolve_spec_goals)
+  | (intros; split <;> intros))
 macro "wpgen_intro" : tactic => `(tactic| (apply WPGen.intro; rotate_right))
 macro "wpgen" : tactic => `(tactic| (
   wpgen_intro
   repeat' wpgen_step
   ))
+def Lean.Expr.getName (e : Expr) : MetaM Name := do
+  match_expr e with
+  | Name.mkStr _ n =>
+    match n with
+    | .lit (.strVal n) => return n.toName
+    | _                => throwError "expected a string literal1"
+  | _ => throwError "expected a string literal3"
+
+
+partial def Lean.Expr.getNamesProp (tp : Expr) : MetaM (Option (List Name)) := do
+  match_expr tp with
+  | WithName _ n₁ => return some [<- n₁.getName]
+  | MProdWithNames _ tp n₁ =>
+    let n₁ <- n₁.getName
+    let some ns <- Lean.Expr.getNamesProp tp
+      | return none
+    return some $ n₁ :: ns
+  | _ => return none
+
+elab "loom_intro" : tactic => withMainContext do
+  let goalType <- getMainTarget
+  let .forallE _ tp _ _ := goalType.consumeMData
+    | evalTactic $ <- `(tactic| fail)
+  let some ns <- tp.getNamesProp
+    | evalTactic $ <- `(tactic| try intro)
+  let names := ns |>.map Lean.mkIdent |>.toArray
+  if names.size > 1 then
+    evalTactic $ <- `(tactic|
+      (try unfold WithName); rintro ⟨$[$names],*⟩; try simp only [MProdWithNames.snd, MProdWithNames.fst])
+  else
+    evalTactic $ <- `(tactic| (try unfold WithName); intro $(names[0]!):ident)
 
 macro "mwp" : tactic => `(tactic| (
   wpgen
-  try simp only [loomLogicSimp, loomWpSimp, invariants, List.foldr]
-  repeat' (apply And.intro <;> intros)))
+  try simp only [loomLogicSimp, loomWpSimp, invariants, List.foldr, WithName.mk']
+  repeat' (apply And.intro <;> (repeat loom_intro))))
 
 attribute [spec high, loomWpSimp] WPGen.if
-attribute [spec, loomWpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map
+attribute [spec, loomWpSimp] WPGen.bind WPGen.pure WPGen.assert WPGen.forWithInvariant WPGen.map-- WPGen.let
 attribute [loomWpSimp] spec
 
 @[loomLogicSimp]

@@ -7,6 +7,7 @@ import Mathlib.Algebra.Ring.Int.Defs
 
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
+import Loom.MonadAlgebras.WP.DoNames'
 
 import Loom.MonadAlgebras.Leafny.Extension
 import Loom.MonadAlgebras.Leafny.Syntax
@@ -39,7 +40,6 @@ instance [DecidableEq α] : Collection α (List α) where
 attribute [-simp] if_true_left Bool.if_true_left ite_eq_left_iff
 attribute [loomLogicSimp] ite_self
 
-
 method Collection.toSet (mut k : κ) return (s : α -> Bool)
   ensures ∀ x, s x = Collection.mem x k
   do
@@ -56,30 +56,28 @@ method Collection.toSet (mut k : κ) return (s : α -> Bool)
     by
       cases col; simp;
       dsimp [Collection.toSet]
-      mwp <;> aesop
-
-
-
+      mwp
+      <;> aesop
 
 -- #check WPGen.bind
       -- mwp
       -- { rintro ⟨k, s⟩; mwp; aesop }
       -- aesop
-/--
-info: DivM.res
-  ⟨[(0, false),
-    (1, true),
-    (2, true),
-    (3, false),
-    (4, false),
-    (5, true),
-    (6, false),
-    (7, false),
-    (8, false),
-    (9, false)], ⟨[], ()⟩⟩
--/
-#guard_msgs in
-#eval Collection.toSet [1,2,5] |>.run
+-- /--
+-- info: DivM.res
+--   ⟨[(0, false),
+--     (1, true),
+--     (2, true),
+--     (3, false),
+--     (4, false),
+--     (5, true),
+--     (6, false),
+--     (7, false),
+--     (8, false),
+--     (9, false)], ⟨[], ()⟩⟩
+-- -/
+-- #guard_msgs in
+-- #eval Collection.toSet [1,2,5] |>.run
 
 end Collection
 
@@ -430,6 +428,8 @@ method insertionSort(arr: array<int>)
 
 set_option maxHeartbeats 1000000
 
+#check Lean.Elab.Term.Do.elabDo
+
 method insertionSort
   (mut arr: Array Nat) return (u: Unit)
   ensures forall i j, i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
@@ -669,11 +669,7 @@ method sqrt (x: ℕ) return (res: ℕ)
   { simp [sqrt]
     mwp
     any_goals first | grind | aesop (add safe (by omega))
-    have hx : 1 ≤ x := by omega
-    have hx₁ : 1 ≤ x_1 := by false_or_by_contra; aesop
-    exact left (x_1 - 1) (by omega)
-    have hx : 1 ≤ x := by omega
-    have hx₁ : 1 ≤ x_1 := by false_or_by_contra; aesop
-    aesop (add safe (by omega)) }
+    cases i <;> aesop (add safe (by omega))
+    cases i_1 <;> aesop (add safe (by omega)) }
 
 end squareRoot

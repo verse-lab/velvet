@@ -8,6 +8,7 @@ import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 
 import Loom.MonadAlgebras.Leafny.Extension
+import Loom.MonadAlgebras.WP.DoNames'
 
 open Lean Elab Command Term Meta Lean.Parser
 

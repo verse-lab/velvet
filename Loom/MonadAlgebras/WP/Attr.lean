@@ -85,10 +85,11 @@ def getSpecKey (ty : Expr) : MetaM (Expr × Loom.SpecType) := do
   | triple _m _mInst _α _l _lInst _mPropInst _pre x _post => pure (x, .triple)
   | WPGen _m _mInst _α _l _lInst _mPropInst x => pure (x, .wpgen)
   | _ => throwError s!"not a triple: {body}"
-  if x.1.getAppFn'.isConst then
-    return x
-  else
-    throwError s!"not an application of a constant: {x.1}"
+  -- if x.1.getAppFn'.isConst then
+  --   return x
+  -- else
+  --   throwError s!"not an application of a constant: {x.1}"
+  return x
 
 /- The persistent map from expressions to pspec theorems. -/
 initialize specAttr : SpecAttr ← do

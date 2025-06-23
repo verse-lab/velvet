@@ -219,3 +219,11 @@ def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Comp
   prop := by
     intro post; simp [LE.pure]
     split <;> simp <;> solve_by_elim [wpgx.prop, wpgy.prop]
+
+noncomputable
+def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MPropOrdered m l]
+  (y : β) {x : β -> m α} (wpgx : ∀ y, WPGen (x y)) : WPGen (let z := y; x z) where
+  get := fun post => ⨅ z, ⌜z = y⌝ ⇨ (wpgx z).get post
+  prop := by
+     intro post; simp; refine iInf_le_of_le y ?_
+     simp; apply (wpgx y).prop
