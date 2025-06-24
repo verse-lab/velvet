@@ -46,6 +46,10 @@ structure SpecAttr where
   ext  : DiscrTreeExtension Loom.Spec
   deriving Inhabited
 
+structure SolverHintAttr where
+  attr : AttributeImpl
+  ext : SimplePersistentEnvExtension Name (Array Name)
+  deriving Inhabited
 
 /-- For the attributes
 
@@ -76,6 +80,7 @@ initialize registerTraceClass `Loom (inherited := true)
 register_simp_attr loomLogicSimp
 register_simp_attr loomWpSimp
 register_simp_attr loomWpSplit
+register_simp_attr loomAbstractionSimp
 
 
 
@@ -126,10 +131,30 @@ initialize specAttr : SpecAttr ← do
   registerBuiltinAttribute attrImpl
   pure { attr := attrImpl, ext := ext }
 
+/- The persistent map from expressions to pspec theorems. -/
+initialize solverHints : SolverHintAttr ← do
+  let ext ←  registerSimplePersistentEnvExtension {
+    name          := `solverHints,
+    addImportedFn := fun a => a.flatMap id
+    addEntryFn    := fun s n => s.push n
+  }
+  let attrImpl : AttributeImpl := {
+    name := `solverHint
+    descr := "Marks theorems to use with the solver"
+    add := fun thName stx attrKind => do
+      setEnv $ ext.addEntry (← getEnv) thName
+  }
+  registerBuiltinAttribute attrImpl
+  pure { attr := attrImpl, ext := ext }
+
+
 def SpecAttr.find? (s : SpecAttr) (e : Expr) : MetaM (Array Loom.Spec) := do
   (s.ext.getState (← getEnv)).getMatch e
 
 def SpecAttr.getState (s : SpecAttr) : MetaM (DiscrTree Loom.Spec) := do
+  return s.ext.getState (← getEnv)
+
+def SolverHintAttr.getState (s : SolverHintAttr) : MetaM (Array Name) := do
   return s.ext.getState (← getEnv)
 
 -- def showStoredSpec : MetaM Unit := do
