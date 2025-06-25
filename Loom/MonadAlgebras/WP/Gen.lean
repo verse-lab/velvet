@@ -7,9 +7,6 @@ import Loom.MonadAlgebras.WP.Basic
 import Loom.MonadAlgebras.WP.Liberal
 import Loom.MonadAlgebras.WP.DoNames'
 
-
-import Lean.Data.Lsp.Basic
-
 open Lean Elab Command
 
 universe u v w
@@ -18,7 +15,7 @@ section
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l]
 
 set_option linter.unusedVariables false in
-def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MPropOrdered m invType] : m PUnit := pure (WithName.mk' .unit)
+def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MPropOrdered m invType] : m PUnit := pure .unit
 
 declare_syntax_cat doneWith
 declare_syntax_cat invariantClause
@@ -97,7 +94,7 @@ macro_rules
     | `(doSeq| { $[$seq:doElem]* }) =>
       `(doElem|
         for _ in Lean.Loop.mk do
-          invariantGadget [ $[WithName ($inv:term) (Lean.Name.anonymous.mkStr "inv")],* ]
+          invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
           onDoneGadget $inv_done
           if ∃ $x:ident, $t then
             let $x :| $t
