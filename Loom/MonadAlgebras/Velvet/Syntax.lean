@@ -7,7 +7,7 @@ import Mathlib.Algebra.Ring.Int.Defs
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 
-import Loom.MonadAlgebras.Leafny.Extension
+import Loom.MonadAlgebras.Velvet.Extension
 import Loom.MonadAlgebras.WP.DoNames'
 
 open Lean Elab Command Term Meta Lean.Parser
@@ -115,7 +115,7 @@ mutual
 partial def expandLeafnyDoSeq (modIds : Array Ident) (stx : doSeq) : TermElabM (Array doSeqItem) :=
   match stx with
   | `(doSeq| $doS:doSeqItem*) => return Array.flatten $ ← doS.mapM (expandLeafnyDoSeqItem modIds)
-  | _ => throwErrorAt stx s!"unexpected syntax of Leafny `do`-notation sequence {stx}"
+  | _ => throwErrorAt stx s!"unexpected syntax of Velvet `do`-notation sequence {stx}"
 
 
 partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : TermElabM (Array doSeqItem) := do
@@ -242,3 +242,6 @@ elab_rules : command
   elabCommand defCmd
   trace[Loom.debug] "{thmCmd}"
   elabCommand thmCmd
+
+set_option linter.unusedVariables false in
+def atomicAssertion {α : Type u} (n : Name) (a : α) := a

@@ -7,7 +7,7 @@ import Mathlib.Algebra.Ring.Int.Defs
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 
-import Loom.MonadAlgebras.Leafny.Extension
+import Loom.MonadAlgebras.Velvet.Extension
 
 
 open PartialCorrectness DemonicChoice

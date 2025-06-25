@@ -141,11 +141,6 @@ initialize solverHints : SimpleScopedEnvExtension Name SolverHints ←
     initial := #[]
     addEntry := fun s' a => s'.push a
   }
-
-private def _root_.Lean.SimpleScopedEnvExtension.get [Inhabited σ] (ext : SimpleScopedEnvExtension α σ)
-  [Monad m] [MonadEnv m] : m σ := do
-  return ext.getState (<- getEnv)
-
 private def _root_.Lean.SimpleScopedEnvExtension.modify
   (ext : SimpleScopedEnvExtension α σ) (s : σ -> σ)
   [Monad m] [MonadEnv m] : m Unit := do
