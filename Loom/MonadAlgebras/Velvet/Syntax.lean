@@ -33,6 +33,14 @@ private def _root_.Lean.SimpleScopedEnvExtension.modify
   [Monad m] [MonadEnv m] : m Unit := do
   Lean.modifyEnv (ext.modifyState · s)
 
+private def _root_.Lean.SimplePersistentEnvExtension.get [Inhabited σ] (ext : SimplePersistentEnvExtension α σ)
+  [Monad m] [MonadEnv m] : m σ := do
+  return ext.getState (<- getEnv)
+
+private def _root_.Lean.SimplePersistentEnvExtension.modify
+  (ext : SimplePersistentEnvExtension α σ) (s : σ -> σ)
+  [Monad m] [MonadEnv m] : m Unit := do
+  Lean.modifyEnv (ext.modifyState · s)
 
 abbrev doSeq := TSyntax ``Term.doSeq
 abbrev doSeqItem := TSyntax ``Term.doSeqItem
@@ -56,7 +64,9 @@ syntax "ensures" termBeforeReqEnsDo : ensures_caluse
 
 syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
   (require_caluse )*
-  (ensures_caluse)* "do" doSeq linebreak "correct_by" term : command
+  (ensures_caluse)* "do" doSeq : command
+
+syntax "prove_correct" ident "by" tacticSeq : command
 
 syntax (priority := high) ident noWs "[" term "]" ":=" term : doElem
 syntax (priority := high) ident noWs "[" term "]" "+=" term : doElem
@@ -201,14 +211,13 @@ private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `ter
       t <- `(term| $t' ∧ $t)
     return t
 
-
 elab_rules : command
   | `(command|
   method $name:ident $binders:leafny_binder* return ( $retId:ident : $type:term )
   $[require $req:term]*
   $[ensures $ens:term]* do $doSeq:doSeq
-  correct_by $proof:term) => do
-  let (defCmd, thmCmd) ← Command.runTermElabM fun _vs => do
+  ) => do
+  let (defCmd, obligation) ← Command.runTermElabM fun _vs => do
     let bindersIdents ← toBracketedBinderArray binders
 
     let modIds ← getModIds binders
@@ -228,7 +237,7 @@ elab_rules : command
       retType <- `(($modId:ident : $mutType) × $retType)
     let defCmd <- `(command|
       def $name $bindersIdents* : NonDetT DivM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
-    let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
+    -- let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
 
     let pre <- req.andList
     let post <- ens.andListWithName
@@ -239,17 +248,34 @@ elab_rules : command
       ret <- `(term| ⟨$modId, $ret⟩)
 
     let ids ← getIds binders
-    let thmCmd <- `(command|
-      lemma $lemmaName $bindersIdents* :
-      $pre ->
-      triple
-        True
-        ($name $ids*)
-        (fun ⟨$retId, $ret⟩ => $post) := $proof)
-    return (defCmd, thmCmd)
+    let obligation : VelvetObligation := {
+      binderIdents := bindersIdents
+      ids := ids
+      retId := retId
+      ret := ret
+      pre := pre
+      post := post
+    }
+    return (defCmd, obligation)
   elabCommand defCmd
-  trace[Loom.debug] "{thmCmd}"
-  elabCommand thmCmd
+  velvetObligations.modify (·.insert name.getId obligation)
+
+@[incremental]
+elab_rules : command
+  | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq) => do
+    let ctx <- velvetObligations.get
+    let .some obligation := ctx[name.getId]? | throwError "no obligation found"
+    let bindersIdents := obligation.binderIdents
+    let ids := obligation.ids
+    let retId := obligation.retId
+    let ret := obligation.ret
+    let pre := obligation.pre
+    let post := obligation.post
+    let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
+    let proof <- withRef tkp ``(by $proof)
+    let thmCmd <- withRef tkp `(command| lemma $lemmaName $bindersIdents* : $pre -> triple True ($name $ids*) (fun ⟨$retId, $ret⟩ => $post) := $proof)
+    Command.elabCommand thmCmd
+    velvetObligations.modify (·.erase name.getId)
 
 set_option linter.unusedVariables false in
 def atomicAssertion {α : Type u} (n : Name) (a : α) := a

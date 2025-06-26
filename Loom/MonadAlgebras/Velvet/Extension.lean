@@ -23,3 +23,25 @@ initialize globalMutVarsCtx :
 
 initialize
   registerTraceClass `Loom.debug
+
+structure VelvetObligation where
+  binderIdents : TSyntaxArray `Lean.Parser.Term.bracketedBinder
+  ids : Array Ident
+  retId : Ident
+  ret : Term
+  pre : Term
+  post : Term
+deriving Inhabited
+
+abbrev VelvetObligations := Std.HashMap Name VelvetObligation
+
+initialize velvetObligations :
+  SimplePersistentEnvExtension (Name × VelvetObligation) VelvetObligations <-
+  registerSimplePersistentEnvExtension {
+    addEntryFn := fun s (n, o) => s.insert n o
+    addImportedFn := fun as => Id.run do
+      let mut res : VelvetObligations := ∅
+      for a in as do
+        res := res.union <| Std.HashMap.ofList a.toList
+      return res
+  }

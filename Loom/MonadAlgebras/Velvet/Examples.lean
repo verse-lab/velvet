@@ -178,10 +178,10 @@ method spmv
       out[i] += val
       arrInd[i] += 1
     return
-  correct_by by {
+prove_correct spmv by
     dsimp [spmv]
     velvet_solve
-  }
+
 
 /-
 def toList [arr_inst: TArray ε τ] (arr: τ): List ε :=
@@ -865,13 +865,12 @@ method insertionSort
             let right := arr[mind]
             arr[mind - 1] := right
             arr[mind] := left
-          -- mind := mind - 1
+          mind := mind - 1
         n := n + 1
       return
-  correct_by by
-  { dsimp [insertionSort]
+prove_correct insertionSort by
+    dsimp [insertionSort]
     velvet_solve
-  }
 
 section squareRoot
 
@@ -889,8 +888,8 @@ method sqrt (x: ℕ) return (res: ℕ)
       do
         i := i + 1
       return i - 1
-  correct_by by
-  { dsimp [sqrt]
-    velvet_solve }
+prove_correct sqrt by
+  dsimp [sqrt]
+  velvet_solve
 
 end squareRoot

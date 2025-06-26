@@ -10,17 +10,20 @@ import Loom.Tactic
 
 import Loom.MonadAlgebras.Velvet.Extension
 
+import ProofWidgets.Component.Panel.Basic
+import ProofWidgets.Component.HtmlDisplay
+import ProofWidgets.Component.OfRpcMethod
+
 open Lean
 open Lean.Elab
 open Lean.Elab.Tactic
 open Lean.Meta
 
--- lemma simpMProp (α β : Type) (P : _ -> Prop) :
---   (∀ a : MProdWithNames α β n, P a) =
---   (∀ a b, P ⟨a, b⟩) := by
---   sorry
-
 private def _root_.Lean.SimpleScopedEnvExtension.get [Inhabited σ] (ext : SimpleScopedEnvExtension α σ)
+  [Monad m] [MonadEnv m] : m σ := do
+  return ext.getState (<- getEnv)
+
+private def _root_.Lean.SimplePersistentEnvExtension.get [Inhabited σ] (ext : SimplePersistentEnvExtension α σ)
   [Monad m] [MonadEnv m] : m σ := do
   return ext.getState (<- getEnv)
 
@@ -39,34 +42,52 @@ def getAssertionStx : TacticM Term := withMainContext do
   | _ => throwError s!"Failed to prove assertion which is not registered4: {goalStx}"
   --let ⟨maxId, ss, ns⟩ <- loomAssertionsMap.get
 
-elab "velvet_solve" : tactic => withMainContext do
-  let ctx := (<- solverHints.get)
-  let mut hints : Array (TSyntax ``Auto.hintelem) := #[]
-  for c in ctx do
-    hints := hints.push $ <- `(Auto.hintelem| $(mkIdent c):ident)
-  hints := hints.push $ <- `(Auto.hintelem| *)
-  evalTactic $ <- `(tactic| (
-  intro; wpgen;
-  try simp only [loomWpSimp]
-  try unfold spec
-  try simp only [invariants]
-  try simp only [WithName.mk']
-  try simp only [WithName.erase]
-  try simp only [List.foldr]
-  try simp only [loomLogicSimp]
-  repeat' (loom_split <;> (repeat loom_intro))))
-  let res <- anyGoalsWithTag do
-    let stx <- getAssertionStx
-    evalTactic $ <- `(tactic| all_goals try unfold WithName at *)
-    -- mvarId.setTag $ s!"{stx}".toName
-    evalTactic $ <- `(tactic| (
-        try (try simp only [loomAbstractionSimp] at *); auto [$hints,*]
-      ))
-    if (<- getUnsolvedGoals).length > 0 then
-      return some (Name.mkSimple stx.raw.prettyPrint.pretty, stx)
-    else return none
-  for stx in res do
-    logErrorAt stx $ m!"Failed to prove assertion " ++ MessageData.ofSyntax stx
+declare_syntax_cat velvet_solve_tactic
+syntax "velvet_solve" : velvet_solve_tactic
+syntax "velvet_solve?" : velvet_solve_tactic
+syntax "velvet_solve!" : velvet_solve_tactic
+syntax velvet_solve_tactic : tactic
+
+elab_rules : tactic
+  | `(tactic| $vls:velvet_solve_tactic) => withMainContext do
+    let ctx := (<- solverHints.get)
+    let mut hints : Array (TSyntax ``Auto.hintelem) := #[]
+    for c in ctx do
+      hints := hints.push $ <- `(Auto.hintelem| $(mkIdent c):ident)
+    hints := hints.push $ <- `(Auto.hintelem| *)
+    let vlsIntro <- `(tactic| (
+    intro; wpgen;
+    try simp only [loomWpSimp]
+    try unfold spec
+    try simp only [invariants]
+    try simp only [WithName.mk']
+    try simp only [WithName.erase]
+    try simp only [List.foldr]
+    try simp only [loomLogicSimp]
+    repeat' (loom_split <;> (repeat loom_intro))))
+    let vlsUnfold <- `(tactic| all_goals try unfold WithName at *)
+    let vlsAuto <- `(tactic| try (try simp only [loomAbstractionSimp] at *); auto [$hints,*])
+    let vlsTryThis <- `(tacticSeq|
+        $vlsIntro
+        $vlsUnfold
+        $vlsAuto)
+    if let `(velvet_solve_tactic| velvet_solve?) := vls then
+        Tactic.TryThis.addSuggestion (<-getRef) vlsTryThis
+      else
+    evalTactic vlsIntro
+    let res <- anyGoalsWithTag fun _mvarId => do
+      let stx <- getAssertionStx
+      evalTactic vlsUnfold
+      let mvarId <- getMainGoal
+      evalTactic vlsAuto
+      if (<- getUnsolvedGoals).length > 0 then
+        return some (.mkSimple stx.raw.prettyPrint.pretty, (mvarId, stx))
+      else return none
+    match vls with
+    | `(velvet_solve_tactic| velvet_solve!) =>
+      for (mvarId, stx) in res do
+        logErrorAt stx $ m!"Failed to prove assertion\n{mvarId}"
+    | _ => pure ()
 
 elab "velvet_solve?" : tactic => withMainContext do
   let ctx := (<- solverHints.get)

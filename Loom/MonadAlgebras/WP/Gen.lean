@@ -20,6 +20,14 @@ private def _root_.Lean.SimpleScopedEnvExtension.modify
   [Monad m] [MonadEnv m] : m Unit := do
   Lean.modifyEnv (ext.modifyState · s)
 
+private def _root_.Lean.SimplePersistentEnvExtension.get [Inhabited σ] (ext : SimplePersistentEnvExtension α σ)
+  [Monad m] [MonadEnv m] : m σ := do
+  return ext.getState (<- getEnv)
+
+private def _root_.Lean.SimplePersistentEnvExtension.modify
+  (ext : SimplePersistentEnvExtension α σ) (s : σ -> σ)
+  [Monad m] [MonadEnv m] : m Unit := do
+  Lean.modifyEnv (ext.modifyState · s)
 
 structure LoomAssertionsMap where
   maxId : Int
@@ -28,15 +36,21 @@ structure LoomAssertionsMap where
 
   deriving Inhabited
 
-initialize loomAssertionsMap :
-  SimpleScopedEnvExtension (Term × Name) LoomAssertionsMap <-
-  registerSimpleScopedEnvExtension {
-    initial := default
-    addEntry := fun s ⟨t, n⟩ =>
-      let maxId := s.maxId + 1
-      { s with maxId := maxId, syntaxStore := s.syntaxStore.insert maxId t, nameStore := s.nameStore.insert n maxId }
-  }
+def addAssertion (s : LoomAssertionsMap) (t : Term) (n : Name) : LoomAssertionsMap :=
+  let maxId := s.maxId + 1
+  { s with maxId := maxId, syntaxStore := s.syntaxStore.insert maxId t, nameStore := s.nameStore.insert n maxId }
 
+initialize loomAssertionsMap :
+  SimplePersistentEnvExtension (Term × Name) LoomAssertionsMap <-
+  registerSimplePersistentEnvExtension {
+    addEntryFn := fun s ⟨t, n⟩ => addAssertion s t n
+    addImportedFn := fun as => Id.run do
+      let mut res : LoomAssertionsMap := default
+      for a in as do
+        for (t, n) in a do
+          res := addAssertion res t n
+      return res
+  }
 
 section
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l]

@@ -6,7 +6,7 @@ open Lean Elab Command Term Meta Tactic
 
 open Tactic Lean.Meta
 
-def anyGoalsWithTag (tactic : TacticM (Option (Name × α))) : TacticM (Array α) := do
+def anyGoalsWithTag (tactic : MVarId → TacticM (Option (Name × α))) : TacticM (Array α) := do
   let mvarIds ← getGoals
   let mut res : Array α := #[]
   let mut mvarIdsNew : Array MVarId := #[]
@@ -14,7 +14,7 @@ def anyGoalsWithTag (tactic : TacticM (Option (Name × α))) : TacticM (Array α
     unless (← mvarId.isAssigned) do
       setGoals [mvarId]
       try
-        let r ← tactic
+        let r ← tactic mvarId
         if let some ⟨n, r⟩ := r then
           let goals <- getUnsolvedGoals
           for goal in goals do
