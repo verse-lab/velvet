@@ -13,7 +13,7 @@ import Loom.MonadAlgebras.Velvet.Syntax
 import Loom.MonadAlgebras.Velvet.Common
 import Loom.MonadAlgebras.Velvet.Tactic
 
-open PartialCorrectness DemonicChoice
+open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
 set_option auto.smt.trust true
 set_option auto.smt true

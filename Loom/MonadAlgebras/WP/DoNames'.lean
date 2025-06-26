@@ -1826,7 +1826,7 @@ def run (doStx : Syntax) (m : Syntax) (returnType : Syntax) : TermElabM CodeBloc
 
 end ToCodeBlock
 
-@[term_elab «do»] def elabDo : TermElab := fun stx expectedType? => do
+@[scoped term_elab «do»] def elabDo : TermElab := fun stx expectedType? => do
   -- failure
   tryPostponeIfNoneOrMVar expectedType?
   let bindInfo ← extractBind expectedType?
