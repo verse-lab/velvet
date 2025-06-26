@@ -263,7 +263,7 @@ structure Extractable (x : NonDetT m α) where
   cond : Cont l α
   prop : ∀ post, cond post <= x.prop post
 
-omit [LawfulMonad m] [(α : Type u) → CCPO (m α)] [MonoBind m] [MPropDet m l] in
+omit [CCPOBot m] [MonoBind m] [∀ α, CCPO (m α)] [LawfulMonad m] [MPropDet m l] in
 lemma NonDetT.prop_bind (x : NonDetT m α) (f : α -> NonDetT m β) :
   (x >>= f).prop = fun post => x.prop (fun a => (f a).prop post) := by
   unhygienic induction x
@@ -275,7 +275,7 @@ lemma NonDetT.prop_bind (x : NonDetT m α) (f : α -> NonDetT m β) :
   { simp [Bind.bind, NonDetT.bind, NonDetT.prop];
     ext post; congr!; erw [cont_ih] }
 
-omit [(α : Type u) → CCPO (m α)] [MonoBind m] [MPropDet m l] in
+omit [CCPOBot m] [MonoBind m] [∀ α, CCPO (m α)] [MPropDet m l] in
 lemma NonDetT.prop_mono (x : NonDetT m α) post post' :
   post <= post' -> x.prop post <= x.prop post' := by
   intro postLe; unhygienic induction x <;> simp only [NonDetT.prop]
@@ -374,13 +374,11 @@ def Extractable.if_some {τ} {p : τ -> Prop}
     apply_assumption
 
 
-omit [LawfulMonad m] [MPropDet m l] [(α : Type u) → CCPO (m α)] [MonoBind m]in
+omit [LawfulMonad m] [MPropDet m l] [CCPOBot m] [∀ α, CCPO (m α)] in
 lemma Extractable.intro (x : NonDetT m α) (ex : Extractable x) :
   pre <= ex.cond post ->
   pre <= x.prop post := by
     solve_by_elim [ex.prop, le_trans']
-
-
 
 macro "extractable_step" : tactic =>
   `(tactic|
@@ -441,8 +439,7 @@ end TotalCorrectness.DemonicChoice
 
 namespace PartialCorrectness.DemonicChoice
 
-variable [MPropPartial m]
-
+variable [CCPOBotLawful m] [MPropPartial m]
 
 lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   wp s post ⊓ s.prop ⊤ <= wp s.extractWeak post := by
@@ -452,7 +449,7 @@ lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet 
     simp [NonDetT.extractWeak, wp_bind]
     apply wp_cons; aesop (add norm inf_comm) }
   { simp [NonDetT.wp_pickCont, NonDetT.prop, NonDetT.extractWeak]; split
-    simp [CCPOBot.prop, wp_bot]
+    simp [CCPOBotLawful.prop, wp_bot]
     rw [<-inf_assoc]; refine inf_le_of_left_le ?_
     rw [← @iInf_inf_eq]; simp [meet_himp _ _ _ _ rfl]
     rename_i y _
@@ -473,6 +470,7 @@ lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet 
   intro b; apply le_trans'; apply a_ih_1; simp [hprop]
   simp [NonDetT.wp_eq_wp]
 
+set_option linter.unusedSectionVars false in
 lemma ExtractNonDet.extract_refines (pre : l) (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   triple pre s post ->
   pre <= s.prop ⊤ ->
@@ -488,6 +486,7 @@ def _root_.ExtractNonDet.prop {α : Type u} (s : NonDetT m α) :  ExtractNonDet 
   | .assume p _ ex => ⌜p .unit⌝ ⊓ (ex .unit).prop
   | .repeatCont _ f cont ex ex' => ⌜ ∀ b, ⊤ <= (ex b).prop ∧ ⊤ <= (ex' b).prop⌝
 
+set_option linter.unusedSectionVars false in
 lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   wp s post ⊓ inst.prop <= wp s.extractWeak post := by
   unhygienic induction inst
@@ -496,7 +495,7 @@ lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNo
     simp [NonDetT.extractWeak, wp_bind]
     apply wp_cons; aesop (add norm inf_comm) }
   { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]; split
-    simp [CCPOBot.prop, wp_bot]
+    simp [CCPOBotLawful.prop, wp_bot]
     rw [← @iInf_inf_eq]; simp [meet_himp _ _ _ _ rfl]
     rename_i y _
     refine iInf_le_of_le y ?_
@@ -516,6 +515,7 @@ lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNo
   intro b; apply le_trans'; apply a_ih_1; simp [hprop]
   simp [NonDetT.wp_eq_wp]
 
+set_option linter.unusedSectionVars false in
 lemma ExtractNonDet.extract_refines_triple_weak (pre : l) (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   triple pre s post ->
   pre <= inst.prop ->

@@ -132,7 +132,7 @@ method insertionSort(arr: array<int>)
 variable {arrInt} [arr_inst_int: TArray Int arrInt]
 variable {arrNat} [arr_inst: TArray Nat arrNat]
 
-set_option trace.profiler true
+-- set_option trace.profiler true
 attribute [local solverHint] TArray.multiSet_swap
 
 method insertionSort

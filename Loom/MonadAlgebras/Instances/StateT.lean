@@ -43,12 +43,14 @@ instance [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] : Le
     apply Lean.Order.MonoBind.bind_mono_right (m := m)
     intro x; apply h₁₂
 
-instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] : CCPOBot (StateT σ m) where
+instance [Monad m] [CCPOBot m] : CCPOBot (StateT σ m) where
   compBot := fun _ => CCPOBot.compBot
+
+instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] [CCPOBotLawful m] : CCPOBotLawful (StateT σ m) where
   prop := by
     simp [Lean.Order.bot, Lean.Order.CCPO.csup, instCCPOStateTOfMonad_loom]
     unfold Lean.Order.fun_csup; intro α; ext; simp [StateT.run]
-    apply CCPOBot.prop
+    apply CCPOBotLawful.prop
 
 
 lemma MProp.lift_StateT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MPropOrdered m l] (x : StateT σ m α) :

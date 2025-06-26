@@ -24,9 +24,11 @@ instance : Monad DivM where
     | DivM.res x => y x
     | DivM.div => DivM.div
 
-class CCPOBot (m : Type u -> Type v) [∀ α, Lean.Order.CCPO (m α)] where
+class CCPOBot (m : Type u -> Type v)  where
   compBot {α} : m α
-  prop {α} : @compBot α = Lean.Order.bot
+
+class CCPOBotLawful (m : Type u -> Type v) [∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] where
+  prop {α} : CCPOBot.compBot (m := m) (α := α) = Lean.Order.bot
 
 instance : LawfulMonad DivM := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_
@@ -37,7 +39,9 @@ instance : LawfulMonad DivM := by
 noncomputable instance : Lean.Order.CCPO (DivM α) := inferInstanceAs (Lean.Order.CCPO (Lean.Order.FlatOrder .div))
 instance : CCPOBot DivM where
   compBot := .div
-  prop := by simp [Lean.Order.bot, Lean.Order.CCPO.csup,Lean.Order.flat_csup]
+
+instance : CCPOBotLawful DivM where
+  prop := by simp [Lean.Order.bot, Lean.Order.CCPO.csup,Lean.Order.flat_csup, instCCPOBotDivM]
 
 instance : Lean.Order.MonoBind DivM where
   bind_mono_left := by
@@ -99,6 +103,6 @@ scoped instance : MPropDet DivM Prop where
 instance : MPropTotal DivM where
   bot_lift := by
     rintro _ _; simp [MProp.lift, MPropOrdered.μ, Functor.map, LE.pure]
-    rw [<-CCPOBot.prop]; simp
+    rw [<-CCPOBotLawful.prop]; simp
 
 end TotalCorrectness
