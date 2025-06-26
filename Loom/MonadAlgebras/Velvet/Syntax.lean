@@ -197,11 +197,11 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
   | stx => pure #[stx]
 end
 
-private def Array.andListWithName (ts : Array (TSyntax `term)) : TermElabM (TSyntax `term) := do
+private def Array.andListWithName (ts : Array (TSyntax `term)) (name_prefix : TSyntax `name) : TermElabM (TSyntax `term) := do
   if ts.size = 0 then `(term| True) else
-    let mut t <- `(term| with_name_prefix `ensures $(ts[0]!))
+    let mut t <- `(term| with_name_prefix $name_prefix:name $(ts[0]!))
     for t' in ts[1:] do
-      t <- `(term| (with_name_prefix `ensures $t') ∧ $t)
+      t <- `(term| (with_name_prefix $name_prefix:name $t') ∧ $t)
     return t
 
 private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `term) := do
@@ -239,8 +239,10 @@ elab_rules : command
       def $name $bindersIdents* : NonDetT DivM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
     -- let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
 
-    let pre <- req.andList
-    let post <- ens.andListWithName
+    let reqName <- `(name| `require)
+    let ensName <- `(name| `ensures)
+    let pre <- req.andListWithName reqName
+    let post <- ens.andListWithName ensName
 
     let mut ret <- `(term| ())
     for modId in modIds do

@@ -56,7 +56,7 @@ elab_rules : tactic
       hints := hints.push $ <- `(Auto.hintelem| $(mkIdent c):ident)
     hints := hints.push $ <- `(Auto.hintelem| *)
     let vlsIntro <- `(tactic| (
-    intro; wpgen;
+    loom_intro; wpgen;
     try simp only [loomWpSimp]
     try unfold spec
     try simp only [invariants]
