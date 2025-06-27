@@ -61,7 +61,7 @@ def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice inv
 declare_syntax_cat doneWith
 declare_syntax_cat invariantClause
 declare_syntax_cat invariants
-syntax "invariant" term linebreak : invariantClause
+syntax "invariant" termBeforeDo linebreak : invariantClause
 syntax "done_with" termBeforeDo : doneWith
 
 syntax (invariantClause linebreak)* : invariants
@@ -96,6 +96,14 @@ elab "with_name_prefix" lit:name inv:term : term => do
       maxId := newMaxId
       })
   Term.elabTerm (<- ``(WithName $inv $(Lean.quoteNameMk invName))) none
+  -- pure default
+
+def termBeforeInvariant := Parser.withForbidden "invariant" Parser.termParser
+
+attribute [run_builtin_parser_attribute_hooks] termBeforeInvariant
+
+builtin_initialize
+  register_parser_alias termBeforeInvariant
 
 syntax "let" ident ":|" term : doElem
 syntax "while" term
@@ -107,7 +115,7 @@ syntax "while_some" ident ":|" term
   (invariantClause)*
   doneWith
   "do" doSeq : doElem
-syntax "for" ident "in" term
+syntax "for" ident "in" termBeforeInvariant
   (invariantClause)+
   "do" doSeq : doElem
 
@@ -151,22 +159,23 @@ macro_rules
             let $x :| $t
             $[$seq:doElem]*
           else break)
-    | `(doElem| for $x:ident in $t
-              invariant $inv:term
-              $[invariant $invs:term
-              ]*
-              do $seq:doSeq) =>
-        match seq with
-        | `(doSeq| $[$seq:doElem]*)
-        | `(doSeq| $[$seq:doElem;]*)
-        | `(doSeq| { $[$seq:doElem]* }) =>
-          let inv := invs.push inv
-          `(doElem|
-            for $x:ident in $t do
-              invariantGadget [ $[(with_name_prefix `invariant $inv:term)],* ]
-              $[$seq:doElem]*)
-        | _ => Lean.Macro.throwError "for expects a sequence of do-elements"
     | _ => Lean.Macro.throwError "while_some expects a sequence of do-elements"
+  | `(doElem| for $x:ident in $t
+            invariant $inv':term
+            $[invariant $inv:term
+            ]*
+            do $seq:doSeq) =>
+      match seq with
+      | `(doSeq| $[$seq:doElem]*)
+      | `(doSeq| $[$seq:doElem;]*)
+      | `(doSeq| { $[$seq:doElem]* }) =>
+        -- let inv := invs.push inv
+        `(doElem|
+          for $x:ident in $t do
+            invariantGadget [ (with_name_prefix `invariant $inv':term), $[(with_name_prefix `invariant $inv:term)],* ]
+            $[$seq:doElem]*)
+      | _ => Lean.Macro.throwError "for expects a sequence of do-elements"
+
 
 
 structure WPGen (x : m α) where
