@@ -50,7 +50,8 @@ def generateWPStep : TacticM Unit := withMainContext do
     evalTactic $ <- `(tactic|
       eapply $(mkIdent ``WPGen.spec_triple);
       apply $spec
-      hide_non_wpgen_goals)
+      -- hide_non_wpgen_goals
+      )
 
 
 elab "wpgen_app" : tactic => generateWPStep
