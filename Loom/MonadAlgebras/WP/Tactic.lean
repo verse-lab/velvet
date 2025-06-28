@@ -7,7 +7,7 @@ open Lean Parser Meta Elab Term Command Tactic
 
 def findSpec (prog : Expr) : TacticM (Array (Ident × Loom.SpecType)) := do
   let specs ← specAttr.find? prog
-  let grts := (specs.qsort (compare · · |>.isLT)).reverse.map
+  let grts := specs.qsort (compare · · |>.isGT) |>.map
     fun ⟨specType, specName, _⟩ => (mkIdent specName, specType)
   if grts.isEmpty then
     throwError s!"no specs found for {prog}"
