@@ -100,26 +100,26 @@ lemma find_some_p (p : α -> Prop) [DecidablePred p] [Encodable α] (x : α) :
   intro eq; rw [eq] at this; simp at this; exact this
 
 class WeakFindable {α : Type u} (p : α -> Prop) where
-  find : Option α
-  find_some_p : find = some x -> p x
+  find : Unit -> Option α
+  find_some_p : find () = some x -> p x
 
 class Findable {α : Type u} (p : α -> Prop) where
-  find : Option α
-  find_none : find.isNone -> ∀ x, ¬ p x
-  find_some_p : find = some x -> p x
+  find : Unit -> Option α
+  find_none : (find ()).isNone -> ∀ x, ¬ p x
+  find_some_p : find () = some x -> p x
 
 instance WeakFindable.of_Findable {α : Type u} (p : α -> Prop) [Findable p] : WeakFindable p where
   find := Findable.find p
   find_some_p := Findable.find_some_p
 
 instance {p : α -> Prop} [Encodable α] [DecidablePred p] : Findable p where
-  find := find p
+  find := fun _ => find p
   find_none := find_none p
   find_some_p := find_some_p p _
 
 @[instance high]
 instance {p : α -> Prop} [FinEnum α] [DecidablePred p] : Findable p where
-  find := FinEnum.toList α |>.find? p
+  find := fun _ => FinEnum.toList α |>.find? p
   find_none := by simp [List.find?, Fintype.complete]
   find_some_p := by intro x h; have := List.find?_some h; aesop
 
@@ -194,12 +194,12 @@ variable [Monad m] [CCPOBot m] [CompleteBooleanAlgebra l] [MPropOrdered m l] [MP
 
 @[simp, inline]
 def NonDetT.extractGen {findable : {τ : Type u} -> (τ -> Prop) -> Type u} {α : Type u}
-  (findOf : ∀ {τ : Type u} (p : τ -> Prop), findable p -> Option τ)
+  (findOf : ∀ {τ : Type u} (p : τ -> Prop), findable p -> Unit -> Option τ)
   : (s : NonDetT m α) -> (ex : ExtractNonDet findable s := by solve_by_elim) -> m α
   | .pure x, _ => Pure.pure x
   | .vis x f, .vis _ _ _ => liftM x >>= (fun x => extractGen findOf (f x))
   | .pickCont _ p f, .pickSuchThat _ _ _ _ =>
-    match findOf p ‹_› with
+    match findOf p ‹_› () with
     | none => CCPOBot.compBot
     | some x =>  extractGen findOf (f x)
   | .pickCont _ p f, .assume _ _ _ =>
@@ -366,7 +366,7 @@ noncomputable
 def ExtractNonDet.prop {α : Type u} (s : NonDetT m α) :  ExtractNonDet WeakFindable s -> l
   | .pure x => ⊤
   | .vis x f ex => wlp x fun y => (ex y).prop
-  | .pickSuchThat _ p f ex => ⨅ t ∈ WeakFindable.find p, (ex t).prop
+  | .pickSuchThat _ p f ex => ⨅ t ∈ WeakFindable.find p (), (ex t).prop
   | .assume p f ex =>
       if p .unit then
         (ex .unit).prop
