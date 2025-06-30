@@ -4,7 +4,7 @@ import Lean.Parser
 import Mathlib.Algebra.BigOperators.Intervals
 import Mathlib.Algebra.Ring.Int.Defs
 
-import Loom.MonadAlgebras.NonDetT.Basic
+import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.Instances.Basic
 import Loom.MonadAlgebras.WP.Tactic
 
@@ -20,14 +20,43 @@ notation "[part|" t "]" => open PartialCorrectness PartialCorrectness.DemonicCho
 @[local simp]
 lemma DivM.total_decompose (α : Type) (x : DivM α) (post₁ post₂ : α -> Prop) :
   ([totl| wp x post₁] ∧ [part| wp x post₂]) = [totl| wp x (post₁ ⊓ post₂)] := by
-    simp [TotalCorrectness.DivM.wp_eq, PartialCorrectness.DivM.wp_eq]
+    simp [[totl| DivM.wp_eq], [part| DivM.wp_eq]]
     split <;> simp
 
-lemma VelvetM.total_decompose {α : Type} (x : VelvetM α) (post : α -> Prop):
-  [totl| wp x (fun _ => True)] ⊓ [part| wp x post] = [totl| wp x post] := by
+@[local simp]
+lemma eta_red_totl (α : Type) (x: NonDetT DivM α) (post: α -> Prop) :
+  [totl| wp x post] = [totl| wp x fun y => post y] := by trivial
+
+@[local simp]
+lemma eta_red_part (α : Type) (x: NonDetT DivM α) (post: α -> Prop) :
+  [part| wp x post] = [part| wp x fun y => post y] := by trivial
+
+lemma VelvetM.total_decompose {α : Type} (x : VelvetM α) (post₁ post₂ : α -> Prop):
+  [totl| wp x post₁] ⊓ [part| wp x post₂] = [totl| wp x (post₁ ⊓ post₂)] := by
     unhygienic induction x <;> try simp [loomLogicSimp]
-    { simp [DivM.total_decompose] }
-    { sorry }
+    { simp [DivM.total_decompose]
+      simp [[totl| DivM.wp_eq], [part| DivM.wp_eq]]
+      split
+      { simp }
+      rename_i arg
+      have ind := f_ih arg post₁ post₂
+      simp at ind
+      rw [ind] }
+    { constructor <;> intro hyp
+      { intro i hi
+        have hl := hyp.left i hi
+        have hr := hyp.right i hi
+        simp [←eta_red_totl] at hl
+        simp [←eta_red_part] at hr
+        have ind := f_ih i post₁ post₂
+        simp [hl] at ind
+        simp [hr] at ind
+        exact ind }
+      constructor <;> intro i hi
+      { have conj := hyp i hi
+        sorry }
+      sorry }
+    sorry
 
 
 

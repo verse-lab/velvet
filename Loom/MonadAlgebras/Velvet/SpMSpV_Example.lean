@@ -10,7 +10,6 @@ import Loom.MonadAlgebras.WP.DoNames'
 
 import Loom.MonadAlgebras.Velvet.Extension
 import Loom.MonadAlgebras.Velvet.Syntax
-import Loom.MonadAlgebras.Velvet.Common
 import Loom.MonadAlgebras.Velvet.Tactic
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames

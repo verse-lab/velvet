@@ -7,6 +7,7 @@ import Mathlib.Algebra.Ring.Int.Defs
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 
+import Loom.MonadAlgebras.Velvet.Theory
 import Loom.MonadAlgebras.Velvet.Extension
 import Loom.MonadAlgebras.WP.DoNames'
 
