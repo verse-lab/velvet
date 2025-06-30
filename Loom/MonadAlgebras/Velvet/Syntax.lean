@@ -236,7 +236,7 @@ elab_rules : command
     for mutType in mutTypes, modId in modIds do
       retType <- `(($modId:ident : $mutType) × $retType)
     let defCmd <- `(command|
-      def $name $bindersIdents* : NonDetT DivM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
+      def $name $bindersIdents* : VelvetM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
     -- let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
 
     let reqName <- `(name| `require)
