@@ -71,6 +71,7 @@ elab_rules : tactic
     try simp only [typeWithName.erase]
     try simp only [List.foldr]
     try simp only [loomLogicSimp]
+    repeat loom_intro
     repeat' (loom_split <;> (repeat loom_intro))))
     let vlsUnfold <- `(tactic| all_goals try unfold WithName at *; all_goals try unfold typeWithName at *)
     let vlsAuto <- `(tactic| try (try simp only [loomAbstractionSimp] at *); auto [$hints,*])
