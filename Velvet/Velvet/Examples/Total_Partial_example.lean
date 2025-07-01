@@ -222,6 +222,7 @@ prove_correct insertionSort_total by
   have triple_termination := insertionSort_termination_correct arr
   have triple_res := insertionSort_part_correct arr
   exact VelvetM.total_decompose_triple
-    (insertionSort_termination arr)
+    (insertionSort_termination arr) (insertionSort_part arr) (insertionSort_total arr)
+    (eqx := by rfl) (eqy := by rfl)
     triple_termination
     triple_res

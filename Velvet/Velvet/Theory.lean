@@ -185,17 +185,15 @@ lemma VelvetM.total_decompose {α : Type} (x : VelvetM α) (post₁ post₂ : α
       simp [←[totl| NonDetT.wp_eq_wp], ←[part| NonDetT.wp_eq_wp]]
       simp [loomLogicSimp])
 
-lemma VelvetM.total_decompose_triple {α : Type} (x : VelvetM α) {pre : Prop} {post : α -> Prop} :
-  [totl| triple pre x fun _ => True] → [part| triple pre x post] ->
-  [totl| triple pre x post] := by
-    intro t3 post3
+lemma VelvetM.total_decompose_triple {α : Type} {pre : Prop} {post : α -> Prop}
+  (x y z: VelvetM α) (termination: [totl| triple pre x fun _ => True]) (postcondition: [part| triple pre y post]) {eqx: x = z} {eqy: y = z}:
+  [totl| triple pre z post] := by
     simp [triple]
-    -- apply total_decompose_triple (h ..)
     intro pre
-    simp [triple, pre] at t3
-    simp [triple, pre] at post3
-    have decomp := VelvetM.total_decompose x (fun x => True) post
-    simp [loomLogicSimp, post3, t3] at decomp
+    simp [triple, pre, eqx] at termination
+    simp [triple, pre, eqy] at postcondition
+    have decomp := VelvetM.total_decompose z (fun x => True) post
+    simp [loomLogicSimp, postcondition, termination] at decomp
     exact decomp
 
 section
