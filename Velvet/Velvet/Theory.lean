@@ -23,7 +23,7 @@ lemma DivM.total_decompose (α : Type) (x : DivM α) (post₁ post₂ : α -> Pr
     simp [[totl| DivM.wp_eq], [part| DivM.wp_eq]]
     split <;> simp
 
-@[local simp, loomLogicSimp]
+@[local simp]
 lemma wp_mono_part (x : NonDetT DivM α) (post₁ post₂ : α -> Prop) :
   (post₁ ≤ post₂) → ([totl|wp x post₁]) ≤ ([part| wp x post₂]) := by
     intro le
@@ -184,6 +184,18 @@ lemma VelvetM.total_decompose {α : Type} (x : VelvetM α) (post₁ post₂ : α
     exact le_trans h_inv.right (by
       simp [←[totl| NonDetT.wp_eq_wp], ←[part| NonDetT.wp_eq_wp]]
       simp [loomLogicSimp])
+
+lemma VelvetM.total_decompose_triple {α : Type} (x : VelvetM α) {pre : Prop} {post : α -> Prop} :
+  [totl| triple pre x fun x => True] → [part| triple pre x post] ->
+  [totl| triple pre x post] := by
+    intro t3 post3
+    simp [triple]
+    intro pre
+    simp [triple, pre] at t3
+    simp [triple, pre] at post3
+    have decomp := VelvetM.total_decompose x (fun x => True) post
+    simp [loomLogicSimp, post3, t3] at decomp
+    exact decomp
 
 section
 open PartialCorrectness DemonicChoice
