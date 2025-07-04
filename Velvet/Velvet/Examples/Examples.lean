@@ -66,39 +66,36 @@ attribute [local solverHint] TArray.multiSet_swap
 
 method insertionSort
   (mut arr: arrInt) return (u: Unit)
+  require 1 ≤ size arr
   ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < size arr → arrNew[i] ≤ arrNew[j]
   ensures toMultiset arr = toMultiset arrNew
   do
     let arr₀ := arr
     let arr_size := size arr
-    if arr_size ≤ 1
-    then
-      return
-    else
-      let mut n := 1
-      while n ≠ size arr
+    let mut n := 1
+    while n ≠ size arr
+    invariant size arr = arr_size
+    invariant 1 ≤ n ∧ n ≤ size arr
+    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
+    invariant toMultiset arr = toMultiset arr₀
+    done_with n = size arr
+    do
+      let mut mind := n
+      while mind ≠ 0
       invariant size arr = arr_size
-      invariant 1 ≤ n ∧ n ≤ size arr
-      invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
+      invariant mind ≤ n
+      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] ≤ arr[j]
       invariant toMultiset arr = toMultiset arr₀
-      done_with n = size arr
+      done_with mind = 0
       do
-        let mut mind := n
-        while mind ≠ 0
-        invariant size arr = arr_size
-        invariant mind ≤ n
-        invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] ≤ arr[j]
-        invariant toMultiset arr = toMultiset arr₀
-        done_with mind = 0
-        do
-          if arr[mind] < arr[mind - 1] then
-            let left := arr[mind - 1]
-            let right := arr[mind]
-            arr[mind - 1] := right
-            arr[mind] := left
-          mind := mind - 1
-        n := n + 1
-      return
+        if arr[mind] < arr[mind - 1] then
+          let left := arr[mind - 1]
+          let right := arr[mind]
+          arr[mind - 1] := right
+          arr[mind] := left
+        mind := mind - 1
+      n := n + 1
+    return
 prove_correct insertionSort by
   dsimp [insertionSort]
   velvet_solve
@@ -126,3 +123,66 @@ prove_correct sqrt by
   velvet_solve
 
 end squareRoot
+
+structure Queue (α : Type) where
+
+  elems : List α
+deriving Inhabited
+
+
+namespace Queue
+
+def empty : Queue α :=
+  { elems := [] }
+
+def isEmpty (q : Queue α) : Prop :=
+  q.elems.isEmpty
+
+def nonEmpty (q : Queue α) : Prop :=
+  ¬q.elems.isEmpty
+
+def enqueue (x : α) (q : Queue α) : Queue α :=
+  { elems := x :: q.elems}
+
+def dequeue [Inhabited α] (q : Queue α) : α :=
+  match q.elems with
+  | [] => default
+  | (x :: _) => x
+
+def tail (q : Queue α) : Queue α :=
+  match q.elems with
+  | [] => { elems := [] }
+  | (_ :: xs) => { elems := xs }
+
+def sum [AddMonoid α] (q : Queue α) : α := q.elems.foldr (· + ·) 0
+
+def length (q : Queue α) : Nat := q.elems.length
+
+instance (q : Queue α) : Decidable q.nonEmpty :=
+  inferInstanceAs (Decidable (¬q.elems.isEmpty))
+
+end Queue
+
+method withdrawSession (balanceOld: Nat) (inAmounts : Queue Nat) (mut balance: Nat) return (u: Unit)
+  ensures balanceNew + inAmounts.sum = balanceOld do
+  balance := balanceOld
+  let mut amounts := inAmounts
+  while (amounts.nonEmpty)
+  invariant amounts.sum + balanceOld = inAmounts.sum + balance
+  do
+    let amount := amounts.dequeue
+    balance := balance - amount
+    amounts := amounts.tail
+  return
+prove_correct withdrawSession by
+  dsimp [withdrawSession]
+  velvet_solve
+  { simp [Queue.tail]
+    simp [Queue.nonEmpty] at if_pos
+    simp [Queue.dequeue]
+    sorry }
+  nth_rw 1 [Queue.sum] at invariant_18
+  simp [Queue.nonEmpty] at done_19
+  simp [done_19] at invariant_18
+  simp [invariant_18]
+  rw [add_comm]

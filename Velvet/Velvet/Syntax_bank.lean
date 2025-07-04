@@ -43,6 +43,7 @@ private def _root_.Lean.SimplePersistentEnvExtension.modify
   [Monad m] [MonadEnv m] : m Unit := do
   Lean.modifyEnv (ext.modifyState · s)
 
+
 abbrev doSeq := TSyntax ``Term.doSeq
 abbrev doSeqItem := TSyntax ``Term.doSeqItem
 
@@ -63,20 +64,11 @@ syntax "(mut" ident ":" term ")" : leafny_binder
 syntax "require" termBeforeReqEnsDo : require_caluse
 syntax "ensures" termBeforeReqEnsDo : ensures_caluse
 
-syntax "method" ident leafny_binder* "return" "(" ident ":" term ")"
+syntax "bdef" ident leafny_binder* "returns" "(" ident ":" term ")"
   (require_caluse )*
   (ensures_caluse)* "do" doSeq : command
 
 syntax "prove_correct" ident "by" tacticSeq : command
-
-syntax (priority := high) ident noWs "[" term "]" ":=" term : doElem
-syntax (priority := high) ident noWs "[" term "]" "+=" term : doElem
-
-macro_rules
-  | `(doElem|$id:ident[$idx:term] := $val:term) =>
-    `(doElem| $id:term := ($id:term).modify $idx (fun _ => $val))
-  | `(doElem|$id:ident[$idx:term] += $val:term) =>
-    `(doElem| $id:term := ($id:term).modify $idx (· + $val))
 
 private def toBracketedBinderArray (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
   let mut binders := #[]
@@ -133,12 +125,12 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
   match stx with
   -- Ignore semicolons
   | `(Term.doSeqItem| $stx ;) => expandLeafnyDoSeqItem modIds $ <- `(Term.doSeqItem| $stx:doElem)
-  | `(Term.doSeqItem| return) => expandLeafnyDoSeqItem modIds $ <- `(Term.doSeqItem| return ())
+  | `(Term.doSeqItem| return) =>
+    let mut ret <- `(term| $(modIds[0]!))
+    return #[<-`(Term.doSeqItem| set ($ret)), <-`(Term.doSeqItem| return ())]
   | `(Term.doSeqItem| return $t) =>
-    let mut ret <- `(term| ())
-    for modId in modIds do
-      ret <- `(term| ⟨$modId, $ret⟩)
-    return #[<-`(Term.doSeqItem| return ⟨$t, $ret⟩)]
+    let mut ret <- `(term| $(modIds[0]!))
+    return #[<-`(Term.doSeqItem| set ($ret)), <-`(Term.doSeqItem| return $t)]
   | `(Term.doSeqItem| pure $t) =>
     let mut ret <- `(term| ())
     for modId in modIds do
@@ -212,43 +204,69 @@ private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `ter
       t <- `(term| $t' ∧ $t)
     return t
 
+abbrev Balance := Int
+
+macro_rules
+  | `(doElem| while $t
+              $[invariant $inv:term
+              ]*
+              $[done_with $inv_done]?
+              $[decreasing $measure]?
+              do $seq:doSeq) => do
+      let balance := mkIdent `bala
+      let balanceType <- `(term| Balance)
+      let inv : Array Term <- inv.mapM fun inv => ``(fun ($(balance):ident : $balanceType)=> $inv)
+      let invd_some <- match inv_done with
+      | some invd_some => ``(fun ($(balance):ident : $balanceType) => $invd_some)
+      | none => ``(fun ($(balance):ident : $balanceType) => ¬$t:term)
+      match measure with
+      | some measure_some => do
+        `(doElem|
+          for _ in Lean.Loop.mk do
+            invariantGadget [ $[($inv:term)],* ]
+            onDoneGadget ($invd_some:term)
+            decreasingGadget ($measure_some:term)
+            if $t then
+              $seq:doSeq
+            else break)
+      | none => do
+        `(doElem|
+          for _ in Lean.Loop.mk do
+            invariantGadget ([ $[$inv:term],* ])
+            onDoneGadget ($invd_some:term)
+            if $t then
+              $seq:doSeq
+            else break)
+
+
 elab_rules : command
-  | `(command|
-  method $name:ident $binders:leafny_binder* return ( $retId:ident : $type:term )
+| `(command|
+  bdef $name:ident $binders:leafny_binder* returns ( $retId:ident : $type:term )
   $[require $req:term]*
   $[ensures $ens:term]* do $doSeq:doSeq
   ) => do
   let (defCmd, obligation) ← Command.runTermElabM fun _vs => do
     let bindersIdents ← toBracketedBinderArray binders
-
     let modIds ← getModIds binders
     globalMutVarsCtx.modify (·.insert name.getId modIds)
-    let modIds := modIds.map (·.2)
+    let modId := (mkIdent `balance)
+    let modIds := #[modId]
     let doSeq <- expandLeafnyDoSeq modIds doSeq
-
     let mut mods := #[]
     for modId in modIds do
       -- let modIdOld := mkIdent <| modId.getId.appendAfter "Old"
       -- let modOld <- `(Term.doSeqItem| let $modIdOld:ident := $modId:ident)
-      let mod <- `(Term.doSeqItem| let mut $modId:ident := $modId:ident)
+      let mod <- `(Term.doSeqItem| let mut $modId:ident ← get)
       mods := mods.push mod
-    let mutTypes ← getMutTypes binders
-    let mut retType <- `(Unit)
-    for mutType in mutTypes, modId in modIds do
-      retType <- `(($modId:ident : $mutType) × $retType)
     let defCmd <- `(command|
-      def $name $bindersIdents* : VelvetM (($retId:ident : $type) × $retType) := do $mods* $doSeq*)
-    -- let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
+      def $name $bindersIdents* : NonDetT ((StateT Balance DivM)) $type := do $mods* $doSeq*)
 
     let reqName <- `(name| `require)
     let ensName <- `(name| `ensures)
     let pre <- req.andListWithName reqName
     let post <- ens.andListWithName ensName
 
-    let mut ret <- `(term| ())
-    for modId in modIds do
-      let modId := mkIdent <| modId.getId.appendAfter "New"
-      ret <- `(term| ⟨$modId, $ret⟩)
+    let ret <- `(term| $modId)
 
     let ids ← getIds binders
     let obligation : VelvetObligation := {
@@ -276,13 +294,53 @@ elab_rules : command
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
     let proof <- withRef tkp ``(by $proof)
+    let balanceOld := mkIdent `balanceOld
     let thmCmd <- withRef tkp `(command| lemma $lemmaName $bindersIdents* :
+      ∀ $(balanceOld) : Balance,
       triple
-        $pre
+        (fun balance: Balance => (balance = $(balanceOld)) ∧ $pre)
         ($name $ids*)
-        (fun ⟨$retId, $ret⟩ => $post) := $proof)
+        (fun $retId => fun $ret : Balance => $post) := $proof)
     Command.elabCommand thmCmd
     velvetObligations.modify (·.erase name.getId)
 
 set_option linter.unusedVariables false in
 def atomicAssertion {α : Type u} (n : Name) (a : α) := a
+
+--which is definitely a queue, not a list
+structure Queue (α : Type) where
+  elems : List α
+deriving Inhabited
+
+namespace Queue
+
+def empty : Queue α :=
+  { elems := [] }
+
+def isEmpty (q : Queue α) : Prop :=
+  q.elems.isEmpty
+
+def nonEmpty (q : Queue α) : Prop :=
+  ¬q.elems.isEmpty
+
+def enqueue (x : α) (q : Queue α) : Queue α :=
+  { elems := x :: q.elems}
+
+def dequeue [Inhabited α] (q : Queue α) : α :=
+  match q.elems with
+  | [] => default
+  | (x :: _) => x
+
+def tail (q : Queue α) : Queue α :=
+  match q.elems with
+  | [] => { elems := [] }
+  | (_ :: xs) => { elems := xs }
+
+def sum [AddMonoid α] (q : Queue α) : α := q.elems.foldr (· + ·) 0
+
+def length (q : Queue α) : Nat := q.elems.length
+
+instance (q : Queue α) : Decidable q.nonEmpty :=
+  inferInstanceAs (Decidable (¬q.elems.isEmpty))
+
+end Queue
