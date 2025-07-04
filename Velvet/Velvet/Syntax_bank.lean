@@ -11,6 +11,9 @@ import Velvet.Theory
 import Velvet.Extension
 import Loom.MonadAlgebras.WP.DoNames'
 
+abbrev Balance := Int
+abbrev BankM := NonDetT (ExceptT String (StateT Balance DivM))
+
 open Lean Elab Command Term Meta Lean.Parser
 
 private def _root_.Lean.EnvExtension.set (ext : EnvExtension σ) (s : σ)
@@ -204,8 +207,6 @@ private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `ter
       t <- `(term| $t' ∧ $t)
     return t
 
-abbrev Balance := Int
-
 macro_rules
   | `(doElem| while $t
               $[invariant $inv:term
@@ -259,7 +260,7 @@ elab_rules : command
       let mod <- `(Term.doSeqItem| let mut $modId:ident ← get)
       mods := mods.push mod
     let defCmd <- `(command|
-      def $name $bindersIdents* : NonDetT ((StateT Balance DivM)) $type := do $mods* $doSeq*)
+      def $name $bindersIdents* : BankM $type := do $mods* $doSeq*)
 
     let reqName <- `(name| `require)
     let ensName <- `(name| `ensures)

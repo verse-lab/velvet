@@ -43,6 +43,32 @@ to specify the pre- and post-conditions.
 %
 -/
 
+section
+
+open ExceptionAsFailure PartialCorrectness DemonicChoice
+
+abbrev BankM := NonDetT (ExceptT String (StateT Balance DivM))
+
+@[spec, loomWpSimp]
+noncomputable
+def BankM.wp_get: WPGen (MonadState.get : BankM Balance) where
+    get := fun fn x => fn x x
+    prop := fun post => by
+      simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
+      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      erw [StateT.wp_get]
+
+
+@[spec, loomWpSimp]
+def BankM.wp_set (res: Balance) : WPGen (MonadState.set res : BankM PUnit) where
+    get := fun fn x => fn PUnit.unit res
+    prop := fun post => by
+      simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
+      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [StateT.wp_eq, get, getThe, MonadStateOf.get, StateT.get, wp_pure]
+
+end
+
 open ExceptionAsFailure
 /-
 instance: MPropOrdered (ExceptT String (StateT Balance DivM)) (Balance -> Prop) where
