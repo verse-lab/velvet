@@ -1,4 +1,4 @@
--- import Loom.MProp.HoareTriples
+-- import Loom.MAlg.HoareTriples
 import Loom.Meta
 
 open Lean Lean.Expr Lean.Meta

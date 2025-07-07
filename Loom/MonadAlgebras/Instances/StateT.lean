@@ -3,9 +3,9 @@ import Loom.MonadAlgebras.Instances.Basic
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (StateT σ m) (σ -> l) where
-  μ := (MPropOrdered.μ $ (fun fs => fs.1 fs.2) <$> · ·)
-  μ_ord_pure := by intro f; ext s₁; simp [pure, StateT.pure, MPropOrdered.μ_ord_pure]
+  [Monad m] [LawfulMonad m] [inst: MAlgOrdered m l] : MAlgOrdered (StateT σ m) (σ -> l) where
+  μ := (MAlgOrdered.μ $ (fun fs => fs.1 fs.2) <$> · ·)
+  μ_ord_pure := by intro f; ext s₁; simp [pure, StateT.pure, MAlgOrdered.μ_ord_pure]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x s
@@ -15,19 +15,19 @@ instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] [inst': MPropDet m l]
-   : MPropDet (StateT σ m) (σ -> l) where
+  [Monad m] [LawfulMonad m] [inst: MAlgOrdered m l] [inst': MAlgDet m l]
+   : MAlgDet (StateT σ m) (σ -> l) where
     angelic := by
       intros α ι c p _ s;
-      simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map, StateT.map]
+      simp [MAlg.lift, MAlg.μ, MAlgOrdered.μ, Functor.map, StateT.map]
       have h := inst'.angelic (α := α × σ) (c := c s) (ι := ι) (p := fun i x => p i x.1 x.2)
-      simp [MProp.lift, MProp.μ] at h
+      simp [MAlg.lift, MAlg.μ] at h
       apply h
     demonic := by
       intros α ι c p _ s;
-      simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map, StateT.map]
+      simp [MAlg.lift, MAlg.μ, MAlgOrdered.μ, Functor.map, StateT.map]
       have h := inst'.demonic (α := α × σ) (c := c s) (ι := ι) (p := fun i x => p i x.1 x.2)
-      simp [MProp.lift, MProp.μ] at h
+      simp [MAlg.lift, MAlg.μ] at h
       apply h
 
 instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] : Lean.Order.CCPO (StateT ε m α) := by
@@ -53,20 +53,20 @@ instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] [CCPOBotL
     apply CCPOBotLawful.prop
 
 
-lemma MProp.lift_StateT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MPropOrdered m l] (x : StateT σ m α) :
-  MProp.lift x post = fun s => MProp.lift (x s) (fun xs => post xs.1 xs.2) := by
-    simp [MProp.lift, Functor.map, MPropOrdered.μ, StateT.map]
+lemma MAlg.lift_StateT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MAlgOrdered m l] (x : StateT σ m α) :
+  MAlg.lift x post = fun s => MAlg.lift (x s) (fun xs => post xs.1 xs.2) := by
+    simp [MAlg.lift, Functor.map, MAlgOrdered.μ, StateT.map]
 
 open Lean.Order
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l]
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [∀ α, CCPO (m α)] [MonoBind m]
-  [MPropPartial m] : MPropPartial (StateT σ m) where
+  [MAlgPartial m] : MAlgPartial (StateT σ m) where
   csup_lift {α} chain := by
     intro post hchain
-    simp [instCCPOStateTOfMonad_loom, CCPO.csup, MProp.lift_StateT]
+    simp [instCCPOStateTOfMonad_loom, CCPO.csup, MAlg.lift_StateT]
     rw [@Pi.le_def]; simp; unfold fun_csup; intro s
     apply le_trans'
-    apply MPropPartial.csup_lift (m := m)
+    apply MAlgPartial.csup_lift (m := m)
     { simp [Lean.Order.chain]; rintro x y f cf rfl g cg rfl
       cases (hchain f g cf cg)
       { left; solve_by_elim }
@@ -75,22 +75,22 @@ instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdere
     refine iInf_mono' ?_; simp [Membership.mem, Set.Mem]; aesop
 
 attribute [-simp] le_bot_iff in
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l]
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [∀ α, CCPO (m α)]  [MonoBind m]
-  [MPropTotal m] : MPropTotal (StateT σ m) where
+  [MAlgTotal m] : MAlgTotal (StateT σ m) where
   bot_lift := by
-    simp [MProp.lift_StateT, bot, instCCPOStateTOfMonad_loom, CCPO.csup, fun_csup]
+    simp [MAlg.lift_StateT, bot, instCCPOStateTOfMonad_loom, CCPO.csup, fun_csup]
     intros; intro; simp;
-    apply MPropTotal.bot_lift (m := m)
+    apply MAlgTotal.bot_lift (m := m)
 
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l]
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [inst': NoFailure m] : NoFailure (StateT σ m) where
   noFailure := by
-    intro _ _; simp [MProp.lift_StateT, inst'.noFailure]; rfl
+    intro _ _; simp [MAlg.lift_StateT, inst'.noFailure]; rfl
 
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l] :
-  MPropLiftT m l (StateT σ m) (σ -> l) where
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l] :
+  MAlgLiftT m l (StateT σ m) (σ -> l) where
     μ_lift := by
-      intros; simp [MProp.lift_StateT]; ext;
+      intros; simp [MAlg.lift_StateT]; ext;
       simp [liftM, instMonadLiftTOfMonadLift, MonadLift.monadLift]
-      simp [StateT.lift, StateT.map, Functor.map, MProp.lift]
+      simp [StateT.lift, StateT.map, Functor.map, MAlg.lift]

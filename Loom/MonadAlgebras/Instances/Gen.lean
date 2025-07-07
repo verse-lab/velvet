@@ -8,9 +8,9 @@ open Plausible
 
 universe u
 
-instance MPropGenInst : MPropOrdered Gen (ULift Nat -> ULift StdGen -> Prop) :=
+instance MAlgGenInst : MAlgOrdered Gen (ULift Nat -> ULift StdGen -> Prop) :=
   inferInstanceAs
-    (MPropOrdered
+    (MAlgOrdered
       (ReaderT (ULift Nat)
         (StateT (ULift StdGen) Id))
       (ULift Nat ->

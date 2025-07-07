@@ -40,7 +40,7 @@ instance [LawfulMonad m] : LawfulMonad (NonDetT m) := by
   <;> simp [bind, NonDetT.bind]
   <;> solve_by_elim [funext]
 
-variable [CompleteBooleanAlgebra l] [MPropOrdered m l]
+variable [CompleteBooleanAlgebra l] [MAlgOrdered m l]
 
 lemma meet_himp (x x' y z : l) :
   x = x' ->
@@ -76,7 +76,7 @@ namespace PartialCorrectness
 namespace DemonicChoice
 
 noncomputable
-def NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
+def NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
   | _, .pickCont τ p f => fun post => let p : Set τ := p; ⨅ a ∈ (p : Set τ), wp (f a) post
@@ -84,7 +84,7 @@ def NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type 
       ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) inv⌝ ⊓
       spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
 
-omit [MPropOrdered m l] in
+omit [MAlgOrdered m l] in
 lemma spec_mono {α : Type u}  {l : Type u} [CompleteLattice l] (pre : l) (post : α -> l) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   spec pre post f <= spec pre post g := by
@@ -93,7 +93,7 @@ lemma spec_mono {α : Type u}  {l : Type u} [CompleteLattice l] (pre : l) (post 
     refine LE.pure_imp (post ≤ f) (post ≤ g) ?_
     intro h a; apply le_trans; apply h a; solve_by_elim
 
-lemma NonDetT.wp_mono  {l : Type u} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] {α : Type u} (x : NonDetT m α) (f g : α -> l) :
+lemma NonDetT.wp_mono  {l : Type u} [CompleteLattice l] [MAlgOrdered m l] [LawfulMonad m] {α : Type u} (x : NonDetT m α) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   NonDetT.wp x f <= NonDetT.wp x g := by
     intro h; induction x
@@ -102,7 +102,7 @@ lemma NonDetT.wp_mono  {l : Type u} [CompleteLattice l] [MPropOrdered m l] [Lawf
     { intro _ _; solve_by_elim [iInf₂_le_of_le] }
     apply iSup_mono; intro inv
     solve_by_elim [wp_cons, spec_mono, inf_le_inf_left]
-lemma NonDetT.wp_bind  {l : Type u} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] {α β : Type u} (x : NonDetT m α) (f : α -> NonDetT m β)
+lemma NonDetT.wp_bind  {l : Type u} [CompleteLattice l] [MAlgOrdered m l] [LawfulMonad m] {α β : Type u} (x : NonDetT m α) (f : α -> NonDetT m β)
   (post : β -> l):
   NonDetT.wp (x.bind f) post = NonDetT.wp x (fun x => NonDetT.wp (f x) post) := by
     unhygienic induction x
@@ -112,7 +112,7 @@ lemma NonDetT.wp_bind  {l : Type u} [CompleteLattice l] [MPropOrdered m l] [Lawf
     simp [cont_ih]
 
 noncomputable
-def NonDetT.μ  {l : Type u} [CompleteLattice l] [MPropOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
+def NonDetT.μ  {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
 
 instance : MonadLift m (NonDetT m) where
   monadLift x := NonDetT.vis x pure
@@ -121,7 +121,7 @@ variable [LawfulMonad m]
 
 noncomputable
 scoped
-instance {l : Type u} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] : MPropOrdered (NonDetT m) l where
+instance {l : Type u} [CompleteLattice l] [MAlgOrdered m l] [LawfulMonad m] : MAlgOrdered (NonDetT m) l where
   μ := NonDetT.μ
   μ_ord_pure := by
     intro l; simp [NonDetT.μ, NonDetT.wp]; rfl
@@ -131,7 +131,7 @@ instance {l : Type u} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] : M
 
 lemma NonDetT.wp_eq_wp {α : Type u} (x : NonDetT m α) (post : α -> l) :
   _root_.wp x post = NonDetT.wp x post := by
-    simp [_root_.wp, liftM, monadLift, MProp.lift, MPropOrdered.μ, NonDetT.μ]
+    simp [_root_.wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ, NonDetT.μ]
     erw [map_eq_pure_bind, NonDetT.wp_bind]
     rfl
 
@@ -224,7 +224,7 @@ end DemonicChoice
 namespace AngelicChoice
 
 noncomputable
-def   NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
+def   NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
   | _, .pickCont _ p f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
@@ -240,7 +240,7 @@ lemma spec_mono {α : Type u} {l : Type u} [CompleteLattice l] (pre : l) (post :
     refine LE.pure_imp (post ≤ f) (post ≤ g) ?_
     intro h a; apply le_trans; apply h a; solve_by_elim
 
-lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f g : α -> l) :
+lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (x : NonDetT m α) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   NonDetT.wp x f <= NonDetT.wp x g := by
     intro h; induction x
@@ -248,7 +248,7 @@ lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattic
     <;> try solve_by_elim [wp_cons, le_iSup_of_le, inf_le_inf_left, iSup_mono]
     apply iSup_mono; intro inv
     solve_by_elim [wp_cons, spec_mono, inf_le_inf_left]
-lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
+lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
   (post : β -> l):
   NonDetT.wp (x.bind f) post = NonDetT.wp x (fun x => NonDetT.wp (f x) post) := by
     unhygienic induction x
@@ -258,7 +258,7 @@ lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLat
     simp [cont_ih]
 
 noncomputable
-def NonDetT.μ {l : Type u} [CompleteLattice l] [MPropOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
+def NonDetT.μ {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
 
 instance : MonadLift m (NonDetT m) where
   monadLift x := NonDetT.vis x pure
@@ -267,7 +267,7 @@ variable [LawfulMonad m]
 
 noncomputable
 scoped
-instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] : MPropOrdered (NonDetT m) l where
+instance {l : outParam (Type u)} [CompleteLattice l] [MAlgOrdered m l] [LawfulMonad m] : MAlgOrdered (NonDetT m) l where
   μ := NonDetT.μ
   μ_ord_pure := by
     intro l; simp [NonDetT.μ, NonDetT.wp]; rfl
@@ -277,7 +277,7 @@ instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulM
 
 lemma NonDetT.wp_eq_wp {α : Type u} (x : NonDetT m α) (post : α -> l) :
   _root_.wp x post = NonDetT.wp x post := by
-    simp [_root_.wp, liftM, monadLift, MProp.lift, MPropOrdered.μ, NonDetT.μ]
+    simp [_root_.wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ, NonDetT.μ]
     erw [map_eq_pure_bind, NonDetT.wp_bind]
     rfl
 
@@ -370,7 +370,7 @@ namespace TotalCorrectness
 namespace DemonicChoice
 
 noncomputable
-def NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
+def NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
   | _, .pickCont τ p f => fun post => let p : Set τ := p; ⨅ a ∈ (p : Set τ), wp (f a) post
@@ -378,7 +378,7 @@ def NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type 
       ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) (fun | .yield b' => inv (.yield b') ⊓ ⌜ measure b' < measure b ⌝ | .done b' => inv (.done b'))⌝ ⊓
       spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
 
-omit [MPropOrdered m l] in
+omit [MAlgOrdered m l] in
 lemma spec_mono {α : Type u}  {l : Type u} [CompleteLattice l] (pre : l) (post : α -> l) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   spec pre post f <= spec pre post g := by
@@ -387,7 +387,7 @@ lemma spec_mono {α : Type u}  {l : Type u} [CompleteLattice l] (pre : l) (post 
     refine LE.pure_imp (post ≤ f) (post ≤ g) ?_
     intro h a; apply le_trans; apply h a; solve_by_elim
 
-lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f g : α -> l) :
+lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (x : NonDetT m α) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   NonDetT.wp x f <= NonDetT.wp x g := by
     intro h; induction x
@@ -397,7 +397,7 @@ lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattic
     apply iSup_mono; intro inv; apply iSup_mono; intro wf
     solve_by_elim [wp_cons, spec_mono, inf_le_inf_left]
 
-lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
+lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
   (post : β -> l):
   NonDetT.wp (x.bind f) post = NonDetT.wp x (fun x => NonDetT.wp (f x) post) := by
     unhygienic induction x
@@ -407,7 +407,7 @@ lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLat
     simp [cont_ih]
 
 noncomputable
-def NonDetT.μ {l : Type u} [CompleteLattice l] [MPropOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
+def NonDetT.μ {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
 
 instance : MonadLift m (NonDetT m) where
   monadLift x := NonDetT.vis x pure
@@ -416,7 +416,7 @@ variable [LawfulMonad m]
 
 noncomputable
 scoped
-instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] : MPropOrdered (NonDetT m) l where
+instance {l : outParam (Type u)} [CompleteLattice l] [MAlgOrdered m l] [LawfulMonad m] : MAlgOrdered (NonDetT m) l where
   μ := NonDetT.μ
   μ_ord_pure := by
     intro l; simp [NonDetT.μ, NonDetT.wp]; rfl
@@ -426,7 +426,7 @@ instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulM
 
 lemma NonDetT.wp_eq_wp {α : Type u} (x : NonDetT m α) (post : α -> l) :
   _root_.wp x post = NonDetT.wp x post := by
-    simp [_root_.wp, liftM, monadLift, MProp.lift, MPropOrdered.μ, NonDetT.μ]
+    simp [_root_.wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ, NonDetT.μ]
     erw [map_eq_pure_bind, NonDetT.wp_bind]
     rfl
 
@@ -519,7 +519,7 @@ end DemonicChoice
 namespace AngelicChoice
 
 noncomputable
-def   NonDetT.wp {l : Type u} [CompleteLattice l] [MPropOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
+def   NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
   | _, .pickCont _ p f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
@@ -535,7 +535,7 @@ lemma spec_mono {α : Type u} {l : Type u} [CompleteLattice l] (pre : l) (post :
     refine LE.pure_imp (post ≤ f) (post ≤ g) ?_
     intro h a; apply le_trans; apply h a; solve_by_elim
 
-lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f g : α -> l) :
+lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (x : NonDetT m α) (f g : α -> l) :
   (∀ a, f a <= g a) ->
   NonDetT.wp x f <= NonDetT.wp x g := by
     intro h; induction x
@@ -543,7 +543,7 @@ lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattic
     <;> try solve_by_elim [wp_cons, le_iSup_of_le, inf_le_inf_left, iSup_mono]
     apply iSup_mono; intro inv; apply iSup_mono; intro wf
     solve_by_elim [wp_cons, spec_mono, inf_le_inf_left]
-lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
+lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (x : NonDetT m α) (f : α -> NonDetT m β)
   (post : β -> l):
   NonDetT.wp (x.bind f) post = NonDetT.wp x (fun x => NonDetT.wp (f x) post) := by
     unhygienic induction x
@@ -553,7 +553,7 @@ lemma NonDetT.wp_bind [LawfulMonad m] {α β : Type u} {l : Type u} [CompleteLat
     simp [cont_ih]
 
 noncomputable
-def NonDetT.μ {l : Type u} [CompleteLattice l] [MPropOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
+def NonDetT.μ {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : NonDetT m l -> l := fun x => NonDetT.wp x id
 
 instance : MonadLift m (NonDetT m) where
   monadLift x := NonDetT.vis x pure
@@ -562,7 +562,7 @@ variable [LawfulMonad m]
 
 noncomputable
 scoped
-instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulMonad m] : MPropOrdered (NonDetT m) l where
+instance {l : outParam (Type u)} [CompleteLattice l] [MAlgOrdered m l] [LawfulMonad m] : MAlgOrdered (NonDetT m) l where
   μ := NonDetT.μ
   μ_ord_pure := by
     intro l; simp [NonDetT.μ, NonDetT.wp]; rfl
@@ -572,7 +572,7 @@ instance {l : outParam (Type u)} [CompleteLattice l] [MPropOrdered m l] [LawfulM
 
 lemma NonDetT.wp_eq_wp {α : Type u} (x : NonDetT m α) (post : α -> l) :
   _root_.wp x post = NonDetT.wp x post := by
-    simp [_root_.wp, liftM, monadLift, MProp.lift, MPropOrdered.μ, NonDetT.μ]
+    simp [_root_.wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ, NonDetT.μ]
     erw [map_eq_pure_bind, NonDetT.wp_bind]
     rfl
 

@@ -63,7 +63,7 @@ def BankM.wp_get_part: WPGen (get : BankM Balance) := by
   have : get = liftM (n := BankM) (liftM (n := (ExceptT String (StateT Balance DivM))) (get : StateT Balance DivM Balance)) := by
     rfl
   rewrite [this]
-  simp [NonDetT.wp_lift, MPropLift.wp_lift, StateT.wp_get]
+  simp [NonDetT.wp_lift, MAlgLift.wp_lift, StateT.wp_get]
   rfl
 
 
@@ -72,7 +72,7 @@ where
     get := fun fn x => fn x x
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
-      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [NonDetT.wp_lift, MAlgLift.wp_lift]
       erw [StateT.wp_get]-/
 
 @[spec, loomWpSimp]
@@ -80,7 +80,7 @@ def BankM.wp_set_part (res: Balance) : WPGen (set res : BankM PUnit) where
     get := fun fn x => fn PUnit.unit res
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
-      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [NonDetT.wp_lift, MAlgLift.wp_lift]
       simp [StateT.wp_eq, set, StateT.set, wp_pure]
 
 @[spec, loomWpSimp]
@@ -105,7 +105,7 @@ def BankM.wp_get_totl: WPGen (get : BankM Balance) where
     get := fun fn x => fn x x
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
-      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [NonDetT.wp_lift, MAlgLift.wp_lift]
       erw [StateT.wp_get]
 
 
@@ -114,7 +114,7 @@ def BankM.wp_set_totl (res: Balance) : WPGen (set res : BankM PUnit) where
     get := fun fn x => fn PUnit.unit res
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
-      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [NonDetT.wp_lift, MAlgLift.wp_lift]
       simp [StateT.wp_eq, set, StateT.set, wp_pure]
 
 @[spec, loomWpSimp]

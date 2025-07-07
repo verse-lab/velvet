@@ -204,7 +204,7 @@ instance ExtractNonDet.forIn {β : Type u} (init : β) (f : Unit -> β -> NonDet
     apply (ExtractNonDet.repeatCont _ _ _ ex); intro;
     apply ExtractNonDet.pure
 
-variable [Monad m] [∀ α, CCPO (m α)] [CCPOBot m] [MonoBind m] [CompleteBooleanAlgebra l] [MPropOrdered m l] [MPropDet m l] [LawfulMonad m]
+variable [Monad m] [∀ α, CCPO (m α)] [CCPOBot m] [MonoBind m] [CompleteBooleanAlgebra l] [MAlgOrdered m l] [MAlgDet m l] [LawfulMonad m]
 
 @[simp, inline]
 def NonDetT.extractGen {findable : {τ : Type u} -> (τ -> Prop) -> Type u}
@@ -263,7 +263,7 @@ structure Extractable (x : NonDetT m α) where
   cond : Cont l α
   prop : ∀ post, cond post <= x.prop post
 
-omit [CCPOBot m] [MonoBind m] [∀ α, CCPO (m α)] [LawfulMonad m] [MPropDet m l] in
+omit [CCPOBot m] [MonoBind m] [∀ α, CCPO (m α)] [LawfulMonad m] [MAlgDet m l] in
 lemma NonDetT.prop_bind (x : NonDetT m α) (f : α -> NonDetT m β) :
   (x >>= f).prop = fun post => x.prop (fun a => (f a).prop post) := by
   unhygienic induction x
@@ -275,7 +275,7 @@ lemma NonDetT.prop_bind (x : NonDetT m α) (f : α -> NonDetT m β) :
   { simp [Bind.bind, NonDetT.bind, NonDetT.prop];
     ext post; congr!; erw [cont_ih] }
 
-omit [CCPOBot m] [MonoBind m] [∀ α, CCPO (m α)] [MPropDet m l] in
+omit [CCPOBot m] [MonoBind m] [∀ α, CCPO (m α)] [MAlgDet m l] in
 lemma NonDetT.prop_mono (x : NonDetT m α) post post' :
   post <= post' -> x.prop post <= x.prop post' := by
   intro postLe; unhygienic induction x <;> simp only [NonDetT.prop]
@@ -339,7 +339,7 @@ def Extractable.forIn (xs : List α) (init : β) (f : α -> β -> NonDetT m (For
     simp_all
 
 noncomputable
-def Extractable.forIn_range (m : Type -> Type v) (l : Type) {β : Type} [CompleteBooleanAlgebra l] [Monad m] [MPropOrdered m l] (xs : Std.Range) (init : β) (f : ℕ -> β -> NonDetT m (ForInStep β))
+def Extractable.forIn_range (m : Type -> Type v) (l : Type) {β : Type} [CompleteBooleanAlgebra l] [Monad m] [MAlgOrdered m l] (xs : Std.Range) (init : β) (f : ℕ -> β -> NonDetT m (ForInStep β))
   (ex: ∀ a b, Extractable (f a b)):
   Extractable (ForIn.forIn xs init f) := by
     unfold instForInOfForIn'; simp; solve_by_elim [forIn]
@@ -374,7 +374,7 @@ def Extractable.if_some {τ} {p : τ -> Prop}
     apply_assumption
 
 
-omit [LawfulMonad m] [MPropDet m l] [CCPOBot m] [∀ α, CCPO (m α)] in
+omit [LawfulMonad m] [MAlgDet m l] [CCPOBot m] [∀ α, CCPO (m α)] in
 lemma Extractable.intro (x : NonDetT m α) (ex : Extractable x) :
   pre <= ex.cond post ->
   pre <= x.prop post := by
@@ -439,7 +439,7 @@ end TotalCorrectness.DemonicChoice
 
 namespace PartialCorrectness.DemonicChoice
 
-variable [CCPOBotLawful m] [MPropPartial m]
+variable [CCPOBotLawful m] [MAlgPartial m]
 
 lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet WeakFindable s) :
   wp s post ⊓ s.prop ⊤ <= wp s.extractWeak post := by

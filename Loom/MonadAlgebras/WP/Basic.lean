@@ -13,7 +13,7 @@ variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Typ
 section
 variable [CompleteLattice l]
 section
-variable [mprop : MPropOrdered m l]
+variable [mprop : MAlgOrdered m l]
 
 def wp (c : m α) (post : α -> l) : l := liftM (n := Cont l) c post
 def triple (pre : l) (c : m α) (post : α -> l) : Prop :=
@@ -30,7 +30,7 @@ lemma triple_pure (pre : l) (x : α) (post : α -> l) :
 
 end
 
-variable [MPropOrdered m l]
+variable [MAlgOrdered m l]
 
 lemma wp_bind {β} (x : m α) (f : α -> m β) (post : β -> l) :
     wp (x >>= f) post = wp x (fun x => wp (f x) post) := by
@@ -72,7 +72,7 @@ lemma wp_top (c : m α) [NoFailure m] :
 end
 
 section
-variable [CompleteLattice l] [MPropOrdered m l]
+variable [CompleteLattice l] [MAlgOrdered m l]
 
 noncomputable
 def spec (pre : l) (post : α -> l) : Cont l α :=
@@ -96,20 +96,20 @@ end
 
 section Determenism
 
-variable [inst: CompleteLattice l] [MPropOrdered m l]
+variable [inst: CompleteLattice l] [MAlgOrdered m l]
 
-lemma wp_iInf {ι : Type u} [Nonempty ι] [MPropDet m l] (c : m α) (post : ι -> α -> l) :
+lemma wp_iInf {ι : Type u} [Nonempty ι] [MAlgDet m l] (c : m α) (post : ι -> α -> l) :
   wp c (fun x => ⨅ i, post i x) = ⨅ i, wp c (post i) := by
     apply le_antisymm
     { refine le_iInf ?_; intros i; apply wp_cons; intro y
       exact iInf_le (fun i ↦ post i y) i }
-    apply MPropDet.demonic
+    apply MAlgDet.demonic
 
-lemma wp_and [MPropDet m l] (c : m α) (post₁ post₂ : α -> l) :
+lemma wp_and [MAlgDet m l] (c : m α) (post₁ post₂ : α -> l) :
   wp c (fun x => post₁ x ⊓ post₂ x) = wp c post₁ ⊓ wp c post₂ := by
   apply le_antisymm
   { simp; constructor <;> apply wp_cons <;> simp }
-  have h := MPropDet.demonic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
+  have h := MAlgDet.demonic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
   simp at h
   apply le_trans; apply le_trans'; apply h
   { simp [wp]; constructor; exact inf_le_right
@@ -118,18 +118,18 @@ lemma wp_and [MPropDet m l] (c : m α) (post₁ post₂ : α -> l) :
   { refine iInf_le_of_le true ?_; simp }
   refine iInf_le_of_le false ?_; simp
 
-lemma wp_iSup {ι : Type u} [Nonempty ι] [MPropDet m l] (c : m α) (post : ι -> α -> l) :
+lemma wp_iSup {ι : Type u} [Nonempty ι] [MAlgDet m l] (c : m α) (post : ι -> α -> l) :
   wp c (fun x => ⨆ i, post i x) = ⨆ i, wp c (post i) := by
     apply le_antisymm
-    { apply MPropDet.angelic }
+    { apply MAlgDet.angelic }
     refine iSup_le ?_; intros i; apply wp_cons; intro y
     exact le_iSup (fun i ↦ post i y) i
 
 
-lemma wp_or [MPropDet m l] (c : m α) (post₁ post₂ : α -> l) :
+lemma wp_or [MAlgDet m l] (c : m α) (post₁ post₂ : α -> l) :
   wp c (fun x => post₁ x ⊔ post₂ x) = wp c post₁ ⊔ wp c post₂ := by
   apply le_antisymm
-  { have h := MPropDet.angelic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
+  { have h := MAlgDet.angelic (l := l) (ι := ULift Bool) (c := c) (p := fun | .up true => post₁ | .up false => post₂)
     simp [-iSup_le_iff] at h
     apply le_trans; apply le_trans'; apply h
     { apply wp_cons (m := m); simp; intros; constructor
@@ -163,17 +163,17 @@ def Loop.forIn {β : Type u} [Monad m] [∀ α, CCPO (m α)] [MonoBind m]
 instance [md : Monad m] [ccpo : ∀ α, CCPO (m α)] [mono : MonoBind m] : ForIn m Lean.Loop Unit where
   forIn {β} _ := @Loop.forIn m β md ccpo mono
 
-variable [inst: _root_.CompleteLattice l] [MPropOrdered m l]
+variable [inst: _root_.CompleteLattice l] [MAlgOrdered m l]
 
 namespace PartialCorrectness
 
-variable [∀ α, CCPO (m α)] [MonoBind m] [MPropPartial m]
+variable [∀ α, CCPO (m α)] [MonoBind m] [MAlgPartial m]
 
 omit [MonoBind m] [LawfulMonad m] in
 lemma wp_csup (xc : Set (m α)) (post : α -> l) :
   Lean.Order.chain xc ->
   ⨅ c ∈ xc, wp c post ≤ wp (Lean.Order.CCPO.csup xc) post := by
-  apply MPropPartial.csup_lift
+  apply MAlgPartial.csup_lift
 
 omit [MonoBind m] [LawfulMonad m] in
 lemma wp_bot :
@@ -262,7 +262,7 @@ lemma repeat_inv_split (f : Unit -> β -> m (ForInStep β))
   apply repeat_inv f (fun | .yield b => inv b | .done b => inv b ⊓ doneWith b) measure init
   apply hstep
 
-variable [MPropTotal m]
+variable [MAlgTotal m]
 
 omit [LawfulMonad m] [MonoBind m] in
 attribute [-simp] le_bot_iff in
@@ -270,7 +270,7 @@ attribute [-simp] le_bot_iff in
 lemma wp_bot :
   wp (bot : m α) = fun _ => (⊥ : l) := by
   ext post; refine eq_bot_iff.mpr ?_
-  simp [wp, liftM, monadLift]; apply  MPropTotal.bot_lift
+  simp [wp, liftM, monadLift]; apply  MAlgTotal.bot_lift
 
 end TotalCorrectness
 
@@ -354,11 +354,11 @@ end Loops
 
 section Lift
 
-variable [inst: CompleteLattice l] [MPropOrdered m l]
+variable [inst: CompleteLattice l] [MAlgOrdered m l]
 
 lemma wp_except_handler_eq ε (hd : ε -> Prop) [IsHandler hd] (c : ExceptT ε m α) post :
   wp c post = wp (m := m) c (fun | .ok x => post x | .error e => ⌜hd e⌝) := by
-    apply MProp.lift_ExceptT
+    apply MAlg.lift_ExceptT
 
 
 open ExceptionAsSuccess in
@@ -391,7 +391,7 @@ lemma TotalCorrectness.DivM.wp_eq (α : Type) (x : DivM α) (post : α -> Prop) 
     match x with
     | .div => False
     | .res r => post r := by
-  simp [wp, liftM, monadLift, MProp.lift, Functor.map, TotalCorrectness.instMPropOrderedDivMProp]
+  simp [wp, liftM, monadLift, MAlg.lift, Functor.map, TotalCorrectness.instMAlgOrderedDivMProp]
   cases x <;> simp [LE.pure]
 
 lemma PartialCorrectness.DivM.wp_eq (α : Type) (x : DivM α) (post : α -> Prop) :
@@ -399,53 +399,53 @@ lemma PartialCorrectness.DivM.wp_eq (α : Type) (x : DivM α) (post : α -> Prop
     match x with
     | .div => True
     | .res r => post r := by
-  simp [wp, liftM, monadLift, MProp.lift, Functor.map, PartialCorrectness.instMPropOrderedDivMProp]
+  simp [wp, liftM, monadLift, MAlg.lift, Functor.map, PartialCorrectness.instMAlgOrderedDivMProp]
   cases x <;> simp [LE.pure]
 
 lemma StateT.wp_eq (c : StateT σ m α) (post : α -> σ -> l) :
   wp c post = fun s => wp (m := m) (c s) (fun xs => post xs.1 xs.2) := by
-  simp [wp, liftM, monadLift, MProp.lift_StateT, MonadLift.monadLift, StateT.lift];
+  simp [wp, liftM, monadLift, MAlg.lift_StateT, MonadLift.monadLift, StateT.lift];
 
 lemma StateT.wp_lift (c : m α) (post : α -> σ -> l) :
   wp (liftM (n := StateT σ m) c) post = fun s => wp (m := m) c (post · s) := by
-  simp [wp, liftM, monadLift, MProp.lift_StateT, MonadLift.monadLift, StateT.lift];
-  have liftE : ∀ α, MProp.lift (m := m) (α := α) = wp := by intros; ext; simp [wp, liftM, monadLift]
+  simp [wp, liftM, monadLift, MAlg.lift_StateT, MonadLift.monadLift, StateT.lift];
+  have liftE : ∀ α, MAlg.lift (m := m) (α := α) = wp := by intros; ext; simp [wp, liftM, monadLift]
   ext s; rw [map_eq_pure_bind, liftE, liftE, wp_bind]; simp [wp_pure]
 
 lemma ReaderT.wp_eq (c : ReaderT σ m α) (post : α -> σ -> l) :
   wp c post = fun s => wp (m := m) (c s) (post · s) := by
-  simp [wp, liftM, monadLift, MProp.lift_ReaderT, MonadLift.monadLift];
+  simp [wp, liftM, monadLift, MAlg.lift_ReaderT, MonadLift.monadLift];
 
 lemma ReaderT.wp_lift (c : m α) (post : α -> σ -> l) :
   wp (liftM (n := ReaderT σ m) c) post = fun s => wp (m := m) c (post · s) := by
-  simp [wp, liftM, monadLift, MProp.lift_ReaderT, MonadLift.monadLift, StateT.lift]
+  simp [wp, liftM, monadLift, MAlg.lift_ReaderT, MonadLift.monadLift, StateT.lift]
 
 omit [LawfulMonad m] in
-lemma MPropLift.wp_lift [Monad n] [CompleteLattice k] [MPropOrdered n k] [MonadLiftT m n]
+lemma MAlgLift.wp_lift [Monad n] [CompleteLattice k] [MAlgOrdered n k] [MonadLiftT m n]
   [MonadLiftT (Cont l) (Cont k)]
-  [MPropLiftT m l n k] (c : m α):
+  [MAlgLiftT m l n k] (c : m α):
   wp (liftM (n := n) c) = fun (post : α -> k) => liftM (n := Cont k) (m := Cont l) (wp c) post := by
   ext;
-  apply MPropLiftT.μ_lift
+  apply MAlgLiftT.μ_lift
 
 end Lift
 
 section ExceptT
 
-variable [inst: CompleteLattice l] [MPropOrdered m l] [IsHandler (ε := ε) hd]
+variable [inst: CompleteLattice l] [MAlgOrdered m l] [IsHandler (ε := ε) hd]
 
 lemma ExceptT.wp_throw (e : ε) :
   wp (α := α) (throw (m := ExceptT ε m) e) = fun _ => ⌜hd e⌝ := by
     ext; simp [wp_except_handler_eq, throw, throwThe, MonadExceptOf.throw, mk, wp_pure]
 
-lemma MPropLift.wp_throw
-  [Monad n] [CompleteLattice k] [MPropOrdered n k] [MonadLiftT m n]
+lemma MAlgLift.wp_throw
+  [Monad n] [CompleteLattice k] [MAlgOrdered n k] [MonadLiftT m n]
   [MonadLiftT (ExceptT ε m) n]
   [MonadLiftT (Cont l) (Cont k)]
   [LogicLift l k]
-  [MPropLiftT (ExceptT ε m) l n k] :
+  [MAlgLiftT (ExceptT ε m) l n k] :
     wp (liftM (n := n) (throw (m := ExceptT ε m) e)) post = ⌜hd e⌝ := by
-    rw [MPropLift.wp_lift, ExceptT.wp_throw]
+    rw [MAlgLift.wp_lift, ExceptT.wp_throw]
     simp only [LE.pure, monadLift_self]; split <;> simp [LogicLift.lift_bot, LogicLift.lift_top]
 
 
@@ -453,7 +453,7 @@ end ExceptT
 
 section StateT
 
-variable [inst: CompleteLattice l] [MPropOrdered m l]
+variable [inst: CompleteLattice l] [MAlgOrdered m l]
 
 lemma StateT.wp_get (post : σ -> σ -> l) :
   wp (get (m := StateT σ m)) post = fun s => post s s := by
@@ -467,7 +467,7 @@ end StateT
 
 section ReaderT
 
-variable [inst: CompleteLattice l] [MPropOrdered m l]
+variable [inst: CompleteLattice l] [MAlgOrdered m l]
 
 lemma ReaderT.wp_read (post : σ -> σ -> l) :
   wp (read (m := ReaderT σ m)) post = fun s => post s s := by
@@ -482,19 +482,19 @@ open Plausible
 
 lemma Gen.wp_rand {α : Type} (c : Gen α) :
   triple ⊤ c (fun _ => ⊤) := by
-    simp [triple, MPropGenInst, ReaderT.wp_eq, StateT.wp_eq]
-    simp [wp, liftM, monadLift, MProp.lift, MPropOrdered.μ]; rfl
+    simp [triple, MAlgGenInst, ReaderT.wp_eq, StateT.wp_eq]
+    simp [wp, liftM, monadLift, MAlg.lift, MAlgOrdered.μ]; rfl
 
 end Gen
 
 
 -- section StrongestPostcondition
 
--- variable [inst: CompleteLattice l] [MPropOrdered m l]
+-- variable [inst: CompleteLattice l] [MAlgOrdered m l]
 
 -- def sp (x : m α) (pre : l) : α -> l := (sInf fun post => pre <= wp x post)
 
--- lemma le_wp_sp_le (x : m α) [LawfulMonad m] [MPropDet m l] :
+-- lemma le_wp_sp_le (x : m α) [LawfulMonad m] [MAlgDet m l] :
 --   post ≠ ⊤ ->
 --    (sp x pre <= post -> pre <= wp x post) := by
 --     intro pne

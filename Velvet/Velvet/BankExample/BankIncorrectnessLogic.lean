@@ -32,7 +32,7 @@ def BankM.wp_get_totl: WPGen (get : BankM Balance) where
     get := fun fn x => fn x x
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
-      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [NonDetT.wp_lift, MAlgLift.wp_lift]
       erw [StateT.wp_get]
 
 
@@ -41,7 +41,7 @@ def BankM.wp_set_totl (res: Balance) : WPGen (set res : BankM PUnit) where
     get := fun fn x => fn PUnit.unit res
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
-      simp [NonDetT.wp_lift, MPropLift.wp_lift]
+      simp [NonDetT.wp_lift, MAlgLift.wp_lift]
       simp [StateT.wp_eq, set, StateT.set, wp_pure]
 
 @[spec, loomWpSimp]

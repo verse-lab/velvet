@@ -202,7 +202,7 @@ open PartialCorrectness DemonicChoice
 @[spec, loomWpSimp]
 noncomputable
 def WPGen.pickSuchThat_part [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l]
-  [MPropOrdered m l] : WPGen (pickSuchThat τ p : NonDetT m τ) := by
+  [MAlgOrdered m l] : WPGen (pickSuchThat τ p : NonDetT m τ) := by
   refine ⟨fun post => ⨅ t, ⌜p t⌝ ⇨ post t, ?_⟩
   intro post;
   simp [MonadNonDet.wp_pickSuchThat, loomLogicSimp]
@@ -219,7 +219,7 @@ open TotalCorrectness DemonicChoice
 @[spec, loomWpSimp]
 noncomputable
 def WPGen.pickSuchThat_totl [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l]
-  [MPropOrdered m l] : WPGen (pickSuchThat τ p : NonDetT m τ) := by
+  [MAlgOrdered m l] : WPGen (pickSuchThat τ p : NonDetT m τ) := by
   refine ⟨fun post => ⨅ t, ⌜p t⌝ ⇨ post t, ?_⟩
   intro post;
   simp [MonadNonDet.wp_pickSuchThat, loomLogicSimp]
@@ -231,7 +231,7 @@ open TotalCorrectness AngelicChoice
 @[spec, loomWpSimp]
 noncomputable
 def WPGen.pick_totl_angelic [Monad m] [LawfulMonad m] [Nonempty τ] [CompleteBooleanAlgebra l]
-  [MPropOrdered m l] : WPGen (pick τ: NonDetT m τ) := by
+  [MAlgOrdered m l] : WPGen (pick τ: NonDetT m τ) := by
   refine ⟨fun post => ⨆ t, post t, ?_⟩
   intro post;
   simp [MonadNonDet.wp_pick, loomLogicSimp]

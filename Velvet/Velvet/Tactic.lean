@@ -159,7 +159,7 @@ elab "loom_solve?" : tactic => withMainContext do
   try simp only [$(mkIdent `typeWithName.erase):ident]
   try simp only [$(mkIdent `List.foldr):ident]
   try simp only [$(mkIdent `loomLogicSimp):ident]
-  try simp only [$(mkIdent `simpMProp):ident]
+  try simp only [$(mkIdent `simpMAlg):ident]
   repeat' (apply $(mkIdent `And.intro) <;> (repeat loom_intro))
   any_goals auto [$hints,*]
   ))

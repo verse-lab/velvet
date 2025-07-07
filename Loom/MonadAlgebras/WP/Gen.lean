@@ -53,10 +53,10 @@ initialize loomAssertionsMap :
   }
 
 section
-variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MPropOrdered m l]
+variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l] [MAlgOrdered m l]
 
 set_option linter.unusedVariables false in
-def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MPropOrdered m invType] : m PUnit := pure .unit
+def invariantGadget {invType : Type u} (inv : List invType) [CompleteLattice invType] [MAlgOrdered m invType] : m PUnit := pure .unit
 
 declare_syntax_cat doneWith
 declare_syntax_cat decreasingTerm
@@ -75,11 +75,11 @@ abbrev invariants (f : List l) := f.foldr (·⊓·) ⊤
 
 
 set_option linter.unusedVariables false in
-def onDoneGadget {invType : Type u} (inv : invType) [CompleteLattice invType] [MPropOrdered m invType] : m PUnit := pure .unit
+def onDoneGadget {invType : Type u} (inv : invType) [CompleteLattice invType] [MAlgOrdered m invType] : m PUnit := pure .unit
 
 
 set_option linter.unusedVariables false in
-def assertGadget {l : Type u} (h : l) [CompleteLattice l] [MPropOrdered m l] : m PUnit := pure .unit
+def assertGadget {l : Type u} (h : l) [CompleteLattice l] [MAlgOrdered m l] : m PUnit := pure .unit
 
 macro "assert" t:term : term => `(assertGadget $t)
 
@@ -327,15 +327,15 @@ def WPGen.forWithInvariant {xs : Std.Range} {init : β} {f : ℕ → β → m (F
 --   solve_by_elim
 
 end
-variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteBooleanAlgebra l] [MPropOrdered m l]
+variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteBooleanAlgebra l] [MAlgOrdered m l]
 
 
-def WPGen.assert {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MPropOrdered m l] (h : l) : WPGen (assertGadget (m := m) h) where
+def WPGen.assert {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l] (h : l) : WPGen (assertGadget (m := m) h) where
   get := fun post => h ⊓ (h ⇨ post .unit)
   prop := by simp [assertGadget, wp_pure]
 
 noncomputable
-def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MPropOrdered m l]
+def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
   {_ : Decidable h} {x y : m α} (wpgx : WPGen x) (wpgy : WPGen y) : WPGen (if h then x else y) where
   get := fun post => (⌜WithName h (Lean.Name.anonymous.mkStr "if_pos")⌝ ⇨ wpgx.get post) ⊓ (⌜WithName (¬ h) (Lean.Name.anonymous.mkStr "if_neg")⌝ ⇨ wpgy.get post)
   prop := by
@@ -343,7 +343,7 @@ def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Comp
     split <;> simp <;> solve_by_elim [wpgx.prop, wpgy.prop]
 
 noncomputable
-def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MPropOrdered m l]
+def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
   (y : β) {x : β -> m α} (wpgx : ∀ y, WPGen (x y)) : WPGen (let z := y; x z) where
   get := fun post => ⨅ z, ⌜z = y⌝ ⇨ (wpgx z).get post
   prop := by

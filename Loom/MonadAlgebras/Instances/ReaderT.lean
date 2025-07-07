@@ -3,11 +3,11 @@ import Loom.MonadAlgebras.Instances.Basic
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] : MPropOrdered (ReaderT σ m) (σ -> l) where
+  [Monad m] [LawfulMonad m] [inst: MAlgOrdered m l] : MAlgOrdered (ReaderT σ m) (σ -> l) where
   μ := fun rp r => inst.μ $ (· r) <$> rp r
   μ_ord_pure := by
     intros l; simp [pure, ReaderT.pure]; ext r
-    solve_by_elim [MPropOrdered.μ_ord_pure]
+    solve_by_elim [MAlgOrdered.μ_ord_pure]
   μ_ord_bind := by
     intros α f g
     simp [Function.comp, Pi.hasLe, Pi.partialOrder, Pi.preorder, inferInstanceAs]; intros le x r
@@ -18,19 +18,19 @@ instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
 
 instance (σ : Type u) (l : Type u) (m : Type u -> Type v)
   [CompleteLattice l]
-  [Monad m] [LawfulMonad m] [inst: MPropOrdered m l] [inst': MPropDet m l]
-   : MPropDet (ReaderT σ m) (σ -> l) where
+  [Monad m] [LawfulMonad m] [inst: MAlgOrdered m l] [inst': MAlgDet m l]
+   : MAlgDet (ReaderT σ m) (σ -> l) where
     angelic := by
       intros α ι c p _ s;
-      simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map]
+      simp [MAlg.lift, MAlg.μ, MAlgOrdered.μ, Functor.map]
       have h := inst'.angelic (α := α) (c := c s) (p := fun i x => p i x s)
-      simp [MProp.lift, MProp.μ] at h
+      simp [MAlg.lift, MAlg.μ] at h
       apply h
     demonic := by
       intros α ι c p _ s;
-      simp [MProp.lift, MProp.μ, MPropOrdered.μ, Functor.map]
+      simp [MAlg.lift, MAlg.μ, MAlgOrdered.μ, Functor.map]
       have h := inst'.demonic (α := α) (c := c s) (p := fun i x => p i x s)
-      simp [MProp.lift, MProp.μ] at h
+      simp [MAlg.lift, MAlg.μ] at h
       apply h
 
 
@@ -56,20 +56,20 @@ instance [Monad m] [inst : ∀ α, Lean.Order.CCPO (m α)] [CCPOBot m] [CCPOBotL
     unfold Lean.Order.fun_csup; intro α; ext; simp [StateT.run]
     apply CCPOBotLawful.prop
 
-lemma MProp.lift_ReaderT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MPropOrdered m l] (x : ReaderT σ m α) :
-  MProp.lift x post = fun s => MProp.lift (x s) (fun xs => post xs s) := by
-    simp [MProp.lift, Functor.map, MPropOrdered.μ]
+lemma MAlg.lift_ReaderT [Monad m] [LawfulMonad m] [CompleteLattice l] [inst: MAlgOrdered m l] (x : ReaderT σ m α) :
+  MAlg.lift x post = fun s => MAlg.lift (x s) (fun xs => post xs s) := by
+    simp [MAlg.lift, Functor.map, MAlgOrdered.μ]
 
 open Lean.Order
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l]
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [∀ α, CCPO (m α)] [MonoBind m]
-  [MPropPartial m] : MPropPartial (ReaderT σ m) where
+  [MAlgPartial m] : MAlgPartial (ReaderT σ m) where
   csup_lift {α} chain := by
     intro post hchain
-    simp [instCCPOReaderTOfMonad_loom, CCPO.csup, MProp.lift_ReaderT]
+    simp [instCCPOReaderTOfMonad_loom, CCPO.csup, MAlg.lift_ReaderT]
     rw [@Pi.le_def]; simp; unfold fun_csup; intro s
     apply le_trans'
-    apply MPropPartial.csup_lift (m := m)
+    apply MAlgPartial.csup_lift (m := m)
     { simp [Lean.Order.chain]; rintro x y f cf rfl g cg rfl
       cases (hchain f g cf cg)
       { left; solve_by_elim }
@@ -78,21 +78,21 @@ instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdere
     refine iInf_mono' ?_; simp [Membership.mem, Set.Mem]; aesop
 
 attribute [-simp] le_bot_iff in
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l]
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [∀ α, CCPO (m α)]  [MonoBind m]
-  [MPropTotal m] : MPropTotal (ReaderT σ m) where
+  [MAlgTotal m] : MAlgTotal (ReaderT σ m) where
   bot_lift := by
-    simp [MProp.lift_ReaderT, bot, instCCPOReaderTOfMonad_loom, CCPO.csup, fun_csup]
+    simp [MAlg.lift_ReaderT, bot, instCCPOReaderTOfMonad_loom, CCPO.csup, fun_csup]
     intros; intro; simp;
-    apply MPropTotal.bot_lift (m := m)
+    apply MAlgTotal.bot_lift (m := m)
 
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l]
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l]
   [inst': NoFailure m] : NoFailure (ReaderT σ m) where
   noFailure := by
-    intro _ _; simp [MProp.lift_ReaderT, inst'.noFailure]; rfl
+    intro _ _; simp [MAlg.lift_ReaderT, inst'.noFailure]; rfl
 
-instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MPropOrdered m l] :
-  MPropLiftT m l (ReaderT σ m) (σ -> l) where
+instance [Monad m] [LawfulMonad m] [_root_.CompleteLattice l] [inst: MAlgOrdered m l] :
+  MAlgLiftT m l (ReaderT σ m) (σ -> l) where
     μ_lift := by
-      intros; simp [MProp.lift_ReaderT]; ext;
+      intros; simp [MAlg.lift_ReaderT]; ext;
       simp [liftM, instMonadLiftTOfMonadLift, MonadLift.monadLift]

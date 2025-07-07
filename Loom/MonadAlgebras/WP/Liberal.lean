@@ -7,7 +7,7 @@ import Loom.MonadAlgebras.Instances.Basic
 import Loom.MonadAlgebras.Instances.ExceptT
 
 variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u}
-variable [inst: CompleteBooleanAlgebra l] [mprop: MPropOrdered m l]
+variable [inst: CompleteBooleanAlgebra l] [mprop: MAlgOrdered m l]
 
 attribute [simp] trueE falseE
 @[local simp]
@@ -53,7 +53,7 @@ lemma wp_wlp (c : m α) (post : α -> l) :
     simp [wlp, wp]
 
 section Determenism
-variable [MPropDet m l]
+variable [MAlgDet m l]
 
 lemma wlp_and (c : m α) (post₁ post₂ : α -> l) :
   wlp c (fun x => post₁ x ⊓ post₂ x) = wlp c post₁ ⊓ wlp c post₂ := by
@@ -124,7 +124,7 @@ lemma wp_top_wlp (c : m α) (post : α -> l) :
   wp c ⊤ ⊓ wlp c post = wp c post := by
   rw [inf_comm, wlp_join_wp]; simp
 
-omit [MPropDet m l] in
+omit [MAlgDet m l] in
 lemma wlp_cons (c : m α) (post post' : α -> l) :
   post <= post' ->
   wlp c post <= wlp c post' := by
@@ -215,12 +215,12 @@ lemma PartialCorrectness.DivM.wlp_eq (α : Type) (x : DivM α) (post : α -> Pro
   simp [wlp, TotalCorrectness.DivM.wp_eq, PartialCorrectness.DivM.wp_eq]
   split <;> simp
 
-omit [MPropDet m l] in
+omit [MAlgDet m l] in
 lemma StateT.wlp_eq (c : StateT σ m α) (post : α -> σ -> l) :
   wlp c post = fun s => wlp (m := m) (c s) (fun xs => post xs.1 xs.2) := by
   simp [wlp, StateT.wp_eq]; rfl
 
-omit [MPropDet m l] in
+omit [MAlgDet m l] in
 lemma ReaderT.wlp_eq (c : ReaderT σ m α) (post : α -> σ -> l) :
   wlp c post = fun s => wlp (m := m) (c s) (post · s) := by
   simp [wlp, ReaderT.wp_eq]; rfl
