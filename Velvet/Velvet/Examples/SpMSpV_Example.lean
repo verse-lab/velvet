@@ -109,7 +109,7 @@ method spmv
 
 prove_correct spmv by
   dsimp [spmv]
-  velvet_solve
+  loom_solve
 
 
 def toList [arr_inst: TArray ε τ] (arr: τ): List ε :=
@@ -143,7 +143,7 @@ method VSpV
 
 prove_correct VSpV by
   dsimp [VSpV]
-  velvet_solve
+  loom_solve
 
 theorem getValSpV_eq (spv: SpVAbs) (j: ℕ) (h_ind: j < SpVT.size spv): spv[(SpVT.ind spv)[j]] = (SpVT.val spv)[j] := by
   simp [getElem]
@@ -674,7 +674,7 @@ method SpVSpV
 
 prove_correct SpVSpV by
   dsimp [SpVSpV]
-  velvet_solve
+  loom_solve
 
 theorem SpVSpV_correct_triple (out: arrVal) (spv1 spv2: SpVAbs) (n: ℕ):
   triple
@@ -730,7 +730,7 @@ method SpMSpV
     return
 prove_correct SpMSpV by
   dsimp [SpMSpV]
-  velvet_solve
+  loom_solve
 
 
 theorem SpMSpV_correct_triple

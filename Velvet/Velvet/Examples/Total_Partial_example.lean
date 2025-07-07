@@ -71,7 +71,7 @@ method insertionSort_part
 open PartialCorrectness DemonicChoice in
 prove_correct insertionSort_part by
   dsimp [insertionSort_part]
-  velvet_solve!
+  loom_solve!
 
 open TotalCorrectness DemonicChoice in
 method insertionSort_termination
@@ -107,7 +107,7 @@ method insertionSort_termination
 open TotalCorrectness DemonicChoice in
 prove_correct insertionSort_termination by
   dsimp [insertionSort_termination]
-  velvet_solve!
+  loom_solve!
 
 
 open TotalCorrectness DemonicChoice in

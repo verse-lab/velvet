@@ -98,7 +98,7 @@ method insertionSort
     return
 prove_correct insertionSort by
   dsimp [insertionSort]
-  velvet_solve
+  loom_solve
 
 end insertionSort
 
@@ -120,6 +120,6 @@ method sqrt (x: ℕ) return (res: ℕ)
       return i - 1
 prove_correct sqrt by
   dsimp [sqrt]
-  velvet_solve!
+  loom_solve!
 
 end squareRoot

@@ -101,7 +101,7 @@ method insertionSort
       return
 prove_correct insertionSort by
   dsimp [insertionSort]
-  velvet_solve!
+  loom_solve!
 
 end insertionSort
 
@@ -124,7 +124,7 @@ method sqrt (x: ℕ) return (res: ℕ)
       return i - 1
 prove_correct sqrt by
   dsimp [sqrt]
-  velvet_solve
+  loom_solve
 
 method cbrt (x: ℕ) return (res: ℕ)
   ensures res * res * res ≤ x ∧ ∀ i, i ≤ res → i * i * i ≤ x
@@ -141,7 +141,7 @@ method cbrt (x: ℕ) return (res: ℕ)
       return i - 1
 prove_correct cbrt by
   dsimp [cbrt]
-  velvet_solve
+  loom_solve
   grind
 
 method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
@@ -164,6 +164,6 @@ method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
     return l
 prove_correct sqrt_bn by
   dsimp [sqrt_bn]
-  velvet_solve!
+  loom_solve!
 
 end squareRoot

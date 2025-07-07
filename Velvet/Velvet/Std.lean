@@ -10,7 +10,6 @@ import Loom.MonadAlgebras.WP.DoNames'
 
 import Velvet.Extension
 import Velvet.Syntax
-import Velvet.Tactic
 
 class TArray (α : outParam Type) (κ: Type) where
   get : Nat → κ → α

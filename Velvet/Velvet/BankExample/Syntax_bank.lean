@@ -10,7 +10,7 @@ import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 
 import Velvet.Theory
-import Velvet.Extension
+import Velvet.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
 
 abbrev Balance := Int
@@ -77,7 +77,7 @@ syntax "bdef" ident leafny_binder* "returns" "(" ident ":" term ")"
 
 syntax "prove_correct" ident "by" tacticSeq : command
 
-private def toBracketedBinderArray (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
+private def toBracketedBinderArrayLeafny (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
   let mut binders := #[]
   for b in stx do
     match b with
@@ -212,13 +212,17 @@ private def Array.andList (ts : Array (TSyntax `term)) : TermElabM (TSyntax `ter
     return t
 
 macro_rules
+  | `(tactic|loom_solver_fun) =>
+    `(tactic|aesop)
+
+macro_rules
   | `(doElem| while $t
               $[invariant $inv:term
               ]*
               $[done_with $inv_done]?
               $[decreasing $measure]?
               do $seq:doSeq) => do
-      let balance := mkIdent `bala
+      let balance := mkIdent `balance_name
       let balanceType <- `(term| Balance)
       let inv : Array Term <- inv.mapM fun inv => ``(fun ($(balance):ident : $balanceType)=> $inv)
       let invd_some <- match inv_done with
@@ -228,17 +232,17 @@ macro_rules
       | some measure_some => do
         `(doElem|
           for _ in Lean.Loop.mk do
-            invariantGadget [ $[($inv:term)],* ]
-            onDoneGadget ($invd_some:term)
-            decreasingGadget ($measure_some:term)
+            invariantGadget [ $[type_with_name_prefix `invariant ($inv:term)],* ]
+            onDoneGadget (type_with_name_prefix `done ($invd_some:term))
+            decreasingGadget (type_with_name_prefix `decreasing ($measure_some:term))
             if $t then
               $seq:doSeq
             else break)
       | none => do
         `(doElem|
           for _ in Lean.Loop.mk do
-            invariantGadget ([ $[$inv:term],* ])
-            onDoneGadget ($invd_some:term)
+            invariantGadget [ $[type_with_name_prefix `invariant ($inv:term)],* ]
+            onDoneGadget (type_with_name_prefix `done ($invd_some:term))
             if $t then
               $seq:doSeq
             else break)
@@ -258,7 +262,7 @@ elab_rules : command
   $[ensures $ens:term]* do $doSeq:doSeq
   ) => do
   let (defCmd, obligation) ← Command.runTermElabM fun _vs => do
-    let bindersIdents ← toBracketedBinderArray binders
+    let bindersIdents ← toBracketedBinderArrayLeafny binders
     let modIds ← getModIds binders
     globalMutVarsCtx.modify (·.insert name.getId modIds)
     let modId := (mkIdent `balance)

@@ -8,7 +8,7 @@ import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 
 import Velvet.Theory
-import Velvet.Extension
+import Velvet.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
 
 open Lean Elab Command Term Meta Lean.Parser
@@ -78,7 +78,11 @@ macro_rules
   | `(doElem|$id:ident[$idx:term] += $val:term) =>
     `(doElem| $id:term := ($id:term).modify $idx (· + $val))
 
-private def toBracketedBinderArray (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
+macro_rules
+  | `(tactic|loom_solver_fun) =>
+    `(tactic|velvet_auto)
+
+private def toBracketedBinderArrayLeafny (stx : Array (TSyntax `leafny_binder)) : MetaM (TSyntaxArray `Lean.Parser.Term.bracketedBinder) := do
   let mut binders := #[]
   for b in stx do
     match b with
@@ -219,7 +223,7 @@ elab_rules : command
   $[ensures $ens:term]* do $doSeq:doSeq
   ) => do
   let (defCmd, obligation) ← Command.runTermElabM fun _vs => do
-    let bindersIdents ← toBracketedBinderArray binders
+    let bindersIdents ← toBracketedBinderArrayLeafny binders
 
     let modIds ← getModIds binders
     globalMutVarsCtx.modify (·.insert name.getId modIds)

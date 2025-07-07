@@ -30,12 +30,18 @@ private def _root_.Lean.SimplePersistentEnvExtension.get [Inhabited σ] (ext : S
 def getAssertionStx : TacticM (Option Term) := withMainContext do
   let goal <- getMainTarget
   let goalStx <- ppExpr goal
+  let ⟨_, ss, ns⟩ <- loomAssertionsMap.get
   let .some withNameExpr := goal.find? (fun e => e.isAppOf ``WithName)
-    | throwError s!"Failed to prove assertion which is not registered1: {goalStx}"
+    | let .some typeWithNameExpr := goal.find? (fun e => e.isAppOf ``typeWithName)
+        | throwError s!"Failed to parse an assertion without names: {goalStx}"
+      let nname := typeWithNameExpr.getAppArgs[2]!
+      let sname <- nname.getName
+      let some id1 := ns[sname]?
+        | throwError s!"typeWithName {sname} not registered: {typeWithNameExpr}"
+      return some ss[id1]!
   match_expr withNameExpr with
   | WithName exp name =>
     let name <- name.getName
-    let ⟨_, ss, ns⟩ <- loomAssertionsMap.get
     let some id := ns[name]?
       | let .some typeWithNameExpr := exp.find? (fun e => e.isAppOf ``typeWithName)
           | throwError s!"Failed to prove assertion without names: {goalStx}"
@@ -48,18 +54,21 @@ def getAssertionStx : TacticM (Option Term) := withMainContext do
   | _ => throwError s!"Failed to prove assertion which is not registered4: {goalStx}"
   --let ⟨maxId, ss, ns⟩ <- loomAssertionsMap.get
 
-declare_syntax_cat velvet_solve_tactic
-syntax "velvet_solve" : velvet_solve_tactic
-syntax "velvet_solve?" : velvet_solve_tactic
-syntax "velvet_solve!" : velvet_solve_tactic
-syntax velvet_solve_tactic : tactic
+declare_syntax_cat loom_solve_tactic
+syntax "loom_solve" : loom_solve_tactic
+syntax "loom_solve?" : loom_solve_tactic
+syntax "loom_solve!" : loom_solve_tactic
+syntax loom_solve_tactic : tactic
 
 syntax "velvet_intro" : tactic
 syntax "velvet_unfold" : tactic
+syntax "velvet_auto" : tactic
+syntax "loom_solver_fun" : tactic
 
 elab_rules : tactic
   | `(tactic| velvet_intro) => withMainContext do
     let vlsIntro <- `(tactic| (
+      repeat' loom_intro
       wpgen
       try simp only [loomWpSimp]
       try unfold spec
@@ -69,38 +78,48 @@ elab_rules : tactic
       try simp only [typeWithName.erase]
       try simp only [List.foldr]
       try simp only [loomLogicSimp]
+      try simp only [iSup_apply, iSup_Prop_eq, exists_and_left, exists_and_right,
+                     iInf_apply, iInf_Prop_eq, forall_and_left, forall_and_right]
       repeat loom_intro
       repeat' (loom_split <;> (repeat loom_intro))))
     evalTactic vlsIntro
 
 elab_rules : tactic
   | `(tactic| velvet_unfold) => withMainContext do
-    let vlsUnfold <- `(tactic| all_goals try unfold WithName at *; all_goals try unfold typeWithName at *; all_goals try unfold MProdWithName)
+    let vlsUnfold <- `(tacticSeq|
+      all_goals try unfold WithName at *
+      all_goals try unfold typeWithName at *
+      all_goals try unfold MProdWithName)
     evalTactic vlsUnfold
 
 elab_rules : tactic
-  | `(tactic| $vls:velvet_solve_tactic) => withMainContext do
+  | `(tactic| velvet_auto) => withMainContext do
     let ctx := (<- solverHints.get)
     let mut hints : Array (TSyntax ``Auto.hintelem) := #[]
     for c in ctx do
       hints := hints.push $ <- `(Auto.hintelem| $(mkIdent c):ident)
     hints := hints.push $ <- `(Auto.hintelem| *)
     let vlsAuto <- `(tactic| try (try simp only [loomAbstractionSimp] at *); auto [$hints,*])
+    evalTactic vlsAuto
+
+elab_rules : tactic
+  | `(tactic| $vls:loom_solve_tactic) => withMainContext do
     let vlsTryThis <- `(tacticSeq|
         velvet_intro
         velvet_unfold
-        $vlsAuto)
-    if let `(velvet_solve_tactic| velvet_solve?) := vls then
+        loom_solver_fun)
+    if let `(loom_solve_tactic| loom_solve?) := vls then
       Tactic.TryThis.addSuggestion (<-getRef) vlsTryThis
     else
       let vlsIntro ← `(tactic| velvet_intro)
       let vlsUnfold ← `(tactic| velvet_unfold)
+      let vlsSolve ← `(tactic| loom_solver_fun)
       evalTactic vlsIntro
       let res <- anyGoalsWithTag fun _mvarId => do
         let stx_res <- getAssertionStx
         evalTactic vlsUnfold
         let mvarId <- getMainGoal
-        evalTactic vlsAuto
+        evalTactic vlsSolve
         if (<- getUnsolvedGoals).length > 0 then
           match stx_res with
           | some stx =>
@@ -108,15 +127,19 @@ elab_rules : tactic
           | none =>
             return some (`unnamed, (mvarId, none))
         else return none
+      let tryVlsSolve ← `(tactic| all_goals try loom_solver_fun)
+      let tryVlsUnfold ← `(tactic| all_goals try velvet_unfold)
+      evalTactic tryVlsSolve
+      evalTactic tryVlsUnfold
       match vls with
-      | `(velvet_solve_tactic| velvet_solve!) =>
+      | `(loom_solve_tactic| loom_solve!) =>
         for (mvarId, stx_res) in res do
           match stx_res with
           | some stx => logErrorAt stx $ m!"Failed to prove assertion\n{mvarId}"
           | none => logError m!"Failed to prove nameless assertion\n{mvarId}"
       | _ => pure ()
 
-elab "velvet_solve?" : tactic => withMainContext do
+elab "loom_solve?" : tactic => withMainContext do
   let ctx := (<- solverHints.get)
   let mut hints : Array (TSyntax ``Auto.hintelem) := #[]
   for c in ctx do

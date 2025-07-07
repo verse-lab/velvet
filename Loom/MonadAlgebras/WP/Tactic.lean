@@ -91,7 +91,10 @@ partial def Lean.Expr.getNamesProp (tp : Expr) : MetaM (Option (List Name)) := d
       | return none
     return some $ n₁ :: ns
   | _ =>
-    return none
+    let .some typeWithNameExpr := tp.find? (fun e => e.isAppOf ``typeWithName)
+      | return none
+    let nname := typeWithNameExpr.getAppArgs[2]!
+    return some [<- nname.getName]
 
 def renameOld (n : Name) : TacticM Unit := withMainContext do
   (<- getMainGoal).modifyLCtx fun hyps => Id.run do

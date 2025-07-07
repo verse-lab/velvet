@@ -1,7 +1,6 @@
 import Loom.MonadAlgebras.Instances.StateT
 import Loom.MonadAlgebras.Instances.ExceptT
 import Loom.MonadAlgebras.NonDetT.Extract
-import Loom.MonadAlgebras.NonDetT.Basic
 import Velvet.BankExample.Syntax_bank
 import Mathlib.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
@@ -37,29 +36,44 @@ to specify the pre- and post-conditions.
 %
 -/
 
-
 open ExceptionAsFailure
 
-instance mlift : MonadLift (ExceptT String (StateT Balance DivM)) BankM where
-  monadLift x := NonDetT.vis x pure
+-- instance mlift : MonadLift (ExceptT String (StateT Balance DivM)) BankM where
+--   monadLift x := NonDetT.vis x pure
 
 instance : MonadExceptOf String BankM where
-  throw e := mlift.monadLift (throw e)
-  tryCatch := sorry
+  throw e := liftM (m := ExceptT String (StateT Balance DivM)) (throw e)
+  tryCatch := fun x _ => x
 
 section
 
 
 open PartialCorrectness DemonicChoice
 
+/-
+#derive_wp for
+  (get : BankM Balance) as
+  (liftM (n := BankM) (liftM (n := (ExceptT String (StateT Balance DivM))) (get : StateT Balance DivM Balance)))
+-/
+
 @[spec, loomWpSimp]
 noncomputable
-def BankM.wp_get_part: WPGen (get : BankM Balance) where
+def BankM.wp_get_part: WPGen (get : BankM Balance) := by
+  econstructor; intro post
+  have : get = liftM (n := BankM) (liftM (n := (ExceptT String (StateT Balance DivM))) (get : StateT Balance DivM Balance)) := by
+    rfl
+  rewrite [this]
+  simp [NonDetT.wp_lift, MPropLift.wp_lift, StateT.wp_get]
+  rfl
+
+
+/-
+where
     get := fun fn x => fn x x
     prop := fun post => by
       simp [instMonadStateOfMonadStateOf, instMonadStateOfOfMonadLift,getThe]
       simp [NonDetT.wp_lift, MPropLift.wp_lift]
-      erw [StateT.wp_get]
+      erw [StateT.wp_get]-/
 
 @[spec, loomWpSimp]
 def BankM.wp_set_part (res: Balance) : WPGen (set res : BankM PUnit) where
@@ -76,7 +90,7 @@ def BankM.wp_throw_part (s: String) : WPGen (throw s: BankM PUnit) where
     prop := fun post => by
       simp [throw, instMonadExceptOfMonadExceptOf, throwThe, MonadExceptOf]
       rw [MonadExceptOf.throw, instMonadExceptOfStringBankM]
-      simp [mlift, ExceptT.wp_throw]
+      simp [liftM, monadLift, MonadLift.monadLift, ExceptT.wp_throw]
       rfl
 
 end
@@ -110,7 +124,7 @@ def BankM.wp_throw_totl (s: String) : WPGen (throw s: BankM PUnit) where
     prop := fun post => by
       simp [throw, instMonadExceptOfMonadExceptOf, throwThe, MonadExceptOf]
       rw [MonadExceptOf.throw, instMonadExceptOfStringBankM]
-      simp [mlift, ExceptT.wp_throw]
+      simp [liftM, monadLift, MonadLift.monadLift, ExceptT.wp_throw]
       rfl
 end
 
@@ -124,9 +138,8 @@ bdef withdraw (amount : Nat) returns (u: Unit)
 
 open PartialCorrectness DemonicChoice in
 prove_correct withdraw by
-  dsimp [withdraw]; intro
-  velvet_intro; velvet_unfold
-  aesop
+  dsimp [withdraw]
+  loom_solve
 
 open PartialCorrectness DemonicChoice in
 bdef withdrawSession (inAmounts : Queue Nat) returns (u: Unit)
@@ -145,8 +158,7 @@ bdef withdrawSession (inAmounts : Queue Nat) returns (u: Unit)
 open PartialCorrectness DemonicChoice in
 prove_correct withdrawSession by
   dsimp [withdrawSession]
-  loom_intro
-  velvet_intro <;> velvet_unfold <;> aesop
+  loom_solve!
 
 open TotalCorrectness DemonicChoice in
 bdef withdrawSessionTot (inAmounts : Queue Nat) returns (u: Unit)
@@ -165,8 +177,7 @@ bdef withdrawSessionTot (inAmounts : Queue Nat) returns (u: Unit)
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionTot by
   dsimp [withdrawSessionTot]
-  loom_intro
-  velvet_intro <;> velvet_unfold <;> aesop
+  loom_solve!
 
 open TotalCorrectness DemonicChoice in
 bdef withdrawSessionExcept (inAmounts : Queue Nat) returns (u: Unit)
@@ -190,8 +201,7 @@ bdef withdrawSessionExcept (inAmounts : Queue Nat) returns (u: Unit)
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionExcept by
   dsimp [withdrawSessionExcept]
-  loom_intro
-  velvet_intro <;> velvet_unfold <;> aesop
+  loom_solve!
 
 open TotalCorrectness DemonicChoice in
 bdef withdrawSessionNonDet returns (history : Queue Nat)
@@ -203,7 +213,6 @@ bdef withdrawSessionNonDet returns (history : Queue Nat)
   let balancePrev := balance
   while amounts.nonEmpty
   invariant amounts.sum + balancePrev = inAmounts.sum + balance
-  invariant balance >= amounts.sum
   decreasing amounts.length do
     let amount := amounts.dequeue
     if amount > balance then
@@ -216,10 +225,7 @@ bdef withdrawSessionNonDet returns (history : Queue Nat)
 open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionNonDet by
   dsimp [withdrawSessionNonDet]
-  loom_intro
-  velvet_intro
-  velvet_unfold
-  aesop
+  loom_solve!
 
 #eval (withdraw 2).run.run.run 10
 #eval (withdrawSession ({elems := [1, 2, 6]})).run.run.run 12

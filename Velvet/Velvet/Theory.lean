@@ -225,6 +225,18 @@ def WPGen.pickSuchThat_totl [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l]
   simp [MonadNonDet.wp_pickSuchThat, loomLogicSimp]
 end
 
+section
+open TotalCorrectness AngelicChoice
+
+@[spec, loomWpSimp]
+noncomputable
+def WPGen.pick_totl_angelic [Monad m] [LawfulMonad m] [Nonempty τ] [CompleteBooleanAlgebra l]
+  [MPropOrdered m l] : WPGen (pick τ: NonDetT m τ) := by
+  refine ⟨fun post => ⨆ t, post t, ?_⟩
+  intro post;
+  simp [MonadNonDet.wp_pick, loomLogicSimp]
+end
+
 @[simp]
 lemma Array.replicate_get (n : ℕ) [Inhabited α] (a : α) (i : ℕ) (_ : i < n := by omega) :
   (Array.replicate n a)[i]! = a := by
