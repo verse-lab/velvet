@@ -1,7 +1,7 @@
 import Loom.MonadAlgebras.Instances.StateT
 import Loom.MonadAlgebras.Instances.ExceptT
 import Loom.MonadAlgebras.NonDetT.Extract
-import Velvet.BankExample.Syntax_bank
+import Velvet.CashmereExample.Syntax_Cashmere
 import Mathlib.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
 import Lean
@@ -17,22 +17,22 @@ open Queue
 
 open ExceptionAsSuccess
 
-instance : MonadExceptOf String BankM where
+instance : MonadExceptOf String CashmereM where
   throw e := liftM (m := ExceptT String (StateT Balance DivM)) (throw e)
   tryCatch := fun x _ => x
 
 open TotalCorrectness AngelicChoice
 
-#derive_wp for (get : BankM Balance) as
-  liftM (n := BankM) (liftM (n := (ExceptT String (StateT Balance DivM))) (get : StateT Balance DivM Balance))
+#derive_wp for (get : CashmereM Balance) as
+  liftM (n := CashmereM) (liftM (n := (ExceptT String (StateT Balance DivM))) (get : StateT Balance DivM Balance))
   with (u: Unit)
 
-#derive_wp for (set res : BankM PUnit) as
-  liftM (n := BankM) (liftM (n := (ExceptT String (StateT Balance DivM))) (set res : StateT Balance DivM PUnit))
+#derive_wp for (set res : CashmereM PUnit) as
+  liftM (n := CashmereM) (liftM (n := (ExceptT String (StateT Balance DivM))) (set res : StateT Balance DivM PUnit))
   with (res: Balance)
 
-#derive_wp for (throw s: BankM PUnit) as
-  liftM (n := BankM) (throw s : ExceptT String (StateT Balance DivM) PUnit)
+#derive_wp for (throw s: CashmereM PUnit) as
+  liftM (n := CashmereM) (throw s : ExceptT String (StateT Balance DivM) PUnit)
   with (s: String)
 
 --small aesop upgrade

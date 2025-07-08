@@ -1,1 +1,1 @@
-import Velvet.Examples.Examples
+import Velvet.CashmereExample.Cashmere

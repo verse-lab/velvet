@@ -14,7 +14,7 @@ import Velvet.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
 
 abbrev Balance := Int
-abbrev BankM := NonDetT (ExceptT String (StateT Balance DivM))
+abbrev CashmereM := NonDetT (ExceptT String (StateT Balance DivM))
 
 open Lean Elab Command Term Meta Lean.Parser
 
@@ -275,7 +275,7 @@ elab_rules : command
       let mod <- `(Term.doSeqItem| let mut $modId:ident ← get)
       mods := mods.push mod
     let defCmd <- `(command|
-      def $name $bindersIdents* : BankM $type := do $mods* $doSeq*)
+      def $name $bindersIdents* : CashmereM $type := do $mods* $doSeq*)
 
     let reqName <- `(name| `require)
     let ensName <- `(name| `ensures)
