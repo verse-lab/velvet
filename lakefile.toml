@@ -1,11 +1,10 @@
 name = "Loom"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["Loom", "Velvet"]
+defaultTargets = ["Loom", "LoomCaseStudies"]
 
 [[lean_lib]]
-name = "Velvet"
-srcDir = "Velvet"
+name = "LoomCaseStudies"
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`

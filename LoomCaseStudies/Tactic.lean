@@ -8,7 +8,7 @@ import Loom.MonadAlgebras.WP.Tactic
 import Loom.MonadAlgebras.WP.Gen
 import Loom.Tactic
 
-import Velvet.Extension
+import LoomCaseStudies.Extension
 
 import ProofWidgets.Component.Panel.Basic
 import ProofWidgets.Component.HtmlDisplay
@@ -60,13 +60,13 @@ syntax "loom_solve?" : loom_solve_tactic
 syntax "loom_solve!" : loom_solve_tactic
 syntax loom_solve_tactic : tactic
 
-syntax "velvet_intro" : tactic
-syntax "velvet_unfold" : tactic
-syntax "velvet_auto" : tactic
+syntax "loom_goals_intro" : tactic
+syntax "loom_unfold" : tactic
+syntax "loom_auto" : tactic
 syntax "loom_solver_fun" : tactic
 
 elab_rules : tactic
-  | `(tactic| velvet_intro) => withMainContext do
+  | `(tactic| loom_goals_intro) => withMainContext do
     let vlsIntro <- `(tactic| (
       repeat' loom_intro
       wpgen
@@ -85,7 +85,7 @@ elab_rules : tactic
     evalTactic vlsIntro
 
 elab_rules : tactic
-  | `(tactic| velvet_unfold) => withMainContext do
+  | `(tactic| loom_unfold) => withMainContext do
     let vlsUnfold <- `(tacticSeq|
       all_goals try unfold WithName at *
       all_goals try unfold typeWithName at *
@@ -93,7 +93,7 @@ elab_rules : tactic
     evalTactic vlsUnfold
 
 elab_rules : tactic
-  | `(tactic| velvet_auto) => withMainContext do
+  | `(tactic| loom_auto) => withMainContext do
     let ctx := (<- solverHints.get)
     let mut hints : Array (TSyntax ``Auto.hintelem) := #[]
     for c in ctx do
@@ -105,14 +105,14 @@ elab_rules : tactic
 elab_rules : tactic
   | `(tactic| $vls:loom_solve_tactic) => withMainContext do
     let vlsTryThis <- `(tacticSeq|
-        velvet_intro
-        velvet_unfold
+        loom_goals_intro
+        loom_unfold
         loom_solver_fun)
     if let `(loom_solve_tactic| loom_solve?) := vls then
       Tactic.TryThis.addSuggestion (<-getRef) vlsTryThis
     else
-      let vlsIntro ← `(tactic| velvet_intro)
-      let vlsUnfold ← `(tactic| velvet_unfold)
+      let vlsIntro ← `(tactic| loom_goals_intro)
+      let vlsUnfold ← `(tactic| loom_unfold)
       let vlsSolve ← `(tactic| loom_solver_fun)
       evalTactic vlsIntro
       let res <- anyGoalsWithTag fun _mvarId => do
@@ -128,7 +128,7 @@ elab_rules : tactic
             return some (`unnamed, (mvarId, none))
         else return none
       let tryVlsSolve ← `(tactic| all_goals try loom_solver_fun)
-      let tryVlsUnfold ← `(tactic| all_goals try velvet_unfold)
+      let tryVlsUnfold ← `(tactic| all_goals try loom_unfold)
       evalTactic tryVlsSolve
       evalTactic tryVlsUnfold
       match vls with

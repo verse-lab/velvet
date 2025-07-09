@@ -9,10 +9,7 @@ import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
 
-import Velvet.Extension
-import Velvet.Syntax
-import Velvet.Tactic
-import Velvet.Std
+import LoomCaseStudies.Velvet.Std
 
 open Lean.Elab.Term.DoNames
 
