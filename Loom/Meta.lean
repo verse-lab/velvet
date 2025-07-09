@@ -5,7 +5,7 @@ import Loom.MonadAlgebras.WP.Attr
 import Loom.MonadAlgebras.WP.Basic
 import Loom.MonadAlgebras.NonDetT.Basic
 
-import Mathlib.Tactic
+import Mathlib.Tactic.Common
 
 open Lean Lean.Expr Lean.Meta
 open Lean Elab Command Term Meta Tactic

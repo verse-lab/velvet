@@ -3,7 +3,8 @@ import Loom.MonadAlgebras.Instances.ExceptT
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
-import Mathlib.Tactic
+import Mathlib.Tactic.Common
+import Mathlib.Tactic.Linarith
 import Lean
 
 import LoomCaseStudies.Cashmere.Syntax_Cashmere
