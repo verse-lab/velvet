@@ -4,6 +4,7 @@ import Lean
 import Mathlib.Algebra.BigOperators.Intervals
 import Mathlib.Algebra.Ring.Int.Defs
 
+import Loom.MonadAlgebras.NonDetT.Basic
 import Loom.MonadAlgebras.NonDetT.Extract
 import Loom.MonadAlgebras.WP.Tactic
 import Loom.MonadAlgebras.WP.DoNames'
@@ -61,10 +62,7 @@ method insertionSort_part
         invariant toMultiset arr = toMultiset arr₀
         do
           if arr[mind] < arr[mind - 1] then
-            let left := arr[mind - 1]
-            let right := arr[mind]
-            arr[mind - 1] := right
-            arr[mind] := left
+            swap arr[mind], arr[mind - 1]
           mind := mind - 1
         n := n + 1
       return
@@ -97,10 +95,7 @@ method insertionSort_termination
         decreasing mind
         do
           if arr[mind] < arr[mind - 1] then
-            let left := arr[mind - 1]
-            let right := arr[mind]
-            arr[mind - 1] := right
-            arr[mind] := left
+            swap arr[mind], arr[mind - 1]
           mind := mind - 1
         n := n + 1
       return
@@ -131,10 +126,7 @@ method insertionSort_total
         invariant True
         do
           if arr[mind] < arr[mind - 1] then
-            let left := arr[mind - 1]
-            let right := arr[mind]
-            arr[mind - 1] := right
-            arr[mind] := left
+            swap arr[mind], arr[mind - 1]
           mind := mind - 1
         n := n + 1
       return

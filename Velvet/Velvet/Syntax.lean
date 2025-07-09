@@ -267,6 +267,16 @@ elab_rules : command
   elabCommand defCmd
   velvetObligations.modify (·.insert name.getId obligation)
 
+notation "{" P "}" c "{" v "," Q "}" => triple P c (fun v => Q)
+
+/-
+example:
+open TotalCorrectness DemonicChoice
+lemma triple_test (arr: arrInt) :
+  {True}(insertionSort_part arr){b, 0 ≤ size b.snd.fst} := by
+  sorry
+-/
+
 @[incremental]
 elab_rules : command
   | `(command| prove_correct $name:ident by%$tkp $proof:tacticSeq) => do
