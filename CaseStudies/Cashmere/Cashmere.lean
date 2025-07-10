@@ -43,6 +43,7 @@ end
 --small aesop upgrade
 add_aesop_rules safe (by linarith)
 
+--simple withdraw
 bdef withdraw (amount : Nat) returns (u: Unit)
   ensures balance + amount = balanceOld do
   balance := balance - amount
@@ -53,6 +54,7 @@ prove_correct withdraw by
   dsimp [withdraw]
   loom_solve
 
+--withdraw a list of values
 open PartialCorrectness DemonicChoice in
 bdef withdrawSession (amounts : List Nat) returns (u: Unit)
   ensures balance + amounts.sum = balanceOld do
@@ -72,6 +74,7 @@ prove_correct withdrawSession by
   dsimp [withdrawSession]
   loom_solve!
 
+--adding termination measure for total correctness
 open TotalCorrectness DemonicChoice in
 bdef withdrawSessionTot (amounts : List Nat) returns (u: Unit)
   ensures balance + amounts.sum = balanceOld do
@@ -91,6 +94,7 @@ prove_correct withdrawSessionTot by
   dsimp [withdrawSessionTot]
   loom_solve!
 
+--withdraw a concrete session and throw an exception if balance goes below zero
 open TotalCorrectness DemonicChoice in
 bdef withdrawSessionExcept (amounts : List Nat) returns (u: Unit)
   require balance >= amounts.sum
@@ -115,6 +119,7 @@ prove_correct withdrawSessionExcept by
   dsimp [withdrawSessionExcept]
   loom_solve!
 
+--withdraw a session that does not bring balance below zero
 open TotalCorrectness DemonicChoice in
 bdef withdrawSessionNonDet returns (history : List Nat)
   require balance >= 0
@@ -138,6 +143,8 @@ open TotalCorrectness DemonicChoice in
 prove_correct withdrawSessionNonDet by
   dsimp [withdrawSessionNonDet]
   loom_solve!
+
+--we can actually run our code
 
 #eval (withdraw 2).run.run.run 10
 #eval (withdrawSession ([1, 2, 6])).run.run.run 12

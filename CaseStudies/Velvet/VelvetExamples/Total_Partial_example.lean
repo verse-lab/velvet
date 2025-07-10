@@ -27,11 +27,7 @@ variable {arrNat} [arr_inst: TArray Nat arrNat]
 -- set_option trace.profiler true
 attribute [local solverHint] TArray.multiSet_swap
 
-set_option quotPrecheck false in
-notation "[totl|" t "]" => open TotalCorrectness TotalCorrectness.DemonicChoice in t
-set_option quotPrecheck false in
-notation "[part|" t "]" => open PartialCorrectness PartialCorrectness.DemonicChoice in t
-
+--we prove invariants in partial correctness
 open PartialCorrectness DemonicChoice in
 method insertionSort_part
   (mut arr: arrInt) return (u: Unit)
@@ -68,6 +64,7 @@ prove_correct insertionSort_part by
   dsimp [insertionSort_part]
   loom_solve!
 
+--we prove termination in total correctness
 open TotalCorrectness DemonicChoice in
 method insertionSort_termination
   (mut arr: arrInt) return (u: Unit)
@@ -100,7 +97,7 @@ prove_correct insertionSort_termination by
   dsimp [insertionSort_termination]
   loom_solve!
 
-
+--we prove the postcondition just by combination of the two triples above
 open TotalCorrectness DemonicChoice in
 method insertionSort_result
   (mut arr: arrInt) return (u: Unit)

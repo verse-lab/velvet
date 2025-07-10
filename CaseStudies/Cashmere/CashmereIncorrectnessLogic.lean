@@ -26,6 +26,8 @@ open TotalCorrectness AngelicChoice
 --small aesop upgrade
 add_aesop_rules safe (by linarith)
 
+--if we can ensure False, then we must have thrown an exception,
+--therefore there is a session which brings balance below zero
 bdef withdrawSessionAngelic returns (u: Unit)
   require balance > 0
   ensures False do

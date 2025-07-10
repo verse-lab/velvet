@@ -31,6 +31,7 @@ variable {arrVal} [val_inst: TArray Int arrVal]
 instance : Inhabited arrVal where
   default := val_inst.replicate 0 default
 
+--class for sparse vector
 structure SpV (valTyp arrVal arrNat : outParam Type) [v_inst: TArray valTyp arrVal] [i_inst: TArray Nat arrNat] where
   ind: arrNat
   val: arrVal
@@ -38,6 +39,7 @@ structure SpV (valTyp arrVal arrNat : outParam Type) [v_inst: TArray valTyp arrV
   h_sz_eq: i_inst.size ind = size ∧ v_inst.size val = size
   h_inc: ∀ (i j: Nat), i < size → j < size →  i < j → ind[i] < ind[j]
 
+--typeclass for sparse vector
 class SpVT (valTyp arrVal arrNat : outParam Type) [v_inst: TArray valTyp arrVal] [i_inst: TArray Nat arrNat] (κ : Type) where
   ind: κ -> arrNat
   val: κ -> arrVal
@@ -64,7 +66,9 @@ lemma sumUpToSucc
   simp [sumUpTo]
   simp [@Finset.sum_range_succ, getElemE]
 
+--type for compressed row
 variable {SpVAbs} [SpV_inst : SpVT Int arrVal arrNat SpVAbs]
+--type for Compressed Sparse Row matrix
 variable {arrSpV} [SpM_inst: TArray SpVAbs arrSpV]
 
 instance : Inhabited (SpV Int arrVal arrNat) where
@@ -81,6 +85,7 @@ lemma sumUpTo0
   simp [sumUpTo]
 
 
+--CSR matrix by a vector multiplication
 method spmv
   (mut out: arrVal)
   (arr: arrVal)
@@ -120,6 +125,7 @@ instance: GetElem SpVAbs Nat Int fun _ _ => True where
     | none => 0
 
 
+--sparse vector by vector multiplication
 method VSpV
   (mut out: arrVal)
   (arr: arrVal)
@@ -143,6 +149,7 @@ prove_correct VSpV by
   dsimp [VSpV]
   loom_solve
 
+--theorem: getting a value by position which exists in sparse vector equals to element on that position
 theorem getValSpV_eq (spv: SpVAbs) (j: ℕ) (h_ind: j < SpVT.size spv): spv[(SpVT.ind spv)[j]] = (SpVT.val spv)[j] := by
   simp [getElem]
   have just_case:
@@ -166,6 +173,7 @@ theorem getValSpV_eq (spv: SpVAbs) (j: ℕ) (h_ind: j < SpVT.size spv): spv[(SpV
   simp [just_case]
 
 
+--theorem: getting a value by position which does exist in sparse vector equals to 0
 theorem getValSpV_empty (spv: SpVAbs) (j: ℕ) (h_empty: ∀ i < SpVT.size spv, (SpVT.ind spv)[i] ≠ j): spv[j] = 0 := by
   simp [getElem]
   have none_case: List.find? (fun x ↦ decide (x.1 = j)) (List.zip (toList (SpVT.ind spv)) (toList (SpVT.val spv))) = none := by
@@ -181,6 +189,7 @@ theorem getValSpV_empty (spv: SpVAbs) (j: ℕ) (h_empty: ∀ i < SpVT.size spv, 
     simp [neq]
   simp [none_case]
 
+--theorem: sumUpTo helper equals to actual dot product for sparse vector by vector multiplication
 theorem VSpV_correct_pure (out: arrVal) (arr: arrVal)
   (spv: SpVAbs)
   (h_b: ∀ i < SpVT.size spv, (SpVT.ind spv)[i] < size arr):
@@ -254,6 +263,7 @@ theorem VSpV_correct_pure (out: arrVal) (arr: arrVal)
       rw [←fin_lemma]
       exact Finset.sum_congr (by rfl) fun i h_i => by aesop
 
+--sparse vector by vector multiplication actually computes dot product
 theorem VSpV_correct_triple (out: arrVal) (arr: arrVal) (spv: SpVAbs):
   triple
     (∀ i < SpVT.size spv, (SpVT.ind spv)[i] < size arr)
@@ -273,6 +283,7 @@ theorem VSpV_correct_triple (out: arrVal) (arr: arrVal) (spv: SpVAbs):
       simp [triple, WithName] at triple_true
       exact triple_true
 
+--Column Sparse Matrix by vector multiplication actually computes matrix multiplication
 theorem spmv_correct_triple (out: arrVal) (arr: arrVal) (spm: arrSpV):
   triple
     (∀ i < size spm, ∀ j < (SpVT.size spm[i]), (SpVT.ind spm[i])[j] < size arr)
@@ -305,6 +316,7 @@ theorem spmv_correct_triple (out: arrVal) (arr: arrVal) (spm: arrSpV):
       simp [triple] at triple_true
       exact triple_true
 
+--helper function for calculation of dot product on sparse vectors
 def spv_dot [SpV_inst: SpVT ℤ arrVal arrNat SpVAbs_p] (spv1 spv2: SpVAbs_p) (pnt1 pnt2: ℕ): Int :=
   if (SpVT.size spv1) ≤ pnt1 ∨ (SpVT.size spv2) ≤ pnt2 then
     0
@@ -382,6 +394,7 @@ theorem spv_dot_exh
     by_cases triv: SpVT.size spv1 ≤ pnt1 ∨ SpVT.size spv2 ≤ pnt2 <;> simp [triv]
     omega
 
+--theorem: helper function computes actual dot product
 theorem spv_dot_pure_gen (spv1 spv2: SpVAbs) (n pnt1 pnt2: ℕ)
   (sz1: ∀ i < SpVT.size spv1, (SpVT.ind spv1)[i] < n)
   (sz2: ∀ i < SpVT.size spv2, (SpVT.ind spv2)[i] < n):
@@ -644,6 +657,7 @@ theorem spv_dot_pure (spv1 spv2: SpVAbs) (n: ℕ)
       simp at sm1
       simp [zer_lemma spv1 x em1 sm1]
 
+--sparse vector by sparse vector multiplication
 method SpVSpV
   (mut out: arrVal)
   (spv1: SpVAbs)
@@ -675,6 +689,7 @@ prove_correct SpVSpV by
   dsimp [SpVSpV]
   loom_solve
 
+--sparse vector by sparse vector multiplicaiton actually computes dot product
 theorem SpVSpV_correct_triple (out: arrVal) (spv1 spv2: SpVAbs) (n: ℕ):
   triple
     ((∀ i < SpVT.size spv1, (SpVT.ind spv1)[i] < n) ∧ (∀ i < SpVT.size spv2, (SpVT.ind spv2)[i] < n))
@@ -696,6 +711,7 @@ theorem SpVSpV_correct_triple (out: arrVal) (spv1 spv2: SpVAbs) (n: ℕ):
       simp [WithName] at triple_true
       exact triple_true
 
+--Compressed Sparse Row matrix by sparse vector multiplicaiton
 method SpMSpV
   (mut out: arrVal)
   (spm: arrSpV)
@@ -732,6 +748,7 @@ prove_correct SpMSpV by
   loom_solve
 
 
+--Compressed Sparse Row matrix by sparse vector multiplicaiton actually computes matrix product
 theorem SpMSpV_correct_triple
   (out: arrVal)
   (spm: arrSpV)

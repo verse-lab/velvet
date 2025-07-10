@@ -58,8 +58,10 @@ method insertionSort(arr: array<int>)
 variable {arrInt} [arr_inst_int: TArray Int arrInt]
 variable {arrNat} [arr_inst: TArray Nat arrNat]
 
+--it is possible to add custom solver hints for Velvet
 attribute [local solverHint] TArray.multiSet_swap
 
+--insertion sort implemented in Velvet
 method insertionSort_total
   (mut arr: arrInt) return (u: Unit)
   require 1 ≤ size arr
@@ -74,6 +76,7 @@ method insertionSort_total
     invariant 1 ≤ n ∧ n ≤ size arr
     invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
     invariant toMultiset arr = toMultiset arr₀
+    --explicit decreasing measure for loop termination is required in TotalCorrectness
     decreasing size arr - n
     do
       let mut mind := n
@@ -99,6 +102,7 @@ section squareRoot
 
 set_option trace.Loom true
 
+--square root of a non-negative integer implemented in Velvet
 method sqrt_total (x: ℕ) return (res: ℕ)
   ensures res * res ≤ x
   ensures ∀ i, i ≤ res → i * i ≤ x
@@ -118,6 +122,7 @@ prove_correct sqrt_total by
   dsimp [sqrt_total]
   loom_solve
 
+--root of power 3 for a non-negative integer implemented in Velvet
 method cbrt (x: ℕ) return (res: ℕ)
   ensures res * res * res ≤ x
   ensures ∀ i, i ≤ res → i * i * i ≤ x
@@ -136,8 +141,42 @@ method cbrt (x: ℕ) return (res: ℕ)
 prove_correct cbrt by
   dsimp [cbrt]
   loom_solve
+  --SMT failed to discharge one goal, but grind succeeds
   grind
 
+/-
+Dafny code for reference below
+
+method sqrt_bn (x: nat, bnd: nat) returns (res: nat)
+  requires x < bnd * bnd
+  ensures res * res <= x
+  ensures forall i: nat :: i <= res ==> i * i <= x
+  ensures forall i: nat :: i * i <= x ==> i <= res
+{
+  var l: nat := 0;
+  var r: nat := bnd;
+  assert forall i: nat :: i * i <= x ==> i * i < r * r;
+  assert forall i: nat :: i * i < r * r ==> 0 < (r - i) * (r + i);
+  while 1 < r - l
+  invariant l * l <= x
+  invariant x < r * r
+  invariant forall i: nat :: i <= l ==> i * i <= x
+  invariant forall i: nat :: i * i <= x ==> i < r
+  {
+    var m: nat := (r + l) / 2;
+    if m * m <= x {
+      l := m;
+      assert l <= m < r;
+    } else {
+      r := m;
+      assert l < m <= r;
+    }
+  }
+  return l;
+}
+-/
+
+--binary search for square root of a non-negative integer implemented in Velvet
 method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
   require x < bnd * bnd
   ensures res * res ≤ x

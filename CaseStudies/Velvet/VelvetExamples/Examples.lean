@@ -61,6 +61,7 @@ variable {arrNat} [arr_inst: TArray Nat arrNat]
 -- set_option trace.profiler true
 attribute [local solverHint] TArray.multiSet_swap
 
+--partial correctness version of insertionSort
 method insertionSort
   (mut arr: arrInt) return (u: Unit)
   require 1 ≤ size arr
@@ -98,6 +99,7 @@ end insertionSort
 
 section squareRoot
 
+--partial correctness version of square root
 method sqrt (x: ℕ) return (res: ℕ)
   require x > 8
   ensures res * res ≤ x
