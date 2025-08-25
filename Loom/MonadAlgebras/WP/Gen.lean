@@ -224,12 +224,29 @@ def WPGen.assert {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [
 
 noncomputable
 def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
-  {_ : Decidable h} {x y : m α} (wpgx : WPGen x) (wpgy : WPGen y) : WPGen (if h then x else y) where
-  get := fun post => (⌜WithName h (Lean.Name.anonymous.mkStr "if_pos")⌝ ⇨ wpgx.get post) ⊓ (⌜WithName (¬ h) (Lean.Name.anonymous.mkStr "if_neg")⌝ ⇨ wpgy.get post)
+  {hd : Decidable h} {x y : m α}
+  (wpgx : h → WPGen x) (wpgy : ¬h → WPGen y)
+  : WPGen (if h then x else y) where
+  get := fun post =>
+    (⨅ hc : WithName h (Lean.Name.anonymous.mkStr "if_pos"), (wpgx hc).get post) ⊓
+    (⨅ hc : WithName (¬h) (Lean.Name.anonymous.mkStr "if_neg"), (wpgy hc).get post)
   prop := by
-    intro post; simp [LE.pure]
-    split <;> simp <;> solve_by_elim [wpgx.prop, wpgy.prop]
-
+    intro post
+    split
+    { refine inf_le_of_left_le ?_
+      apply iInf_le_iff.mpr
+      rename_i hc
+      intro b hi
+      apply le_trans (b := (wpgx hc).get post)
+      exact hi hc
+      apply (wpgx hc).prop }
+    refine inf_le_of_right_le ?_
+    apply iInf_le_iff.mpr
+    rename_i hc
+    intro b hi
+    apply le_trans (b := (wpgy hc).get post)
+    exact hi hc
+    apply (wpgy hc).prop
 noncomputable
 def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
   (y : β) {x : β -> m α} (wpgx : ∀ y, WPGen (x y)) : WPGen (let z := y; x z) where
