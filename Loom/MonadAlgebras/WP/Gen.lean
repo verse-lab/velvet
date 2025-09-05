@@ -7,7 +7,7 @@ import Loom.MonadAlgebras.WP.Basic
 import Loom.MonadAlgebras.WP.Liberal
 import Loom.MonadAlgebras.WP.DoNames'
 
-open Lean Elab Command
+open Lean Meta Elab Command Term
 
 universe u v w
 
@@ -271,6 +271,7 @@ def WPGen.if {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Comp
     apply le_trans (b := (wpgy hc).get post)
     exact hi hc
     apply (wpgy hc).prop
+
 noncomputable
 def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
   (y : β) {x : β -> m α} (wpgx : ∀ y, WPGen (x y)) : WPGen (let z := y; x z) where
@@ -280,18 +281,13 @@ def WPGen.let  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [Co
      simp; apply (wpgx y).prop
 
 
-/- 
-What is a match expression
-- a recursor basically
--/
-
 noncomputable
 def WPGen.match
   {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
   -- The program to run if the option is 'none'
-  {y : m β} (wpgy : WPGen y)
+  {y : m β} {z : α → m β} (wpgy : WPGen y)
   -- A function that gives a program to run if the option is 'some a'
-  {z : α → m β} (wpgz : ∀ a, WPGen (z a))
+  (wpgz : ∀ a, WPGen (z a))
   -- The option value we are matching on
   (opt : Option α)
   -- The return type is parameterized by the whole match expression
@@ -318,3 +314,150 @@ where
       · simp
         exact (wpgz a).prop post
 
+
+syntax (name:=generate_predicates) "#generate_predicates" ident : command
+
+@[command_elab generate_predicates ]
+def generate_predicates_impl: CommandElab := fun stx => do
+  match stx with
+  | `(command| #generate_predicates $typeName:ident) =>
+    let fullName ← resolveGlobalConstNoOverload typeName
+    let info ← getConstInfoInduct fullName
+    let inductiveTypeName := info.name
+    let mut generatedCmds := #[]
+    for ctorName in info.ctors do
+      let ctorInfo <- getConstInfoCtor ctorName
+      let arity := ctorInfo.numFields
+      let placeholders := Array.replicate arity (← `(_))
+      let ctorShortName := ctorName.lastComponentAsString 
+      let funName := mkIdent $ Name.mkStr 
+                (Name.mkStr Name.anonymous inductiveTypeName.lastComponentAsString ) 
+                ("is" ++ ctorShortName.capitalize )
+      let ctor := mkIdent ctorName
+      let typeIdent := mkIdent typeName.getId
+      let cmd ← `(command|
+        @[simp]
+        def $funName:ident (c : $typeIdent:ident) : Bool :=
+          match c with
+          | $ctor:ident $placeholders:term*  => true
+          | _     => false
+      )
+      generatedCmds := generatedCmds.push cmd
+    let finalSyntax := mkNullNode generatedCmds
+    elabCommand finalSyntax
+  | _ => throwUnsupportedSyntax
+
+
+syntax (name:=generate_immediate_structures) "#generate_immediate_structures" ident : command
+
+@[command_elab generate_immediate_structures ]
+def generate_immediate_structures_impl: CommandElab := fun stx => do
+  match stx with
+  | `(command| #generate_immediate_structures $typeName:ident) =>
+    let fullName ← resolveGlobalConstNoOverload typeName
+    let info ← getConstInfoInduct fullName
+    let inductiveTypeName := info.name
+    let mut generatedCmds := #[]
+    for ctorName in info.ctors do
+      let ctorInfo ← getConstInfoCtor ctorName
+      let ctorShortName := ctorName.lastComponentAsString 
+      -- Define the new structure's name, e.g., "Rect" -> "RectFields"
+      let structName := mkIdent $ Name.mkStr 
+                  (Name.mkStr Name.anonymous inductiveTypeName.lastComponentAsString ) 
+                  (ctorShortName.capitalize ++ "Fields")
+
+      let cmd ← liftTermElabM $ forallTelescope ctorInfo.type fun fields _ => do
+
+        let mut paramBinders := #[]
+        for param in fields do
+          let decl ← getFVarLocalDecl param
+          let paramName := mkIdent decl.userName
+          let paramTypeSyntax ← withOptions (fun o => o.setBool `pp.universes true) do Lean.PrettyPrinter.delab decl.type
+          logInfo paramName
+          logInfo paramTypeSyntax
+          paramBinders := paramBinders.push (← `(bracketedBinder| ($paramName : $paramTypeSyntax)))
+
+        logInfo fields
+
+        let ctorFields := fields.extract ctorInfo.numParams fields.size
+        -- This is the new array for our correctly parsed field binders
+        let mut fieldBinders := #[]
+        /- let mut typeParams := #[] -/
+        for field in ctorFields do
+          logInfo field
+          let decl ← getFVarLocalDecl! field
+          let fieldName := mkIdent decl.userName
+          logInfo fieldName
+          let inferredType <- inferType field
+          logInfo s!"{inferredType} , is mVar:{inferredType.isMVar}, isFVar: {inferredType.isFVar}, name: {inferredType.constName?}"
+          let fieldType ← withOptions (fun opts =>
+                opts.setBool `pp.implicits true |>.setBool `pp.universes false
+              ) do
+                -- Use the MetaM-native delab that you found!
+                Lean.PrettyPrinter.delab inferredType
+          /- let fieldType <- Lean.PrettyPrinter.delab  inferredType -/
+          logInfo fieldType
+          let binder := `(Lean.Parser.Command.structSimpleBinder|$fieldName:ident : $fieldType)
+          fieldBinders := fieldBinders.push (← binder)
+
+        let structFields <- `(Lean.Parser.Command.structFields| $fieldBinders* )
+        logInfo structName
+
+        `(command|
+          @[ext]
+          structure $structName:ident $paramBinders:bracketedBinder* where
+            make:: 
+            $structFields
+          )
+
+      generatedCmds := generatedCmds.push cmd
+    let finalSyntax := mkNullNode generatedCmds
+    elabCommand finalSyntax
+  | _ => throwUnsupportedSyntax
+
+-- Our test type
+inductive Vehicle where
+  | car (make : String) (year : Nat)
+  | bike (hasBell : Bool)
+  | unicycle
+
+#check Vehicle.rec
+#generate_predicates Vehicle
+#generate_immediate_structures Vehicle
+#print Vehicle.CarFields
+
+set_option pp.rawOnError true
+#generate_predicates Nat
+#generate_immediate_structures Option
+#print Option.SomeFields
+
+
+set_option trace.Meta.Tactic.simp true
+simproc reduceWPGenMatch (WPGen _) :=
+  fun e => do
+    let args := e.getAppArgs
+    if h: args.size = 0 then return .done {expr:= e}
+    else 
+      let match_exp := args[args.size - 1 ]!
+      let univ_levels :=  e.getAppFn.constLevels!
+      dbg_trace "Match Expression: {match_exp}"
+      if let some e' := (← Lean.Meta.matchMatcherApp? match_exp) then
+        let res <- Lean.Meta.MatcherApp.transform (onAlt := (fun a b e => do
+          -- all args but last one replaced
+          let args' := args.set (args.size - 1) e (by 
+            grind
+          )
+          /- let args' := #[e] -/
+          let newExpr := (mkAppN (Lean.Expr.const ``WPGen univ_levels)  args' )
+          dbg_trace "e1: {b}, e2: {e}"
+          dbg_trace "Transformed from {e} -> {newExpr}" 
+          pure newExpr
+        )) (onMotive:= (fun _ e => do
+          dbg_trace "Motive: {e}"
+          pure e
+        )) e'
+        dbg_trace "{res.toExpr}"
+        return .done { expr := res.toExpr }
+      else 
+        return .done { expr := e }
+    
