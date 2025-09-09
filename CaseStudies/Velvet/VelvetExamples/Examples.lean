@@ -147,13 +147,35 @@ section runLengthEncoding
 structure Encoding where
   cnt: Nat
   c: Char
+  deriving Inhabited
 
 variable {velvetString} [arr_inst_int: TArray Char velvetString]
 variable {arrEncoding} [arr_encoding_inst: TArray Encoding arrEncoding]
 
 def get_cnt_sum (l: List Encoding) :=
-  (l.map (·.cnt)).sum
+  match l with
+  | List.nil => 0
+  | List.cons x xs => x.cnt + get_cnt_sum xs
   
+lemma get_cnt_sum_hd e l : get_cnt_sum (e::l) = e.cnt + get_cnt_sum l := by
+  conv  => {
+    lhs
+    unfold get_cnt_sum
+  }
+
+
+lemma get_cnt_sum_append l1 l2:  get_cnt_sum (l1 ++ l2) = get_cnt_sum l1 + get_cnt_sum l2 := by
+  induction l1 with
+  | nil => simp; rfl
+  | cons e l1' ih =>
+    simp [ih]
+    repeat (rw [get_cnt_sum_hd])
+    grind
+
+      
+  /- | List.nil => -/
+  /-     simp -/
+  /- | List.cons _ as ih => simp [ih, Nat.succ_add] -/
 
 
 --method RleDecodeIterative<T>(compressed: seq<Run<T>>) returns (decoded: seq<T>)
@@ -186,27 +208,116 @@ def get_cnt_sum (l: List Encoding) :=
   --}
 --}
 
-method decodeStr (encoded_str: arrEncoding) 
-   return (res: velvetString)
-   require (forall i, i < size encoded_str -> encoded_str[i].cnt > 0   )
-   ensures (size res = get_cnt_sum (TArray.to_list encoded_str) )
+
+set_option diagnostics true
+
+variable {arrInt} [arr_inst_int: TArray Int arrInt]
+variable {arrNat} [arr_inst: TArray Nat arrNat]
+
+method copyArray (arr: arrInt) return (res: arrInt)
+  ensures (size arr = size res)
+  ensures (forall i, i < size arr -> res[i] = arr[i]) 
+  do 
+    let mut res := TArray.replicate (size arr) 0
+    let mut i:= 0
+    while i < size res
+       invariant 0 <= i ∧ i <= TArray.size arr
+       invariant size arr = size res
+       invariant 0 <= i ∧ i <= TArray.size res
+       invariant forall j, j < i -> res[j] = arr[j]
+       done_with i = TArray.size arr
+       do
+          res[i] := arr[i]
+          i := i + 1
+    return res
+
+
+
+prove_correct copyArray by
+  unfold copyArray
+  loom_solve
+  rw [TArray.replicate_size]
+
+
+
+method doubleAllCopied (arr: arrInt) return (res: arrInt)
+  ensures (size arr = size res)
+  ensures (forall i, i < size arr -> res[i] = 2 * arr[i]) 
+  do 
+    let mut res := TArray.replicate (size arr) 0
+    let mut i:= 0
+    while i < size res
+       invariant 0 <= i ∧ i <= TArray.size arr
+       invariant size arr = size res
+       invariant 0 <= i ∧ i <= TArray.size res
+       invariant forall j, j < i -> res[j] = 2 * arr[j]
+       done_with i = TArray.size arr
+       do
+          res[i] := 2 * arr[i]
+          i := i + 1
+    return res
+
+prove_correct doubleAllCopied by
+  unfold doubleAllCopied
+  loom_solve
+  rw [TArray.replicate_size]
+
+
+--method doubleAllCopiedAsInt (arr: arrNat) return (res: arrInt)
+  --ensures (size arr = size res)
+  --ensures (forall i, i < size arr -> TArray.get i res = 2 * (Int.ofNat (TArray.get i arr)))
+  --do 
+    --let mut res := TArray.replicate (size arr) 0
+    --let mut i:= 0
+    --while i < size res
+       --invariant 0 <= i ∧ i <= TArray.size arr
+       --invariant size arr = size res
+       --invariant 0 <= i ∧ i <= TArray.size res
+       --invariant forall j, j < i -> res[j] = 2 * (Int.ofNat arr[j])
+       --done_with i = TArray.size arr
+       --do
+          --res[i] := 2 * (Int.ofNat arr[i])
+          --i := i + 1
+    --return res
+
+--#check doubleAllCopiedAsInt 
+
+--prove_correct doubleAllCopiedAsInt by
+  --unfold doubleAllCopiedAsInt
+  --loom_solve
+
+
+method decodeStr' (encoded_str: Array Encoding) 
+   return (res: Array Char)
+   require (forall i, i < size encoded_str -> encoded_str[i]!.cnt > 0   )
+   ensures (res.size = get_cnt_sum encoded_str.toList)
      do
-       let mut decoded := TArray.replicate 0 default
+       let mut decoded := Array.replicate 0 'x'
        let mut i := 0
-       while (i < (TArray.size encoded_str))
-          invariant 0 <= i ∧ i <= TArray.size encoded_str
-          invariant size decoded  = get_cnt_sum (TArray.to_list (TArray.slice 0 i encoded_str))
-          done_with i = TArray.size encoded_str
+       while i < encoded_str.size
+          invariant 0 <= i ∧ i <= encoded_str.size
+          invariant decoded.size = get_cnt_sum (encoded_str.extract 0 i).toList
+          done_with i = encoded_str.size
           do
-            let elem := encoded_str[0]
-            let elem_decoded := TArray.replicate elem.cnt elem.c
-            decoded := TArray.append decoded elem_decoded
+            let elem := encoded_str[i]!
+            let elem_decoded := Array.replicate elem.cnt elem.c
+            decoded :=  decoded ++ elem_decoded
             i := i + 1
        return decoded
 
 
-prove_correct decodeStr by
-  unfold decodeStr
+prove_correct decodeStr' by
+  unfold decodeStr'
+  loom_solve
+  · simp[*] at *
+    rw [<-invariant_42]
+    rw [List.take_succ_eq_append_getElem]
+    rw [get_cnt_sum_append]
+    simp[*]
+    unfold get_cnt_sum
+    rfl
+  · simp[*]; rfl
+  · simp[*]
 
 
 -- recursive but termination issue
@@ -222,5 +333,29 @@ prove_correct decodeStr by
  -      let fst := encoded_str[0]
  -      return (TArray.append (TArray.replicate fst.cnt fst.c) rem)
  -/
+
+
+ -- Why does this not work?? No goals in the context about the array update??
+-- method doubleAll (arr: arrInt) (mut res: arrInt) return (u: Unit) 
+--   require (size arr = size res)
+--   ensures (size arr = size res)
+--   ensures (forall i, i < size arr -> res[i] = 2 * arr[i])
+--   do 
+--     let mut i := 0
+--     while i < TArray.size res
+--        invariant 0 <= i ∧ i <= TArray.size res
+--        invariant size arr = size res
+--        invariant 0 <= i ∧ i <= TArray.size res
+--        invariant forall j, j < i -> res[j] = 2 * arr[j]
+--        done_with i = TArray.size arr
+--        do
+--          res[i] := 2 * arr[i]
+--          i := i + 1
+--     return Unit.unit
+-- 
+-- prove_correct doubleAll by
+--   unfold doubleAll
+--   loom_solve
+--   · intros j hj
 
 end runLengthEncoding

@@ -12,9 +12,6 @@ import Loom.MonadAlgebras.WP.DoNames'
 import CaseStudies.Extension
 import CaseStudies.Velvet.Syntax
 
-class Setter (cont : Type) (idx : Type) (elem : Type) where
-  set : idx → elem → cont → cont
-
 class TArray (α : outParam Type) (κ: Type) where
   get : Nat → κ → α
   set : Nat → α → κ → κ
@@ -118,12 +115,9 @@ instance [Inhabited α] : TArray α (Array α) where
   to_list_eqv arr i hi := by
     simp[*]
 
-attribute [solverHint] TArray.get_set TArray.size_set TArray.size_append TArray.size_slice
+attribute [solverHint] TArray.get_set TArray.size_set TArray.size_append TArray.size_slice TArray.replicate_size
 
 export TArray (get set size toMultiset append slice)
-
-instance [TArray α κ] : Setter κ Nat α where
-  set := TArray.set
 
 class TMap (κ : Type) (α β : outParam Type) [BEq α] [Hashable α] [Inhabited β] where
   get : α → κ → β
@@ -159,9 +153,6 @@ attribute [solverHint] TMap.get_set_eq TMap.get_set_ne TMap.get_remove_eq TMap.g
 
 export TMap (get set remove empty to_list fold)
 
-instance [BEq α] [Hashable α] [Inhabited β] [TMap κ α β] : Setter κ α β where
-  set := TMap.set
-
 instance [TArray α κ] : GetElem κ Nat α fun _ _ => True where
   getElem inst i _ := TArray.get i inst
 
@@ -172,7 +163,7 @@ instance [Inhabited α] [TArray α κ] : Inhabited κ where
   default := TArray.replicate 0 default
 
 @[loomAbstractionSimp]
-lemma getElemE (α κ) {_ : TArray α κ} (k : κ) : k[i] = get i k := by
+lemma getElemE (α κ) {_ : TArray α κ} (k : κ) : k[i] = TArray.get i k := by
   rfl
 
 syntax (priority := high + 1) ident noWs "[" term "]" ":=" term : doElem
@@ -183,9 +174,9 @@ syntax "swap!" ident noWs "[" term "]" "!" ident noWs "[" term "]" "!" : doElem
 
 macro_rules
   | `(doElem|$id:ident[$idx:term] := $val:term) =>
-    `(doElem| $id:term := Setter.set $idx $val $id:term)
+    `(doElem| $id:term := TArray.set $idx $val $id:term)
   | `(doElem|$id:ident[$idx:term] += $val:term) =>
-    `(doElem| $id:term := Setter.set $idx (($id:term)[$idx] + $val) $id:term)
+    `(doElem| $id:term := TArray.set $idx (($id:term)[$idx] + $val) $id:term)
   | `(doElem|swap $id1:ident[$idx1:term] $id2:ident[$idx2:term]) =>
     `(doElem|do
       let lhs := $id1:ident[$idx1:term]
