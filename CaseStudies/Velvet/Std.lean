@@ -31,11 +31,8 @@ class TArray (α : outParam Type) (κ: Type) where
     toMultiset arr
 
 
-instance [Inhabited α] : TArray α (Array α) where
-  get i arr := arr[i]!
-  set i val arr := arr.set! i val
-  size arr := arr.size
-  get_set i j val arr := by
+def Array.get_set_c [Inhabited α] (i j: Nat) (val: α) (arr: Array α):
+  i < arr.size → (arr.setIfInBounds j val)[i]! = if i = j then val else arr[i]! := by
     intro h
     by_cases h' : j < arr.size
     { simp [Array.setIfInBounds, dif_pos h']
@@ -44,12 +41,14 @@ instance [Inhabited α] : TArray α (Array α) where
     simp [Array.setIfInBounds, dif_neg h']
     rw [getElem!_pos] <;> try simp [*]
     omega
-  size_set i val arr := by simp
-  replicate sz elem := Array.replicate sz elem
-  replicate_size sz elem := by simp
-  replicate_get sz elem i h_i := by rw [getElem!_pos] <;> try simp [*]
-  toMultiset arr := Multiset.ofList arr.toList
-  multiSet_swap arr idx₁ idx₂ h_idx₁ h_idx₂ := by classical
+
+def Array.size_set_c [Inhabited α] (i: Nat) (val: α) (arr: Array α):
+  (arr.setIfInBounds i val).size = arr.size := by simp
+
+def Array.multiset_swap [Inhabited α]
+(arr: Array α) (idx₁ idx₂: Nat) (h_idx₁: idx₁ < arr.size) (h_idx₂: idx₂ < arr.size) :
+  Multiset.ofList ((arr.set! idx₂ arr[idx₁]!).set! idx₁ arr[idx₂]!).toList = Multiset.ofList arr.toList := by
+    classical
     simp [List.perm_iff_count]
     intro a;
     rw [getElem!_pos,getElem!_pos] <;> try simp [*]
@@ -60,6 +59,18 @@ instance [Inhabited α] : TArray α (Array α) where
     have : Array.count a arr > 0 := by
       apply Array.count_pos_iff.mpr; simp [<-h]
     omega
+
+instance [Inhabited α] : TArray α (Array α) where
+  get i arr := arr[i]!
+  set i val arr := arr.set! i val
+  size arr := arr.size
+  get_set := Array.get_set_c
+  size_set := Array.size_set_c
+  replicate sz elem := Array.replicate sz elem
+  replicate_size sz elem := by simp
+  replicate_get sz elem i h_i := by rw [getElem!_pos] <;> try simp [*]
+  toMultiset arr := Multiset.ofList arr.toList
+  multiSet_swap := Array.multiset_swap
 
 attribute [solverHint] TArray.get_set TArray.size_set
 
@@ -79,6 +90,7 @@ syntax (priority := high + 1) ident noWs "[" term "]" ":=" term : doElem
 syntax (priority := high + 1) ident noWs "[" term "]" "+=" term : doElem
 
 syntax "swap" ident noWs "[" term "]" ident noWs "[" term "]" : doElem
+syntax "swap!" ident noWs "[" term "]" "!" ident noWs "[" term "]" "!" : doElem
 
 macro_rules
   | `(doElem|$id:ident[$idx:term] := $val:term) =>
@@ -91,3 +103,9 @@ macro_rules
       let rhs := $id2:ident[$idx2:term]
       $id1:ident[$idx1] := rhs
       $id2:ident[$idx2] := lhs)
+  | `(doElem|swap! $id1:ident[$idx1:term]! $id2:ident[$idx2:term]!) =>
+    `(doElem|do
+      let lhs := $id1:ident[$idx1:term]!
+      let rhs := $id2:ident[$idx2:term]!
+      $id1:ident := ($id1:ident).set! $idx1:term rhs
+      $id2:ident := ($id2:ident).set! $idx2:term lhs)

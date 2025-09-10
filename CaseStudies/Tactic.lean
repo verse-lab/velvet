@@ -101,6 +101,7 @@ elab_rules : tactic
       hints := hints.push $ <- `(Auto.hintelem| $(mkIdent c):ident)
     hints := hints.push $ <- `(Auto.hintelem| *)
     let vlsAuto <- `(tactic| try (try simp only [loomAbstractionSimp] at *); auto [$hints,*])
+    logInfo m!"{hints}"
     evalTactic vlsAuto
 
 elab_rules : tactic

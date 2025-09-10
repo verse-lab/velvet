@@ -56,39 +56,37 @@ method insertionSort(arr: array<int>)
 }
 -/
 
-variable {arrInt} [arr_inst_int: TArray Int arrInt]
-variable {arrNat} [arr_inst: TArray Nat arrNat]
-
 -- set_option trace.profiler true
-attribute [local solverHint] TArray.multiSet_swap
+attribute [local solverHint] Array.multiset_swap
+attribute [solverHint] Array.size_set_c Array.get_set_c
 
 --partial correctness version of insertionSort
 method insertionSort
-  (mut arr: arrInt) return (u: Unit)
-  require 1 ≤ size arr
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < size arr → arrNew[i] ≤ arrNew[j]
+  (mut arr: Array Int) return (u: Unit)
+  require 1 ≤ arr.size
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < size arr → arrNew[i]! ≤ arrNew[j]!
   ensures toMultiset arr = toMultiset arrNew
   do
     let arr₀ := arr
-    let arr_size := size arr
+    let arr_size := arr.size
     let mut n := 1
-    while n ≠ size arr
-    invariant size arr = arr_size
-    invariant 1 ≤ n ∧ n ≤ size arr
-    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
+    while n ≠ arr.size
+    invariant arr.size = arr_size
+    invariant 1 ≤ n ∧ n ≤ arr.size
+    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i]! ≤ arr[j]!
     invariant toMultiset arr = toMultiset arr₀
-    done_with n = size arr
+    done_with n = arr.size
     do
       let mut mind := n
       while mind ≠ 0
-      invariant size arr = arr_size
+      invariant arr.size = arr_size
       invariant mind ≤ n
-      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] ≤ arr[j]
+      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
       invariant toMultiset arr = toMultiset arr₀
       done_with mind = 0
       do
-        if arr[mind] < arr[mind - 1] then
-          swap arr[mind - 1] arr[mind]
+        if arr[mind]! < arr[mind - 1]! then
+          swap! arr[mind - 1]! arr[mind]!
         mind := mind - 1
       n := n + 1
     return
@@ -110,6 +108,8 @@ run_elab do
     unless res.2 do
       IO.println s!"postcondition violated for input {res.1}"
       break
+
+set_option maxHeartbeats 1000000
 
 prove_correct insertionSort by
   dsimp [insertionSort]

@@ -205,7 +205,7 @@ instance ExtractNonDet.forIn {β : Type u} (init : β) (f : Unit -> β -> NonDet
     apply (ExtractNonDet.repeatCont _ _ _ ex); intro;
     apply ExtractNonDet.pure
 
-variable [Monad m] [CCPOBot m] [CompleteBooleanAlgebra l] [MAlgOrdered m l] [MAlgDet m l] [LawfulMonad m]
+variable [Monad m] [∀ α, CCPO (m α)] [MonoBind m] [CCPOBot m] [CompleteBooleanAlgebra l] [MAlgOrdered m l] [MAlgDet m l] [LawfulMonad m]
 
 @[simp, inline]
 def NonDetT.extractGen {findable : {τ : Type u} -> (τ -> Prop) -> Type u}
@@ -250,8 +250,6 @@ def NonDetT.run {α : Type u} (s : NonDetT m α) (ex : ExtractNonDet Findable s 
 
 def NonDetT.runWeak {α : Type u} (s : NonDetT m α) (ex : ExtractNonDet WeakFindable s := by extract_tactic) : m α :=
   NonDetT.extractWeak s ex
-
-variable [∀ α, CCPO (m α)] [MonoBind m]
 
 noncomputable
 abbrev NonDetT.prop : {α : Type u} -> (s : NonDetT m α) -> Cont l α
@@ -396,7 +394,7 @@ macro "extractable_step" : tactic =>
 
 macro "extractable_tactic" : tactic =>
   `(tactic| repeat' (intros; extractable_step; try dsimp))
-/-
+
 namespace TotalCorrectness.DemonicChoice
 
 lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet Findable s) :
@@ -424,10 +422,9 @@ lemma ExtractNonDet.extract_refines_wp (s : NonDetT m α) (inst : ExtractNonDet 
     refine inf_le_of_right_le ?_; exact inf_le_left }
   rw [NonDetT.wp_repeatCont, NonDetT.extract, NonDetT.extractGen, wp_bind, NonDetT.prop]
   simp; intro hprop inv wf hinv; apply le_trans'; apply wp_cons; rotate_right
-  { apply (triple_spec ..).mpr;
-    apply repeat_inv ?_ inv ?_ init
+  { apply (triple_spec ..).mpr; apply repeat_inv
     intro b; apply le_trans'; apply a_ih; simp [hprop]
-    simp [NonDetT.wp_eq_wp, hinv]
+    simp [NonDetT.wp_eq_wp]
     apply hinv }
   intro b; apply le_trans'; apply a_ih_1; simp [hprop]
   simp [NonDetT.wp_eq_wp]
@@ -507,7 +504,7 @@ lemma ExtractNonDet.extract_refines_wp_weak (s : NonDetT m α) (inst : ExtractNo
     simp [this]; apply a_ih }
   { simp [NonDetT.wp_pickCont, ExtractNonDet.prop, NonDetT.extractWeak]
     have: ∀ a : PUnit.{u_1 + 1}, a = .unit := by aesop
-    simp [this, iInf_const, iSup_const]; apply le_trans'; apply a_ih
+    simp [this, iInf_const]; apply le_trans'; apply a_ih
     simp; constructor
     { rw [<-inf_assoc]; apply inf_le_of_left_le; rw [<-le_himp_iff] }
     rw [<-inf_assoc]; exact inf_le_right }
@@ -529,4 +526,3 @@ lemma ExtractNonDet.extract_refines_triple_weak (pre : l) (s : NonDetT m α) (in
 
 
 end PartialCorrectness.DemonicChoice
--/
