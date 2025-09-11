@@ -104,14 +104,32 @@ method cube (n : Nat) return (res : Nat)
 -- TODO when `n : β`, `β : Sort u`?
 
 set_option trace.Loom.debug true in
-method cube2 (n : α) (l : List α) return (res : Nat)
+method cube2 (n : β) (l : List α) return (res : Nat)
   ensures res = l.length
   do
     match l, n with
-    | [], _ => pure 1
+    | [], _ => pure 0
     | _ :: k, _ =>
       let b ← cube2 n k
-      pure b
+      pure b.succ
+-- have to generate in advance. why?
+-- run_meta do
+--   Lean.Meta.realizeConst ``cube2.match_1 `cube2.match_1.WPGen
+--     <| (Loom.Matcher.defineWPGen ``cube2.match_1 |>.run')
+-- attribute [spec, loomWpSimp] cube2.match_1.WPGen
+-- set_option trace.Loom.debug true in
+prove_correct cube2 by
+  unfold cube2
+  loom_solve <;> aesop
+  -- TODO need to be fixed
+
+
+  -- repeat' loom_intro
+  -- -- simp
+  -- wpgen
+  -- -- wpgen_app
+  -- apply cube2.match_1.WPGen
+  -- all_goals try simp only [loomWpSimp]
     -- FIXME: cannot be written like this, due to some doitem expand
     -- let aa ← match n with
     --   | .zero => pure 0
@@ -157,15 +175,10 @@ run_meta do
   Lean.Meta.realizeConst ``cube2.match_1 `cube2.match_1.WPGen
     <| (Loom.Matcher.defineWPGen ``cube2.match_1 |>.run')
 
-#print cube2.match_1.WPGen
+-- #print cube2.match_1.WPGen
 
-set_option trace.Loom.debug true in
-prove_correct cube2 by
-  unfold cube2
-  repeat' loom_intro
-  simp
-  wpgen
-  all_goals try simp only [loomWpSimp]
+
+
   -- apply WPGen.pure
   -- apply WPGen.bind
   -- wpgen_step
@@ -207,16 +220,16 @@ prove_correct cube by
 
 set_option trace.Loom.debug true in
 method cube4 (a : Nat ⊕ Bool) return (res : Nat)
-  ensures True
+  require ∀ b, a = .inl b → b > 10
+  ensures res > 199
   do
-    -- match a, b, c with
-    -- | .zero, .zero, .some (.succ .zero) => pure (100 : Nat)
-    -- | .zero, .zero, .none => pure (100 : Nat)
-    -- | _, _, _ => pure 200
     match a with
-    -- | .inl 2 => pure (100 : Nat)
-    | .inl xxx => pure 200
+    | .inl xxx => pure (xxx + 190)
     | .inr yyy => pure 300
+prove_correct cube4 by
+  unfold cube4
+  loom_solve
+
 set_option trace.Loom.debug true in
 run_meta do
   let res ← generateWPForMatcher ``cube4.match_1
@@ -283,8 +296,7 @@ method unwrap_nat_and_double (o: Option Nat) return (res: Option Nat)
 set_option trace.Loom.debug true in
 prove_correct unwrap_nat_and_double by
   unfold unwrap_nat_and_double
-  repeat' loom_intro
-  wpgen
+  loom_solve
 
 /- method fib (n: Nat) return (res: Nat) -/
 /-   do -/
