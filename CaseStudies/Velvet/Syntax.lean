@@ -127,6 +127,8 @@ def getIds (stx : Array (TSyntax `leafny_binder)) : MetaM (Array Ident) := do
     | _ => throwError "unexpected syntax in leafny binder: {b}"
   return ids
 
+abbrev doMatchAltExpr := Term.matchAlt (rhsParser := Term.doSeq)
+
 mutual
 partial def expandLeafnyDoSeq (modIds : Array Ident) (stx : doSeq) : TermElabM (Array doSeqItem) :=
   match stx with
@@ -158,6 +160,17 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
     expandLeafnyDoSeqItem modIds $ <- `(Term.doSeqItem| if $h:ident : $t:term then $thn else pure ())
   | `(Term.doSeqItem| if $t:term then $thn:doSeq) =>
     expandLeafnyDoSeqItem modIds $ <- `(Term.doSeqItem| if $t then $thn:doSeq else pure ())
+  | `(Term.doSeqItem| match $discrs:matchDiscr,* with $[$alts:matchAlt]*) =>
+    let alts' ← alts.mapM fun (alt : TSyntax _) => do
+      match alt with
+      | `(doMatchAltExpr| | $a,* => $rhs:doSeq) =>
+        let rhs' ← expandLeafnyDoSeq modIds rhs
+        let alt' ← `(doMatchAltExpr| | $a,* => $rhs'*)
+        pure ⟨alt'.raw⟩
+      | _ =>
+        pure alt
+    let ret ← `(Term.doSeqItem| match $discrs:matchDiscr,* with $[$alts':matchAlt]*)
+    return #[ret]
   | `(Term.doSeqItem| if $t:term then $thn:doSeq else $els:doSeq) =>
     let thn <- expandLeafnyDoSeq modIds thn
     let els <- expandLeafnyDoSeq modIds els

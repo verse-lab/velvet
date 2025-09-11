@@ -1,5 +1,5 @@
 import Lean
- 
+
 /- import Mathlib.Algebra.BigOperators.Intervals -/
 /- import Mathlib.Algebra.Ring.Int.Defs -/
 /- import Mathlib.Data.Int.Bitwise -/
@@ -23,31 +23,31 @@ set_option auto.smt.solver.name "cvc5"
 
 section Match
 
-def mtch (x: Option String) : VelvetM Nat := do
-  match x with
-  | none => pure 1
-  | some x => pure (x.length + 1)
+-- def mtch (x: Option String) : VelvetM Nat := do
+--   match x with
+--   | none => pure 1
+--   | some x => pure (x.length + 1)
 
-/- set_option pp.all true -/
+-- /- set_option pp.all true -/
 
-lemma match_correct : forall (x: Option String), triple True (mtch x) (fun y => y > 0) := by
-  unfold mtch
+-- lemma match_correct : forall (x: Option String), triple True (mtch x) (fun y => y > 0) := by
+--   unfold mtch
 
-  loom_intro
-  wpgen_intro
-  conv => {
-    congr
-    reduce
-  }
-  refine WPGen.match (m:=VelvetM) (y:=(pure 1)) (z:=(fun x => pure (x.length + 1))) x ?_ ?_ 
+--   loom_intro
+--   wpgen_intro
+--   conv => {
+--     congr
+--     reduce
+--   }
+--   refine WPGen.match (m:=VelvetM) (y:=(pure 1)) (z:=(fun x => pure (x.length + 1))) x ?_ ?_
   /- /- loom_goals_intro -/ -/
   /- assumption -/
-  
+
 
 
 method str_id (s: String) return (ss: String)
 ensures (s = ss)
-do 
+do
   return s
 
 method opt_strlen (o: Option String) return (n: Nat)
@@ -75,20 +75,226 @@ prove_correct str_id by
 
 #check (str_id_correct "")
 
-set_option diagnostics true
+-- set_option diagnostics true
 
 
 prove_correct opt_strlen by
   unfold opt_strlen
-  loom_solve
+  repeat' loom_intro
+  wpgen
+  -- loom_solve
   /- · simp -/
-  · refine WPGen.match (m:=VelvetM) (y:=(pure "" )) (z:=pure) o ?_ ?_ 
+  -- · refine WPGen.match (m:=VelvetM) (y:=(pure "" )) (z:=pure) o ?_ ?_
 
   · sorry
 
+set_option trace.Loom.debug true in
+method cube (n : Nat) return (res : Nat)
+  ensures n = res
+  do
+    let a (o : Option Nat) := match o with
+      | none => 0
+      | some x => x
+    match n with
+    | .zero => pure 0
+    | .succ k =>
+      let b ← cube k
+      pure (Nat.succ b)
+
+-- TODO when `n : β`, `β : Sort u`?
+
+set_option trace.Loom.debug true in
+method cube2 (n : α) (l : List α) return (res : Nat)
+  ensures res = l.length
+  do
+    match l, n with
+    | [], _ => pure 1
+    | _ :: k, _ =>
+      let b ← cube2 n k
+      pure b
+    -- FIXME: cannot be written like this, due to some doitem expand
+    -- let aa ← match n with
+    --   | .zero => pure 0
+    --   | .succ k =>
+    --     let a ← cube k    -- !!!
+    --     pure (Nat.succ a)
+    -- return aa
+#print cube2.match_1
+#print cube2.match_1.splitter
+-- #print cube
+
+-- def cubeId (n : Nat) : Id Nat := do
+--   let a ← match n with
+--     | .zero => pure 0
+--     | .succ k =>
+--       let b ← cubeId k
+--       pure <| Nat.succ b
+--   return 100
+
+-- def kk (a : Nat) (b : Nat) (c : Option Nat) : Id Nat := match a, b, c with
+--     | .zero, .zero, .some (.succ .zero) => pure (100 : Nat)
+--     | _, _, _ => pure 200
+-- #print kk
+
+set_option trace.Loom.debug true in
+method cube3 (a : Nat) (b : Nat) (c : Nat) return (res : Nat)
+  ensures True
+  do
+    -- match a, b, c with
+    -- | .zero, .zero, .some (.succ .zero) => pure (100 : Nat)
+    -- | .zero, .zero, .none => pure (100 : Nat)
+    -- | _, _, _ => pure 200
+    match a, b, c with
+    | 2, 3, 4 => pure (100 : Nat)
+    | _, _, _ => pure 200
+
+#check cube3.match_1
+#check cube3.match_1.splitter
+
+open Lean Meta Elab Term in
+run_elab do
+  let name := ``cube2.match_1
+  let targetName := name ++ `WPGen
+  logInfo m!"res: {targetName}"
+  let res := (← getEnv).find? targetName
+  if res matches none then
+    logInfo m!"{targetName} does not exist, generate it"
+    let some (newLvls, wpgen) ← generateWPForMatcher name | throwError s!"cannot generate WPGen for matcher {name}"
+    addDecl <|
+      Declaration.defnDecl <|
+        mkDefinitionValEx targetName newLvls.toList (← inferType wpgen) wpgen
+        (Lean.ReducibilityHints.regular 0)
+        (DefinitionSafety.safe) []
+    enableRealizationsForConst targetName
+    applyAttributes targetName (← do
+      let attr1 ← `(Parser.Term.attrInstance| spec )
+      let attr2 ← `(Parser.Term.attrInstance| loomWpSimp)
+      elabAttrs #[attr1, attr2])
+  else
+    logInfo m!"{targetName} already exists, skip generation"
+
+#print cube2.match_1.WPGen
+
+set_option trace.Loom.debug true in
+prove_correct cube2 by
+  unfold cube2
+  repeat' loom_intro
+  simp
+  wpgen
+  all_goals try simp only [loomWpSimp]
+  -- apply WPGen.pure
+  -- apply WPGen.bind
+  -- wpgen_step
+  -- apply cube2.match_1.WPGen
+  -- -- repeat' loom_intro
+  -- -- wpgen_intro
+  -- -- wpgen_step
+  -- all_goals sorry
 
 
+#print cube.match_3
+#print cube.match_5
+#check cube.match_3.splitter
 
+set_option trace.Loom.debug true in
+run_meta do
+  let res ← generateWPForMatcher ``cube2.match_1
+  pure ()
+
+set_option trace.Loom.debug true in
+prove_correct cube by
+  unfold cube
+  repeat' loom_intro
+  wpgen
+
+
+set_option trace.Loom.debug true in
+method cube4 (a : Nat ⊕ Bool) return (res : Nat)
+  ensures True
+  do
+    -- match a, b, c with
+    -- | .zero, .zero, .some (.succ .zero) => pure (100 : Nat)
+    -- | .zero, .zero, .none => pure (100 : Nat)
+    -- | _, _, _ => pure 200
+    match a with
+    -- | .inl 2 => pure (100 : Nat)
+    | .inl xxx => pure 200
+    | .inr yyy => pure 300
+set_option trace.Loom.debug true in
+run_meta do
+  let res ← generateWPForMatcher ``cube4.match_1
+  pure ()
+
+-- #print cube
+
+-- method add1 (mut n: Nat) return (res : Nat)
+--   ensures True
+--   do
+--     return 100
+
+-- method abcbbdas (mut o: Nat) return (res: Option Nat)
+--   ensures (res = default ∧ o.isNone)
+--   do
+--     o := 100
+--     -- let res <- add1 o
+--     let res ← add1 o
+--     return .some 100
+-- #print abcbbdas
+
+-- method abcbbdass (f : Nat → VelvetM Nat) return (res: Option Nat)
+--   ensures (res = default ∧ o.isNone)
+--   do
+--     let res ← f 1
+--     let res <- f 1
+--     return res
+-- #print abcbbdass
+
+def testmatch (a b c: Nat) (xx yy : α) :=
+  match a, b, c with
+  | 2, 3, 4 => xx
+  | _, _, _ => yy
+#print testmatch.match_1
+
+noncomputable
+def WPGen.match2
+  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
+  -- The program to run if the option is 'none'
+  {xx yy : m β} (a b c : Nat) (wpgxx : WPGen xx) (wpgyy : WPGen yy)
+  -- {y : m β} {z : γ  → m β} (opt : Option γ ) (wpgy : WPGen y)
+  -- A function that gives a program to run if the option is 'some a'
+  -- (wpgz : ∀ a, WPGen (z a))
+  -- The return type is parameterized by the whole match expression
+  : WPGen (match a, b, c with | 2, 3, 4 => xx | _, _, _ => yy)
+where
+  get := fun post =>
+    -- Branch 1: The 'none' case
+    (⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgxx.get post) ⊓
+    (⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgxx.get post) ⊓ (⊤ ⊓ ⊤ ⊓ ⊤) ⊓
+    -- Branch 2: The 'some' case
+    (⨅ a, ⨅ b, ⨅ c, ⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgyy.get post)
+
+  prop := by
+    sorry
+
+
+/-
+Only consider the case where each match alternative is a monadic computation `m α`.
+
+How will the arguments of a matcher's `WPGen` look like?
+- Consider the matcher itself. When we set `motive` to `fun _ => m α`, then each argument
+  corresponds to the monadic computations for which we need to construct `WPGen`s
+  as subgoals.
+- From the types of those arguments, we can figure out the types of the `WPGen` subgoals.
+- Now consider its `splitter`. Each argument of the `splitter` corresponds to one
+  "branch" of the `WPGen.get`; "branches" are connected by `⊓` (in analogy to `∧`).
+  In one "branch", we have a series of `⨅ ..., ⌜ ... ⌝ ⇨ ...` (in analogy to `∀ ..., ... → ...`).
+  The `⌜ ... ⌝`'s consist of the inner arguments of each argument of the `splitter`
+  and also equalities on the discriminant(s) of the `match`.
+- Proving `WPGen.prop` with regard to this `WPGen.get` is relatively straightforward.
+
+Store the generated `WPGen` element for a certain matcher since it might be used later.
+
+-/
 
 method unwrap_nat_and_double (o: Option Nat) return (res: Option Nat)
   ensures (res = default ∧ o.isNone)
@@ -97,7 +303,11 @@ method unwrap_nat_and_double (o: Option Nat) return (res: Option Nat)
       | none => pure default
       | some x => pure x)
     return res
-
+set_option trace.Loom.debug true in
+prove_correct unwrap_nat_and_double by
+  unfold unwrap_nat_and_double
+  repeat' loom_intro
+  wpgen
 
 /- method fib (n: Nat) return (res: Nat) -/
 /-   do -/
@@ -111,7 +321,7 @@ end Match
 section Lc
 
 -- #include <algorithm>
--- 
+--
 -- class Solution {
 -- public:
 --     vector<string> divideString(string s, int k, char fill) {
@@ -247,21 +457,21 @@ simproc reduceFoo (foo _) :=
   fun e => do
     let args := e.getAppArgs
     if h: args.size = 0 then return .done {expr:= e}
-    else 
+    else
       let match_exp := args[args.size - 1 ]!
       let univ_levels :=  e.getAppFn.constLevels!
-      
+
       dbg_trace "Match Expression: {match_exp}"
       if let some e' := (← Lean.Meta.matchMatcherApp? match_exp) then
         let res <- Lean.Meta.MatcherApp.transform (onAlt := (fun a b e => do
           -- all args but last one replaced
-          let args' := args.set (args.size - 1) e (by 
+          let args' := args.set (args.size - 1) e (by
             grind
-          ) 
+          )
           --let args' := #[e]
           let newExpr := (mkAppN (Lean.Expr.const ``foo univ_levels)  args' )
           dbg_trace "e1: {b}, e2: {e}"
-          dbg_trace "Transformed from {e} -> {newExpr}" 
+          dbg_trace "Transformed from {e} -> {newExpr}"
           pure newExpr
         )) (onMotive:= (fun _ e => do
           dbg_trace "Motive: {e}"
@@ -269,9 +479,8 @@ simproc reduceFoo (foo _) :=
         )) e'
         dbg_trace "{res.toExpr}"
         return .done { expr := res.toExpr }
-      else 
+      else
         return .done { expr := e }
-    
+
 
 set_option diagnostics true
-
