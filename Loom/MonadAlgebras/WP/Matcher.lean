@@ -47,6 +47,9 @@ private partial def withinBranch (i n : Nat) (type mainGoal : Expr) : TermElabM 
   -- let _ ← isDefEq mainGoal tmp
   withinBranch i (n - 1) type <| .mvar tmp[0]!
 
+inductive MatcherArgCase where | dropFirst | normal
+deriving BEq, Repr, ToExpr
+
 /-
 Only consider the case where each match alternative is a monadic computation `m α`.
 
@@ -100,19 +103,30 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
   let branchConds ← do
     pure <| List.map (fun x => (x.1, x.2.1)) <| getForallPremises partialMatcher
   let subMonadArgs ← branchConds.mapM fun (nm, br) => do
-    let tmp ← Core.transform br
+    -- special check: if the first argument of `br` does not appear in its body,
+    -- then remove it
+    -- NOTE: this is mainly for the case of `br : Unit → ...`; would it break anything?
+    let (case, br') ← forallTelescope br fun xs body => do
+      if xs.isEmpty then
+        return (MatcherArgCase.normal, ← mkForallFVars xs body)
+      let (case, xs') :=
+        if xs[0]!.occurs body
+        then (MatcherArgCase.normal, xs)
+        else (MatcherArgCase.dropFirst, xs.drop 1)
+      pure (case, ← mkForallFVars xs' body)
+    let tmp ← Core.transform br'
       (pre := fun e => pure <| e.withApp (fun f args =>
         if f == motivefv
         then .done <| mkApp mExpr αExpr
         else .continue))
-    pure (nm, tmp)
-  trace[Loom.debug] "subMonadArgs: {subMonadArgs}"
-  withLocalDecls (← subMonadArgs.toArray.mapM fun (nm, t) => do
+    pure (case, nm, tmp)
+  trace[Loom.debug] "subMonadArgs: {subMonadArgs.map Prod.snd}"
+  withLocalDecls (← subMonadArgs.toArray.mapM fun (_, nm, t) => do
       let nm' ← mkFreshUserName nm
       pure (nm', BinderInfo.implicit, fun _ => pure t)) fun subMonadArgsFVars => do
 
   -- make up the sub `WPGen` goals
-  let subWPGenArgs ← subMonadArgs.mapIdxM fun i (nm, t) => do
+  let subWPGenArgs ← subMonadArgs.mapIdxM fun i (_, nm, t) => do
     let nm' := nm.appendBefore "wpg"
     let ty ← forallTelescope t fun xs _ => do
       let tmp := mkAppN subMonadArgsFVars[i]! xs
@@ -131,9 +145,14 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
     let ty ← inferType motivefv
     let motiveArg ← forallTelescope ty fun xs _ =>
       mkLambdaFVars xs <| mkApp mExpr αExpr
+    -- accounting for the cases
+    let subMonadArgsForMatcher ← subMonadArgs.mapIdxM fun i (case, _, _) => do
+      match case with
+      | .dropFirst => mkFunUnit subMonadArgsFVars[i]!
+      | .normal => pure subMonadArgsFVars[i]!
     pure <| mkAppN
       (Lean.mkConst matcherName lvlMVars)
-      ((paramsAndDiscrs.set! matcherInfo.getMotivePos motiveArg) ++ subMonadArgsFVars)
+      ((paramsAndDiscrs.set! matcherInfo.getMotivePos motiveArg) ++ subMonadArgsForMatcher.toArray)
   let targetWPGenTy ← wpgenTypeBuilder targetMatcher
   trace[Loom.debug] "targetWPGenTy: {targetWPGenTy}"
 
@@ -160,7 +179,6 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
     let wpgenGetBranches ← branchConds.mapIdxM fun i br => do
       let subWPGen := subWPGenArgsFVars[i]!
       let br' ← forallTelescope br fun xs motiveBody => do
-        -- TODO for `Unit → ...`, this will not work; fix it later
         let newBody ← do
           let numArgsRequired ← Expr.getNumHeadForalls <$> inferType subWPGen
           let subWPGenGet ← mkAppM ``WPGen.get #[mkAppN subWPGen (xs.take numArgsRequired), postExpr]
