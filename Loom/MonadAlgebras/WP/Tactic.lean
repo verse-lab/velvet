@@ -45,14 +45,19 @@ def generateWPStep : TacticM (Bool × Expr) := withMainContext do
   let goalType <- getMainTarget
   let_expr WPGen _m _mInst _α _l _lInst _mPropInst x := goalType | throwError "{goalType} is not a WPGen"
   let cs <- findSpec x
-  if let some name := x.getAppFn.constName? then
-    if ← isMatcher name then
-      if let some (newLvls, wpgen) ← Loom.Matcher.constructWPGen name then
-        withMainContext do
-          let goal ← getMainGoal
-          let goals ← goal.apply (wpgen.instantiateLevelParams newLvls.toList (← mkFreshLevelMVars newLvls.size))
-          replaceMainGoal goals
-        return (true, x)
+  if let some app ← matchMatcherApp? x then
+    let name := app.matcherName
+    if let some res ← Loom.Matcher.constructWPGen name then
+      -- MetaM.run' <| /- realizeConst name (name ++ `WPGen) -/ (Loom.Matcher.defineWPGen name |>.run')
+      /-
+      error message: cannot add declaration test1.match_3.WPGen to environment as it is restricted to the prefix test1_correct
+      -/
+      withMainContext do
+        let goal ← getMainGoal
+        let tmp ← Loom.Matcher.partiallyInstantiateWPGen #[_α, _m, _mInst, _l] res app
+        let goals ← goal.apply tmp
+        replaceMainGoal goals
+      return (true, x)
   for elem in cs do
     try
       match elem with

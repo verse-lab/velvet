@@ -26,7 +26,9 @@ private def List.foldldM.{u, v, w} {m : Type u → Type v} [Monad m] {s : Type u
     let init' ← g a
     List.foldlM f init' l'
 
-def WPGen.match_template.{u, v} {m : Type u → Type v} [Monad m] [LawfulMonad m]
+/-- This is a dummy definition just for providing the arguments like `m`,
+    `l` and instances. -/
+def WPGen.match_template.{u, v} {m : Type u → Type v} [Monad m] -- [LawfulMonad m]
   {l : Type u} [CompleteBooleanAlgebra l] [MAlgOrdered m l] := Unit.unit
 
 private partial def withinBranch (i n : Nat) (type mainGoal : Expr) : TermElabM Expr := do
@@ -50,6 +52,18 @@ private partial def withinBranch (i n : Nat) (type mainGoal : Expr) : TermElabM 
 inductive MatcherArgCase where | dropFirst | normal
 deriving BEq, Repr, ToExpr
 
+structure MatcherWPGen where
+  lvls : Array Name
+  wpgenExpr : Expr
+  matcherInfo : MatcherInfo
+  monadRetTypePos : Nat
+  monadArgPos : Nat
+  monadInstPos : Nat
+  omaTypePos : Nat
+  firstMonadArgPos : Nat
+  -- firstWPGenArgPos : Nat
+  -- firstDiscrPos : Nat
+
 /-
 Only consider the case where each match alternative is a monadic computation `m α`.
 
@@ -70,7 +84,7 @@ Store the generated `WPGen` element for a certain matcher since it might be used
 -/
 
 /-- Construct a suitable `WPGen` term for a matcher in real time. -/
-def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)) := do
+def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
   -- NOTE: we rely on `MatcherInfo` here, since we do not want to generate
   -- `WPGen` only for a specific matcher; but this might not work on `casesOn`.
   -- in that case, we might rely on `MatcherApp` instead
@@ -86,7 +100,7 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
 
   -- make up the implicit arguments of this `WPGen`
   forallTelescope (← ConstantInfo.type <$> getConstInfo ``WPGen.match_template) fun implicitArgs _ => do
-  let (mExpr, monadInstExpr, lExpr, omaInstExpr) := (implicitArgs[0]!, implicitArgs[1]!, implicitArgs[3]!, implicitArgs[5]!)
+  let (mExpr, monadInstExpr, lExpr, omaInstExpr) := (implicitArgs[0]!, implicitArgs[1]!, implicitArgs[2]!, implicitArgs[4]!)
 
   -- `α`: make up the return type of `m`
   withLocalDecl (← mkFreshUserName `α) BinderInfo.implicit (← Expr.bindingDomain! <$> inferType mExpr) fun αExpr => do
@@ -354,19 +368,73 @@ def constructWPGen (matcherName : Name) : TermElabM (Option (Array Name × Expr)
   let wpgen ← levelMVarToParam wpgen
   trace[Loom.debug] "has mvar? {wpgen.hasMVar}"
   let newLvls := collectLevelParams {} wpgen |>.params
-  -- Option.some <$>
-  pure (newLvls, wpgen)
+
+  let firstMonadArgPos := 1 + matcherInfo.numParams + implicitArgs.size
+  pure <| .some {
+    lvls := newLvls,
+    wpgenExpr := wpgen,
+    matcherInfo := matcherInfo,
+    monadRetTypePos := 0,
+    monadArgPos := 1 + matcherInfo.numParams,
+    monadInstPos := 1 + matcherInfo.numParams + 1,
+    omaTypePos := 1 + matcherInfo.numParams + 2,
+    firstMonadArgPos := firstMonadArgPos,
+    -- firstWPGenArgPos := firstMonadArgPos + matcherInfo.numAlts,
+    -- firstDiscrPos := firstMonadArgPos + 2 * matcherInfo.numAlts,
+  }
+
+def partiallyInstantiateWPGen (outerArgs : Array Expr) (a : MatcherWPGen) (b : MatcherApp) : MetaM Expr := do
+  let wpgen := a.wpgenExpr.instantiateLevelParams a.lvls.toList (← mkFreshLevelMVars a.lvls.size)
+  try
+    -- usually providing `alts` is enough, but sometimes we need to instantiate the `Unit` argument
+    let fma := a.firstMonadArgPos
+    let alts' ← do
+      lambdaBoundedTelescope wpgen (fma + a.matcherInfo.numAlts) fun xs _ => do
+      b.alts.mapIdxM fun i alt => do
+        let numArgRequired ← Expr.getNumHeadForalls <$> inferType xs[fma + i]!
+        let numArgs := alt.getNumHeadLambdas
+        -- only check one case
+        if numArgRequired + 1 == numArgs then
+          return mkApp alt (mkConst ``Unit.unit)
+        pure alt
+    let args : Array (Option Expr) := Array.replicate fma none
+    /-
+    -- also works, but providing more arguments might be better ...?
+    let (α, m) ← lambdaTelescope b.motive fun _ body => do
+      let .app m α := body | throwError s!"motive is not of the form `fun .. => m α`"
+      pure (α, m)
+    let args := args.set! a.monadRetTypePos (some α)
+    let args := args.set! a.monadArgPos (some m)
+    -/
+    -- the position setting becomes highly bespoke
+    let args := args.set! a.monadRetTypePos (some outerArgs[0]!)
+    let args := args.set! a.monadArgPos (some outerArgs[1]!)
+    let args := args.set! a.monadInstPos (some outerArgs[2]!)
+    let args := args.set! a.omaTypePos (some outerArgs[3]!)
+    -- NOTE: due to mvar depth increase and the level mvars generated above,
+    -- using `mkAppOptM'` might fail, so we simulate it here
+    /- mkAppOptM' wpgen (args ++ alts'.map Option.some) -/
+    let partialwpgen ← args.foldlM (init := wpgen) fun e arg => do
+      match arg with
+      | .some v => pure <| mkApp e v
+      | .none => pure <| mkApp e (← mkFreshExprMVar none)
+    let res := mkAppN partialwpgen alts'
+    check res   -- instantiate some mvars
+    pure res
+  catch ex =>
+    trace[Loom.debug] m!"Error in [{decl_name%}]: {ex.toMessageData}"
+    return wpgen
 
 def defineWPGen (name : Name) : TermElabM Unit := do
   unless ← isMatcher name do
     throwError s!"{name} is not a matcher"
   let targetName := name ++ `WPGen
   if (← getEnv).find? targetName matches none then
-    let some (newLvls, wpgen) ← constructWPGen name
+    let some res ← constructWPGen name
       | throwError s!"cannot generate WPGen for matcher {name} due to error"
     addDecl <|
       Declaration.defnDecl <|
-        mkDefinitionValEx targetName newLvls.toList (← inferType wpgen) wpgen
+        mkDefinitionValEx targetName res.lvls.toList (← inferType res.wpgenExpr) res.wpgenExpr
         (Lean.ReducibilityHints.regular 0)
         (DefinitionSafety.safe) []
     enableRealizationsForConst targetName
