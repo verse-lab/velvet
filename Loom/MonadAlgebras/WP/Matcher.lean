@@ -3,6 +3,18 @@ import Loom.MonadAlgebras.WP.Gen
 
 open Lean Meta Elab Term
 
+/-! # Overview
+
+Ideally, targets of this mechanism:
+1. The user does not have to do anything (like running a command) before
+   or during the proof
+2. (Complete not done yet, but should be feasible) The `WPGen` should be
+   sound and relatively complete
+3. (Not fully achieved yet) The generated `WPGen` should be reusable. This
+   implies that the generated `WPGen` should be parameterized (i.e.,
+   not for a specific matcher)
+-/
+
 namespace Loom.Matcher
 
 theorem simp1 {l : Type u} [CompleteBooleanAlgebra l] {p : Prop} (proof : p) {a b : l} (h : a ≤ b) :
@@ -33,24 +45,14 @@ def WPGen.match_template.{u, v} {m : Type u → Type v} [Monad m] -- [LawfulMona
 
 private partial def withinBranch (i n : Nat) (type mainGoal : Expr) : TermElabM Expr := do
   if n <= 1 then return mainGoal
-  -- let mv ← mkFreshExprMVar type
-  -- let outerProof left? pf := mkAppOptM (if left? then ``inf_le_of_left_le else ``inf_le_of_right_le)
-  --   #[.some type, .none, (if left? then .none else .some mv), (if left? then .some mv else .none), .none, .some pf]
-  -- let goal ← mkFreshExprMVar none
   if i = n - 1 then
-    -- let tmp ← outerProof false goal
     let tmp ← mainGoal.mvarId!.applyConst ``inf_le_of_right_le
-    -- let _ ← isDefEq mainGoal tmp
     return .mvar tmp[0]!
-  -- let tmp ← outerProof true goal
-  -- let _ ← isDefEq mainGoal tmp
-  -- withinBranch i (n - 1) type goal
   let tmp ← mainGoal.mvarId!.applyConst ``inf_le_of_left_le
-  -- let _ ← isDefEq mainGoal tmp
   withinBranch i (n - 1) type <| .mvar tmp[0]!
 
 inductive MatcherArgCase where | dropFirst | normal
-deriving BEq, Repr, ToExpr
+deriving BEq, Repr, ToExpr, Inhabited
 
 structure MatcherWPGen where
   lvls : Array Name
@@ -64,22 +66,274 @@ structure MatcherWPGen where
   -- firstWPGenArgPos : Nat
   -- firstDiscrPos : Nat
 
+/-! # Technical Notes
+
+Generating `WPGen` for a matcher, assumptions:
+- Each match alternative results in a monadic computation `m α`.
+- Some other technical assumptions, see below.
+
+A running example for explaining the construction:
+```
+method test (a : Nat) (b : Nat) (c : Nat) return (res : Nat)
+  ensures res > 9
+  do
+    match a, b, c with
+    | 2, 3, 4 => pure (10 : Nat)
+    | 9, .succ b', .succ c' => pure (a + b' + c' + 10)
+    | _, _, _ => pure (a + b + c + 10)
+
+#check test.match_1
 /-
-Only consider the case where each match alternative is a monadic computation `m α`.
+test.match_1.{u_1} (motive : ℕ → ℕ → ℕ → Sort u_1) (a✝ b✝ c✝ : ℕ)
+  (h_1 : Unit → motive 2 3 4)
+  (h_2 : (b' c' : ℕ) → motive 9 b'.succ c'.succ)
+  (h_3 : (x x_1 x_2 : ℕ) → motive x x_1 x_2) : motive a✝ b✝ c✝
+-/
 
-How will the arguments of a matcher's `WPGen` look like?
-- Consider the matcher itself. When we set `motive` to `fun _ => m α`, then each argument
-  corresponds to the monadic computations for which we need to construct `WPGen`s
-  as subgoals.
-- From the types of those arguments, we can figure out the types of the `WPGen` subgoals.
-- Now consider its `splitter`. Each argument of the `splitter` corresponds to one
-  "branch" of the `WPGen.get`; "branches" are connected by `⊓` (in analogy to `∧`).
-  In one "branch", we have a series of `⨅ ..., ⌜ ... ⌝ ⇨ ...` (in analogy to `∀ ..., ... → ...`).
-  The `⌜ ... ⌝`'s consist of the inner arguments of each argument of the `splitter`
-  and also equalities on the discriminant(s) of the `match`.
-- Proving `WPGen.prop` with regard to this `WPGen.get` is relatively straightforward.
+#check test.match_1.splitter
+/-
+test.match_1.splitter.{u_1} (motive : ℕ → ℕ → ℕ → Sort u_1) (a✝ b✝ c✝ : ℕ)
+  (h_1 : motive 2 3 4)
+  (h_2 : (b' c' : ℕ) → motive 9 b'.succ c'.succ)
+  (h_3 :
+    (x x_1 x_2 : ℕ) →
+      (x = 2 → x_1 = 3 → x_2 = 4 → False) →
+        (∀ (b' c' : ℕ), x = 9 → x_1 = b'.succ → x_2 = c'.succ → False) → motive x x_1 x_2) :
+  motive a✝ b✝ c✝
+-/
 
-Store the generated `WPGen` element for a certain matcher since it might be used later.
+#check test.match_1.eq_1
+/-
+test.match_1.eq_1.{u_1} (motive : ℕ → ℕ → ℕ → Sort u_1)
+  (h_1 : Unit → motive 2 3 4)
+  (h_2 : (b' c' : ℕ) → motive 9 b'.succ c'.succ)
+  (h_3 : (x x_1 x_2 : ℕ) → motive x x_1 x_2) :
+  (match 2, 3, 4 with
+    | 2, 3, 4 => h_1 ()
+    | 9, b'.succ, c'.succ => h_2 b' c'
+    | x, x_1, x_2 => h_3 x x_1 x_2) =
+    h_1 ()
+-/
+
+#check test.match_1.eq_3
+/-
+test.match_1.eq_3.{u_1} (motive : ℕ → ℕ → ℕ → Sort u_1) (x✝ x✝¹ x✝² : ℕ)
+  (h_1 : Unit → motive 2 3 4)
+  (h_2 : (b' c' : ℕ) → motive 9 b'.succ c'.succ)
+  (h_3 : (x x_1 x_2 : ℕ) → motive x x_1 x_2) :
+  (x✝ = 2 → x✝¹ = 3 → x✝² = 4 → False) →
+    (∀ (b' c' : ℕ), x✝ = 9 → x✝¹ = b'.succ → x✝² = c'.succ → False) →
+      (match x✝, x✝¹, x✝² with
+        | 2, 3, 4 => h_1 ()
+        | 9, b'.succ, c'.succ => h_2 b' c'
+        | x, x_1, x_2 => h_3 x x_1 x_2) =
+        h_3 x✝ x✝¹ x✝²
+-/
+```
+
+Assume we are going to construct `test.match_1.WPGen`, whose type is
+`fun ... => WPGen (test.match_1 ...)`. The construction is in three steps.
+
+## Constructing the Arguments
+
+To achieve potential reuse, the `WPGen` should be properly parameterized.
+
+We use the matcher itself in this step. When we set `motive` to
+`fun .. => m α`, then each alternative argument corresponds to the
+monadic computations for which we need to construct `WPGen`s as subgoals.
+
+For example, for the matcher `test.match_1`, we have three alternatives:
+`(h_1 : Unit → motive 2 3 4)`,
+`(h_2 : (b' c' : ℕ) → motive 9 b'.succ c'.succ)`,
+`(h_3 : (x x_1 x_2 : ℕ) → motive x x_1 x_2)`.
+So we will have three monadic computations to consider:
+`(mh_1 : Unit → m α)`,
+`(mh_2 : (b' c' : ℕ) → m α)`,
+`(mh_3 : (x x_1 x_2 : ℕ) → m α)`.
+- The `Unit` argument of `h_1` is presumably to make `h_1` be lazily
+  evaluated, and we can optimize it away. This pattern can also be
+  observed in alternatives where the pattern does not contain any
+  holes or variables (e.g., `match x with | none => ...`). We implicitly
+  assume that this pattern can be detected by checking whether the
+  `motive ...` depends on the first argument. See below where
+  `MatcherArgCase` is used.
+- We assume `motive` will only appear in the body position; if it also appears
+  in the type of an argument, then some changes might be needed.
+
+From the types of those monadic computations, we can figure out the types
+of the `WPGen` subgoals.
+
+For example, we just obtained three monadic computations:
+`(mh_1 : m α)` (we optimize the `Unit` away),
+`(mh_2 : (b' c' : ℕ) → m α)`,
+`(mh_3 : (x x_1 x_2 : ℕ) → m α)`.
+The corresponding `WPGen` subgoals are:
+`(wpgh_1 : WPGen mh_1)`,
+`(wpgh_2 : ∀ b' c', WPGen (mh_2 b' c'))`,
+`(wpgh_3 : ∀ x x_1 x_2, WPGen (mh_3 x x_1 x_2))`.
+
+Finally, we can construct the body type of the `WPGen` we are constructing,
+by using the monadic computation arguments.
+
+For example, the body type of `test.match_1.WPGen` is
+```
+WPGen
+  (match a, b, c with
+  | 2, 3, 4 => mh_1
+  | 9, b'.succ, c'.succ => mh_2 b' c'
+  | x, x_1, x_2 => mh_3 x x_1 x_2)
+```
+where the matcher, after disabling pretty printing, is
+`test.match_1 (fun _ _ _ ↦ m α) a b c (fun _ ↦ mh_1) mh_2 mh_3`
+(note that for `mh_1` we need to make it "lazy").
+
+## Constructing `WPGen.get`
+
+We use the splitter in the next two steps since it contains more information.
+
+Each alternative of the splitter corresponds to one "branch" of the
+`WPGen.get`; "branches" are connected by `⊓` (in analogy to `∧`).
+In one "branch", we have a series of heading `⨅ ...` (in analogy to `∀ ...`),
+and then a series of heading `⌜ ... ⌝ ⇨ ...` (in analogy to `... → ...`).
+The `⌜ ... ⌝`'s consist of the inner arguments of each alternative of the
+splitter and also equalities on the discriminant(s) of the matcher.
+The body of the branch is the `get` of the corresponding `WPGen` subgoal.
+- We implicitly assume that we can use a prefix of the arguments in an
+  alternative to fill in the arguments of the corresponding `WPGen` subgoal.
+
+For example, the splitter of `test.match_1`, `test.match_1.splitter`,
+has three alternatives:
+```
+(h_1 : motive 2 3 4)
+(h_2 : (b' c' : ℕ) → motive 9 b'.succ c'.succ)
+(h_3 :
+  (x x_1 x_2 : ℕ) →
+    (x = 2 → x_1 = 3 → x_2 = 4 → False) →
+      (∀ (b' c' : ℕ), x = 9 → x_1 = b'.succ → x_2 = c'.succ → False) → motive x x_1 x_2) :
+```
+The corresponding branches are:
+```
+-- Branch 1:
+⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgh_1.get post
+-- Branch 2:
+⨅ b', ⨅ c', ⌜a = 9⌝ ⇨ ⌜b = b'.succ⌝ ⇨ ⌜c = c'.succ⌝ ⇨ (wpgh_2 b' c').get post
+-- Branch 3:
+⨅ x, ⨅ x_1, ⨅ x_2,
+  ⌜x = 2 → x_1 = 3 → x_2 = 4 → False⌝ ⇨
+    ⌜∀ (b' c' : ℕ), x = 9 → x_1 = b'.succ → x_2 = c'.succ → False⌝ ⇨
+      ⌜a = x⌝ ⇨ ⌜b = x_1⌝ ⇨ ⌜c = x_2⌝ ⇨ (wpgh_3 x x_1 x_2).get post
+```
+Note that the equalities are generated based on how `motive ...` looks
+like in each alternative. For example, in the first alternative,
+`motive 2 3 4`, the arguments `2`, `3`, and `4` correspond to the
+discriminants `a`, `b`, and `c`, respectively, so we have the equalities
+`⌜a = 2⌝`, `⌜b = 3⌝`, and `⌜c = 4⌝`. The same applies to the other alternatives.
+
+An optimization is to remove redundant equalities. In particular,
+if in `motive ...` an argument is a variable, then we do not need to
+have an equality between that variable and the corresponding discriminant;
+instead, we can just use the discriminant directly. For example, in the
+third alternative, `motive x x_1 x_2`, we do not need to have the equalities
+`⌜a = x⌝`, `⌜b = x_1⌝`, and `⌜c = x_2⌝`; instead, we can just use `a`, `b`,
+and `c` directly.
+
+TODO This optimization is not implemented yet.
+
+The `WPGen.get` is then `fun post => ...` where `...` is the above branches
+connected by `⊓`.
+
+TODO A conjecture is that this construction is complete, if all `WPGen`
+subgoals are complete.
+
+## Constructing `WPGen.prop`
+
+Proving `WPGen.prop` with regard to this `WPGen.get` is relatively
+straightforward. To do it at the `MetaM` level (instead of using `TacticM`),
+we build the proof term using the splitter as the skeleton. That is,
+the proof has the form of `fun post => test.match_1.splitter ...`.
+The `motive` here is in the form of
+`fun [discriminants'] => [get using discriminants'] post ≤ wp [matcher using discriminants'] post`
+where `get` is the expression for `WPGen.get` we constructed in the
+previous step.
+
+For example, for `test.match_1`, the motive is
+```
+fun a_ b_ c_ ↦
+  (⌜a_ = 2⌝ ⇨ ⌜b_ = 3⌝ ⇨ ⌜c_ = 4⌝ ⇨ wpgh_1.get post ⊓
+    /- ... -/) ≤
+  wp
+    (match a_, b_, c_ with
+    | 2, 3, 4 => mh_1
+    | 9, b'.succ, c'.succ => mh_2 b' c'
+    | x, x_1, x_2 => mh_3 x x_1 x_2)
+    post
+```
+where the matcher is the one appearing in the body type of the `WPGen` we
+are constructing, but note that its discriminants are substituted by
+the arguments of the motive `a_, b_, c_`. Similarly for the LHS of the `≤`.
+
+Now each alternative of the splitter corresponds to one subgoal. For
+the `i`-th alternative, we use `inf_le_of_left_le` or
+`inf_le_of_right_le` to choose the `i`-th branch of the `get`.
+
+For example, for the second alternative, the corresponding subgoal is
+```
+∀ (b' c' : ℕ),
+  /- ... -/ ⊓
+    (⨅ b'_1, ⨅ c'_1, ⌜9 = 9⌝ ⇨ ⌜b'.succ = b'_1.succ⌝ ⇨ ⌜c'.succ = c'_1.succ⌝ ⇨
+      (wpgh_2 b'_1 c'_1).get post) ⊓
+    /- ... -/  ≤
+  wp
+    (match 9, b'.succ, c'.succ with
+    | 2, 3, 4 => mh_1
+    | 9, b'.succ, c'.succ => mh_2 b' c'
+    | x, x_1, x_2 => mh_3 x x_1 x_2)
+    post
+```
+By doing something equivalent to
+`intro b' c' ; refine inf_le_of_left_le (inf_le_of_right_le ?_)`, the
+subgoal is reduced to
+```
+(⨅ b'_1, ⨅ c'_1, ⌜9 = 9⌝ ⇨ ⌜b'.succ = b'_1.succ⌝ ⇨ ⌜c'.succ = c'_1.succ⌝ ⇨
+      (wpgh_2 b'_1 c'_1).get post) ≤
+  wp
+    (match 9, b'.succ, c'.succ with
+    | 2, 3, 4 => mh_1
+    | 9, b'.succ, c'.succ => mh_2 b' c'
+    | x, x_1, x_2 => mh_3 x x_1 x_2)
+    post
+```
+
+After that, we use the assumptions introduced by `intro` or `rfl`s
+to "discharge" the heading `⌜ ... ⌝`'s. We use `iInf_le_of_le` or
+`simp1` together with the assumptions, and use `simp2` with `rfl`s.
+Whether to use `simp2` depends on whether the assumptions introduced by
+`intro` are used up, since equalities are at the trailing positions.
+
+For example, for the subgoal above, we can do something equivalent to
+`refine iInf_le_of_le b' (iInf_le_of_le c' (simp2 (simp2 ?_)))`, where
+`iInf_le_of_le` is to choose the `b'` and `c'` in the `⨅ b'_1, ⨅ c'_1, ...`.
+Then the subgoal is reduced to
+```
+(wpgh_2 b' c').get post) ≤
+  wp
+    (match 9, b'.succ, c'.succ with
+    | 2, 3, 4 => mh_1
+    | 9, b'.succ, c'.succ => mh_2 b' c'
+    | x, x_1, x_2 => mh_3 x x_1 x_2)
+    post
+```
+
+Finally, we use the simplification equations for the matcher to rewrite
+the matcher on the RHS to the corresponding monadic computation, and then
+apply the `WPGen.prop` of the corresponding `WPGen` subgoal to close the goal.
+This rewriting is necessary since the matcher may not reduce.
+
+For example, `test.match_1.eq_1` is by `rfl`, but `test.match_1.eq_3` has a
+non-trivial proof term.
+
+TODO A potential optimization is to use tactic scripts to make the proof
+more robust.
 
 -/
 
@@ -94,7 +348,7 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
   let lvlMVars ← mkFreshLevelMVars constInfo.levelParams.length
 
   -- make up the discriminant(s) and related (type) parameter(s)
-  -- NOTE: this will also introduce a fvar for `motive`, but we do not use it TODO really?
+  -- NOTE: this will also introduce a fvar for `motive`, but we do not use it normally
   forallBoundedTelescope (constInfo.type.instantiateLevelParams constInfo.levelParams lvlMVars) (.some matcherInfo.getFirstAltPos) fun paramsAndDiscrs partialMatcher => do
   let discrs := paramsAndDiscrs.drop matcherInfo.getFirstDiscrPos |>.take matcherInfo.numDiscrs
 
@@ -104,43 +358,35 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
 
   -- `α`: make up the return type of `m`
   withLocalDecl (← mkFreshUserName `α) BinderInfo.implicit (← Expr.bindingDomain! <$> inferType mExpr) fun αExpr => do
+  let mαExpr := mkApp mExpr αExpr
 
   -- make up the monadic computations in alternatives
   let wpgenTypeBuilder x : MetaM Expr :=
     -- for convenience, here leave some arguments to be resolved by typeclass resolution
     mkAppOptM ``WPGen #[.some mExpr, .some monadInstExpr, .some αExpr, .some lExpr, .none, .some omaInstExpr, .some x]
-  /-
-  TODO better abstraction? over `motivefv`, `input`
-  let subMonadArgs ← metaBetaReduceForMotive (fun _ => mkApp mExpr αExpr) splitterType app
-  -/
-  let motivefv := paramsAndDiscrs[matcherInfo.getMotivePos]!
   let branchConds ← do
     pure <| List.map (fun x => (x.1, x.2.1)) <| getForallPremises partialMatcher
-  let subMonadArgs ← branchConds.mapM fun (nm, br) => do
+  let subMonadArgsWithInfo ← branchConds.mapM fun (nm, br) => do
     -- special check: if the first argument of `br` does not appear in its body,
     -- then remove it
     -- NOTE: this is mainly for the case of `br : Unit → ...`; would it break anything?
-    let (case, br') ← forallTelescope br fun xs body => do
+    -- NOTE: we only change the `body` to `mαExpr`
+    forallTelescope br fun xs body => do
       if xs.isEmpty then
-        return (MatcherArgCase.normal, ← mkForallFVars xs body)
+        return ((0, MatcherArgCase.normal), (nm, mαExpr))
       let (case, xs') :=
         if xs[0]!.occurs body
         then (MatcherArgCase.normal, xs)
         else (MatcherArgCase.dropFirst, xs.drop 1)
-      pure (case, ← mkForallFVars xs' body)
-    let tmp ← Core.transform br'
-      (pre := fun e => pure <| e.withApp (fun f args =>
-        if f == motivefv
-        then .done <| mkApp mExpr αExpr
-        else .continue))
-    pure (case, nm, tmp)
+      pure ((xs'.size, case), (nm, ← mkForallFVars xs' mαExpr))
+  let (subMonadArgsInfo, subMonadArgs) := subMonadArgsWithInfo.toArray.unzip
   trace[Loom.debug] "subMonadArgs: {subMonadArgs.map Prod.snd}"
-  withLocalDecls (← subMonadArgs.toArray.mapM fun (_, nm, t) => do
+  withLocalDecls (← subMonadArgs.mapM fun (nm, t) => do
       let nm' ← mkFreshUserName nm
       pure (nm', BinderInfo.implicit, fun _ => pure t)) fun subMonadArgsFVars => do
 
   -- make up the sub `WPGen` goals
-  let subWPGenArgs ← subMonadArgs.mapIdxM fun i (_, nm, t) => do
+  let subWPGenArgs ← subMonadArgs.mapIdxM fun i (nm, t) => do
     let nm' := nm.appendBefore "wpg"
     let ty ← forallTelescope t fun xs _ => do
       let tmp := mkAppN subMonadArgsFVars[i]! xs
@@ -148,8 +394,7 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
       mkForallFVars xs tmp
     pure (nm', ty)
   trace[Loom.debug] "subWPGenArgs: {subWPGenArgs}"
-  -- TODO repeating code
-  withLocalDecls (← subWPGenArgs.toArray.mapM fun (nm, t) => do
+  withLocalDecls (← subWPGenArgs.mapM fun (nm, t) => do
       let nm' ← mkFreshUserName nm
       pure (nm', BinderInfo.default, fun _ => pure t)) fun subWPGenArgsFVars => do
 
@@ -160,13 +405,13 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
     let motiveArg ← forallTelescope ty fun xs _ =>
       mkLambdaFVars xs <| mkApp mExpr αExpr
     -- accounting for the cases
-    let subMonadArgsForMatcher ← subMonadArgs.mapIdxM fun i (case, _, _) => do
+    let subMonadArgsForMatcher ← subMonadArgsInfo.mapIdxM fun i (_, case) => do
       match case with
       | .dropFirst => mkFunUnit subMonadArgsFVars[i]!
       | .normal => pure subMonadArgsFVars[i]!
     pure <| mkAppN
       (Lean.mkConst matcherName lvlMVars)
-      ((paramsAndDiscrs.set! matcherInfo.getMotivePos motiveArg) ++ subMonadArgsForMatcher.toArray)
+      ((paramsAndDiscrs.set! matcherInfo.getMotivePos motiveArg) ++ subMonadArgsForMatcher)
   let targetWPGenTy ← wpgenTypeBuilder targetMatcher
   trace[Loom.debug] "targetWPGenTy: {targetWPGenTy}"
 
@@ -183,18 +428,17 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
   withLocalDeclD (← mkFreshUserName `post) (← mkArrow αExpr lExpr) fun postExpr => do
 
   -- make up the `WPGen.get`
-  -- CHECK `backup` might include unnecessary information
   let (wpgenGet, backup) ← do
-    -- let fakeMotiveFv := Expr.fvar (← mkFreshFVarId)
-    -- the `motive` is fake here
-    let partialSplitterType ← instantiateForall splitterType paramsAndDiscrs -- (paramsAndDiscrs.set! matcherInfo.getMotivePos fakeMotiveFv)
+    let partialSplitterType ← instantiateForall splitterType paramsAndDiscrs
     let branchConds ← do
       pure <| List.map (fun x => x.2.1) <| getForallPremises partialSplitterType
     let wpgenGetBranches ← branchConds.mapIdxM fun i br => do
       let subWPGen := subWPGenArgsFVars[i]!
       let br' ← forallTelescope br fun xs motiveBody => do
         let newBody ← do
-          let numArgsRequired ← Expr.getNumHeadForalls <$> inferType subWPGen
+          -- NOTE: this is based on the invariant that #numArgs of a sub `WPGen`
+          -- is equal to #numArgs of the corresponding sub monadic computation
+          let numArgsRequired := subMonadArgsInfo[i]!.1
           let subWPGenGet ← mkAppM ``WPGen.get #[mkAppN subWPGen (xs.take numArgsRequired), postExpr]
           motiveBody.withApp fun _ args => do
             -- TODO this should have an optimization; some equalities might be redundant
@@ -212,19 +456,20 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
             let tmp ← mkLambdaFVars #[x] e
             mkAppOptM ``iInf #[.some lExpr, .some xty, .none, .some tmp]
       trace[Loom.debug] "branch {i} after transformation: {br'} ==> {res}"
-      pure (br', res)
-    let (wpgenGetBranchesBefore, wpgenGetBranchesAfter) := wpgenGetBranches.unzip
+      -- `br'.getNumHeadForalls` should be equal to the number of arguments of
+      -- `br` plus the number of equalities added
+      pure (br'.getNumHeadForalls, res)
+    let (backup, wpgenGetBranchesAfter) := wpgenGetBranches.unzip
     -- combine the branches together; `⊓` is left-associative
     -- NOTE: this might also be changed into another encoding, e.g., `⨅ i ∈ (Fin ..), ...`
     let topAsInit ← mkAppOptM ``Top.top #[.some lExpr, .none]
     let bundled ← List.foldldM (g := pure) (init := topAsInit) (l := wpgenGetBranchesAfter) fun infs e =>
       mkAppOptM ``Min.min #[.some lExpr, .none, .some infs, .some e]
     let res ← mkLambdaFVars #[postExpr] bundled
-    pure (res, wpgenGetBranchesBefore.toArray)
+    pure (res, backup.toArray)
   trace[Loom.debug] "wpgenGet: {wpgenGet}"
 
   -- make up the proof for `WPGen.post`
-  -- NOTE: this proof might also be done using tactics
   let wpgenPost ← do
     let motive ← do
       let lhs ← instantiateLambda wpgenGet #[postExpr]
@@ -246,60 +491,31 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
       let res ← forallTelescope br fun xs body => do
         -- instantiate the sub `WPGen` to use
         let subWPGen := subWPGenArgsFVars[i]!
-        -- TODO maybe store this information ahead of recomputing since it is used twice
-        let numArgsRequired ← Expr.getNumHeadForalls <$> inferType subWPGen
+        let numArgsRequired := subMonadArgsInfo[i]!.1
         let subWPGenProp ← mkAppM ``WPGen.prop #[mkAppN subWPGen (xs.take numArgsRequired), postExpr]
         -- build the proof by looking at the corresponding branch of `wpgenGet`
-
         let goal ← mkFreshExprMVar body
-
         let goal_ ← withinBranch i numBranches lExpr goal
-
         -- do the prefix part
         let goal' ← xs.foldlM (init := goal_) fun mainGoal x => do
           let xty ← inferType x
-          trace[Loom.debug] "xty: {xty}"
           if ← isProp xty then
-            -- let goal' ← mkFreshExprMVar none
-            -- let tmp ← mkAppOptM ``Loom.Matcher.simp1 #[.some lExpr, .none, .none, .none, .none, .some x, .some goal']
-            -- let _ ← isDefEq mainGoal tmp
-            -- pure goal'
             let tmp ← mkAppOptM ``Loom.Matcher.simp1 #[.some lExpr, .none, .some xty, .some x]
             let goals ← mainGoal.mvarId!.apply tmp
             pure <| .mvar goals[0]!
           else
-            -- need to provide the function?
-            -- let ety ← inferType e
-            -- trace[Loom.debug] "ety: {ety}"
-            -- let tmp ← match_expr ety with
-            --   | LE.le _ _ lhs _ =>
-            --     -- let nm ← x.fvarId!.getUserName
-            --     -- pure <| some <| Expr.lam nm xty lhs BinderInfo.default
-            --     mkLambdaFVars #[x] lhs
-            --   | _ => pure none
-
-            -- let goal' ← mkFreshExprMVar none
-            -- let tmp ← mkAppOptM ``iInf_le_of_le #[.some lExpr, .some xty, .none, .none /- ! -/ , .none, .some x, .some goal']
-            -- let _ ← isDefEq mainGoal tmp
-            -- pure goal'
             let f ← mkFreshExprMVar (← mkArrow xty lExpr)
             let a ← mkFreshExprMVar lExpr
-            let tmp ← mkAppOptM ``iInf_le_of_le #[.some lExpr, .some xty, .none, .some f /- ! -/ , .some a, .some x]
+            let tmp ← mkAppOptM ``iInf_le_of_le #[.some lExpr, .some xty, .none,
+              .some f /- hard to inference, so provided explicitly -/ ,
+              .some a, .some x]
             let goals ← mainGoal.mvarId!.apply tmp
             pure <| .mvar goals[0]!
-
         -- try `rfl` in the trailing part
-        let n := backup[i]!.getNumHeadForalls
+        let n := backup[i]!
         let goal'' ← (n - xs.size) |>.foldM (init := goal') fun _ _ mainGoal => do
-          -- let mv ← mkFreshExprMVar .none
-          -- let rfl ← mkEqRefl mv
-          -- let goal' ← mkFreshExprMVar none
-          -- let tmp ← mkAppOptM ``Loom.Matcher.simp1 #[.some lExpr, .none, .none, .none, .none, .some rfl, .some goal']
-          -- let _ ← isDefEq mainGoal tmp
-          -- pure goal'
           let goals ← mainGoal.mvarId!.applyConst ``Loom.Matcher.simp2
           pure <| .mvar goals[0]!
-
         -- might need to use the matcher eqn
         let goal''' ←
           try
@@ -309,40 +525,7 @@ def constructWPGen (matcherName : Name) : TermElabM (Option MatcherWPGen) := do
               g.assumption
             pure goal'''
           catch _ => pure goal''
-        -- TODO why `isDefEq` does not work here?
         let _ ← goal'''.mvarId!.apply subWPGenProp
-        -- trace[Loom.debug] "subWPGenProp: {subWPGenProp}"
-        -- let goal''' ← instantiateMVars goal'''
-        -- trace[Loom.debug] "goal after tactic: {goal'''}"
-
-/-
-        -- try `rfl` in the trailing part
-        let n := backup[i]!.getNumHeadForalls
-        let rflProof ← (n - xs.size) |>.foldM (init := subWPGenProp) fun _ _ e => do
-          let mv ← mkFreshExprMVar .none
-          let rfl ← mkEqRefl mv
-          mkAppOptM ``Loom.Matcher.simp1 #[.some lExpr, .none, .none, .none, .none, .some rfl, .some e]
-        trace[Loom.debug] "rflProof: {rflProof}"
-        -- do the prefix part
-        let proof ← xs.foldrM (init := rflProof) fun x e => do
-          let xty ← inferType x
-          trace[Loom.debug] "xty: {xty}"
-          if ← isProp xty then
-            mkAppOptM ``Loom.Matcher.simp1 #[.some lExpr, .none, .none, .none, .none, .some x, .some e]
-          else
-            -- need to provide the function?
-            let ety ← inferType e
-            trace[Loom.debug] "ety: {ety}"
-            let tmp ← match_expr ety with
-              | LE.le _ _ lhs _ =>
-                -- let nm ← x.fvarId!.getUserName
-                -- pure <| some <| Expr.lam nm xty lhs BinderInfo.default
-                mkLambdaFVars #[x] lhs
-              | _ => pure none
-            mkAppOptM ``iInf_le_of_le #[.some lExpr, .some xty, .none, tmp, .none, .some x, .some e]
-        -- do the branch selection
-        let res ← withinBranch i numBranches lExpr proof
--/
         let res ← instantiateMVars goal
         mkLambdaFVars xs res
       trace[Loom.debug] "sub-proof for branch {i}: {br} ==> {res}"
