@@ -58,11 +58,7 @@ variable [MAlgDet m l]
 lemma wlp_and (c : m α) (post₁ post₂ : α -> l) :
   wlp c (fun x => post₁ x ⊓ post₂ x) = wlp c post₁ ⊓ wlp c post₂ := by
   simp [wlp]; apply le_antisymm
-  { simp [wp_or, wp_and]; repeat' constructor
-    { apply le_sup_of_le_left; apply inf_le_of_left_le; rfl }
-    { apply le_sup_of_le_right; apply inf_le_of_left_le; rfl }
-    { apply le_sup_of_le_left; apply inf_le_of_right_le; rfl }
-    apply le_sup_of_le_right; apply inf_le_of_right_le; rfl }
+  { simp [wp_or, wp_and] }
   rw (occs := .pos [3]) [sup_comm]; rw [<-himp_eq]; simp
   rw [inf_inf_distrib_right]
   conv =>
@@ -103,13 +99,9 @@ lemma wlp_himp (c : m α) (post post' : α -> l) :
   wp c (fun x => post' x ⇨ post x) = wlp c post' ⇨ wp c post := by
     rw [himp_eq, wlp]; simp [himp_eq, wp_or]
     apply le_antisymm <;> simp
-    { rw [<-compl_compl (x := wp c post'ᶜ ⊓ (wp c post')ᶜ)]
-      rw [<-himp_eq]; simp; rw [@inf_sup_left]; simp [<-wp_and]
-      apply wp_cons; simp }
-    rw [<-le_himp_iff, himp_eq]; simp
-    refine le_sup_of_le_left ?_
-    refine le_sup_of_le_right ?_
-    simp
+    rw [<-compl_compl (x := wp c post'ᶜ ⊓ (wp c post')ᶜ)]
+    rw [<-himp_eq]; simp; rw [@inf_sup_left]; simp [<-wp_and]
+    apply wp_cons; simp
 
 lemma wlp_join_wp (c : m α) (post post' : α -> l) :
   wlp c post ⊓ wp c post' = wp c (fun x => post x ⊓ post' x) := by
