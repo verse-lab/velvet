@@ -178,6 +178,7 @@ prove_correct qsortPartition by
 -/
   
 
+-- TODO: Fix, i think there might be some issue in the invariant, look into it
 prove_correct qsortPartition by
   unfold qsortPartition 
   loom_solve

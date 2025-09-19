@@ -11,7 +11,7 @@ open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
 set_option auto.smt.trust true
 set_option auto.smt true
-set_option auto.smt.timeout 4
+set_option auto.smt.timeout 2
 set_option auto.smt.solver.name "cvc5"
 
 --method HasCommonElement(a: array<int>, b: array<int>) returns (result: bool)
@@ -36,33 +36,38 @@ set_option auto.smt.solver.name "cvc5"
     --}
 --}
 
-method HasCommonElement(a: Array Int) (b: Array Int) return (result: Bool)
-    ensures result = true -> ∃ i, (∃ j , 0 <= i ∧ i  < a.size ∧  0 <= j ∧ j < b.size ∧ a[i]! = b[j]!)
-    ensures result = false ->  forall i j , 0 <= i ∧ i  < a.size ∧ 0 <= j ∧ j < b.size -> a[i]! != b[j]!
+/- method getCommonElement  -/
+
+
+-- TODO: Needs reworking, issue happening due to lack of support for early return in Velvet i guess, need to reframe is somehow
+method HasCommonElement (a: Array Int) (b: Array Int) return (result: Option (Nat × Nat))
+    ensures result.isSome -> a[result.get!.fst ]! = b[result.get!.snd]!
+    ensures result.isNone ->  forall i j , 0 <= i ∧ i  < a.size ∧ 0 <= j ∧ j < b.size -> a[i]! != b[j]!
     do
-    let mut result := false
+    let mut result := Option.none
     let mut i := 0
-    while i < a.size
+    let mut j := 0
+    while i < a.size ∧ result.isNone
         invariant 0 <= i ∧ i <= a.size
-        invariant result = false ->  forall k j , 0 <= k ∧ k  < i ∧ 0 <= j ∧ j < b.size -> a[k]! != b[j]!
+        invariant result.isNone ->  forall k j , 0 <= k ∧ k  < i ∧ 0 <= j ∧ j < b.size -> a[k]! != b[j]!
         do 
-        let mut j := 0
-        while j < b.size ∧ result = false
+        j := 0
+        while j < b.size ∧ result.isNone
             invariant 0 <= j ∧ j <= b.size
-            invariant result = false -> forall k , 0 <= k ∧ k < j -> a[i]! != b[k]!
+            invariant result.isNone  -> forall k , 0 <= k ∧ k < j -> a[i]! != b[k]!
+            done_with j = b.size
             do
             if a[i]! = b[j]! then
-                result := true
+                result := Option.some ⟨i, j⟩
             j := j + 1
-        i := i + 1
+      i := i + 1
     return result
 
 prove_correct HasCommonElement by
-  unfold HasCommonElement 
+  unfold HasCommonElement
   loom_solve
-  sorry
+  · grind
+  · grind
+  · sorry
+  · sorry
 
-
-  
-  
-/- #eval (HasCommonElement #[1,2,3] #[4,5,9] ).run -/
