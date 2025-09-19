@@ -26,7 +26,7 @@ method simple_recursion (x : Nat) return (res: Nat)
       return 0
     else
       let pre_res ← simple_recursion (x - 1)
-      return pre_res + 1
+      return pre_res.1 + 1
 
 prove_correct simple_recursion by
   loom_solve
@@ -48,8 +48,8 @@ method pickGreaterN (n: Nat) return (res: Nat)
       return 0
     else
       let pre_res ← pickGreaterN (n - 1)
-      let pre_res_big ← pickGreater pre_res
-      return pre_res_big
+      let pre_res_big ← pickGreater pre_res.1
+      return pre_res_big.1
 
 prove_correct pickGreaterN by
   loom_solve
@@ -71,7 +71,7 @@ method calc_fact (n: Nat) return (res: Nat)
       let pre_res_n ← calc_fact (n - 1)
       while i < n
         invariant i <= n
-        invariant i * pre_res_n = ans
+        invariant i * pre_res_n.1 = ans
         decreasing n - i
         do
           let pre_res ← calc_fact (n - 1)
@@ -178,10 +178,10 @@ method complex_measure_binsearch (l : Nat) (r: Nat) (x: Nat) return (res: Nat)
       let m := l + (r - l) / 2
       if m * m ≤ x then
         let pre_res_l ← complex_measure_binsearch m r x
-        return pre_res_l
+        return pre_res_l.1
       else
         let pre_res_r ← complex_measure_binsearch l m x
-        return pre_res_r
+        return pre_res_r.1
 
 prove_correct complex_measure_binsearch by
   loom_solve

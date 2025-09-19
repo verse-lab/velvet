@@ -178,7 +178,7 @@ partial def expandLeafnyDoSeqItem (modIds : Array Ident) (stx : doSeqItem) : Ter
       if argName ∈ modArgs then throwErrorAt arg s!"mutable arguments cannot alias"
       modArgs := modArgs.push argName
       mods := mods.push $ <- withRef arg `(Term.doSeqItem| $(mkIdent argName):ident := $a:ident)
-    return #[<-`(Term.doSeqItem| let ⟨$id, _⟩ <- $trm:term)] ++ mods
+    return #[<-`(Term.doSeqItem| let $id <- $trm:term)] ++ mods
   | `(Term.doSeqItem| $trm:term) =>
     let id := mkIdent <| <- mkFreshUserName `ret
     let `($t:ident $args:term*) := trm | pure #[stx]
