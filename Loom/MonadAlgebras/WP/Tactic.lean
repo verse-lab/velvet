@@ -63,7 +63,11 @@ def generateWPStep : TacticM (Bool × Expr) := withMainContext do
           $refine_tac)
       return (true, x)
     catch _ => continue
-  let some mainName ← getDeclName? | throwError s!"no lemma name provided"
+  let some ⟨rsx, _⟩ := x.getAppFn.const? | return (false, x)
+  let rsxCorrect := (rsx.toString ++ "_correct").toName
+  let some mainName ← getDeclName? | throwError s!"no lemma name found for goal:{goalType}"
+  if mainName ≠ rsxCorrect then
+    return (false, x)
   let mainNameIdent := mkIdent mainName
   try
     evalTactic $ <- `(tactic|
