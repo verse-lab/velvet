@@ -122,6 +122,21 @@ The implementation of a method goes inside a `do` block.
         minValue := b
     ```
 
+    **Note on nested conditionals**: Velvet has issues with `if/else if/then` syntax. Instead, nest the second `if` inside the `else` block:
+    ```lean
+    -- Don't use: if/else if/then
+    -- if m = 0 then ... else if n = 0 then ...
+
+    -- Use: nested if inside else
+    if m = 0 then
+        return n + 1
+    else
+        if n = 0 then
+            return something
+        else
+            return something_else
+    ```
+
 *   **Loops**: `while` loops are used for iteration. For verification, they can be annotated with `invariant` clauses (conditions that are true at the start of each iteration) and a `done_with` clause (a condition that is true upon loop termination).
 
     **Syntax:**
@@ -288,6 +303,95 @@ while i < a.size do
     -- loop body
     i := i + 1
 ```
+
+### Pattern Matching and Recursion
+
+Velvet provides support for pattern matching with `match` expressions and recursive method calls.
+
+#### Match Expressions
+
+Velvet supports pattern matching on data constructors using `match` expressions.
+
+**Basic Pattern Matching:**
+```lean
+method test1 (n : Nat) return (res : Nat)
+  ensures n = res
+  do
+    match n with
+    | .zero => pure 0
+    | .succ k =>
+      let b ← test1 k
+      pure (Nat.succ b)
+```
+
+**Multiple Parameter Matching:**
+```lean
+method test2 (n : β) (l : List α) return (res : Nat)
+  ensures res = l.length
+  do
+    match l, n with
+    | [], _ => pure 0
+    | _ :: k, _ =>
+      let b ← test2 n k
+      pure b.succ
+```
+
+**Match in Function Definitions:**
+```lean
+def get_cnt_sum (l: List Encoding) :=
+  match l with
+  | List.nil => 0
+  | List.cons x xs => x.cnt + get_cnt_sum xs
+```
+
+**Note:** Pattern matching is a newer feature in Velvet and may have issues with more complicated constructs.
+
+#### Recursion
+
+**Simple Recursion:**
+```lean
+method simple_recursion (x : Nat) return (res: Nat)
+  require True
+  ensures res = x
+  do
+    if x = 0 then
+      return 0
+    else
+      let pre_res ← simple_recursion (x - 1)
+      return pre_res + 1
+```
+
+**Verification with Recursion:**
+```lean
+prove_correct simple_recursion by
+  unfold simple_recursion
+  loom_solve  -- Often sufficient for simple recursive methods
+```
+
+**Termination Handling:**
+Velvet supports `decreasing_by` and `termination_by` clauses similar to Lean, which can be added at the end of method definitions and `prove_correct` commands:
+
+```lean
+method gcd (a : Nat) (b : Nat) return (res : Nat)
+  require b > 0
+  ensures res > 0
+  do
+    if a % b = 0 then
+      return b
+    else
+      let result ← gcd b (a % b)
+      return result
+  termination_by b
+  decreasing_by sorry -- proof that a % b < b
+
+prove_correct gcd by
+  unfold gcd
+  loom_solve
+  termination_by b
+  decreasing_by sorry -- same termination proof
+```
+
+**Note:** Recursion is also a newer feature in Velvet and may have issues with more complex recursive patterns. Additionally, inductive proofs are not yet supported in Velvet's verification system when using recursion.
 
 ### Advanced Features
 
