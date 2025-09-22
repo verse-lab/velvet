@@ -284,27 +284,6 @@ def testmatch (a b c: Nat) (xx yy : α) :=
   | _, _, _ => yy
 #print testmatch.match_1
 
-noncomputable
-def WPGen.match2
-  {l : Type u} {m : Type u -> Type v} [Monad m] [LawfulMonad m] [CompleteBooleanAlgebra l] [MAlgOrdered m l]
-  -- The program to run if the option is 'none'
-  {xx yy : m β} (a b c : Nat) (wpgxx : WPGen xx) (wpgyy : WPGen yy)
-  -- {y : m β} {z : γ  → m β} (opt : Option γ ) (wpgy : WPGen y)
-  -- A function that gives a program to run if the option is 'some a'
-  -- (wpgz : ∀ a, WPGen (z a))
-  -- The return type is parameterized by the whole match expression
-  : WPGen (match a, b, c with | 2, 3, 4 => xx | _, _, _ => yy)
-where
-  get := fun post =>
-    -- Branch 1: The 'none' case
-    (⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgxx.get post) ⊓
-    (⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgxx.get post) ⊓ (⊤ ⊓ ⊤ ⊓ ⊤) ⊓
-    -- Branch 2: The 'some' case
-    (⨅ a, ⨅ b, ⨅ c, ⌜a = 2⌝ ⇨ ⌜b = 3⌝ ⇨ ⌜c = 4⌝ ⇨ wpgyy.get post)
-
-  prop := by
-    sorry
-
 method unwrap_nat_and_double (o: Option Nat) return (res: Option Nat)
   ensures (res = default ∧ o.isNone)
   do
