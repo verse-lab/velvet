@@ -14,7 +14,7 @@ open TotalCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
 set_option auto.smt.trust true
 set_option auto.smt true
-set_option auto.smt.timeout 2
+set_option auto.smt.timeout 4
 set_option auto.smt.solver.name "cvc5"
 
 attribute [solverHint] TArray.get_set TArray.size_set
@@ -74,7 +74,7 @@ method insertionSort_total
     while n ≠ size arr
     invariant size arr = arr_size
     invariant 1 ≤ n ∧ n ≤ size arr
-    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] < arr[j]
+    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
     invariant toMultiset arr = toMultiset arr₀
     --explicit decreasing measure for loop termination is required in TotalCorrectness
     decreasing size arr - n
@@ -83,7 +83,7 @@ method insertionSort_total
       while mind ≠ 0
       invariant size arr = arr_size
       invariant mind ≤ n
-      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] < arr[j]
+      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] ≤ arr[j]
       invariant toMultiset arr = toMultiset arr₀
       decreasing mind
       do
@@ -94,9 +94,6 @@ method insertionSort_total
     return
 prove_correct insertionSort_total by
   loom_solve!
-  { intro a
-    intro a
-    sorry }
 
 end insertionSort
 

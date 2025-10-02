@@ -315,7 +315,7 @@ elab_rules : command
     let post := obligation.post
     let lemmaName := mkIdent <| name.getId.appendAfter "_correct"
     -- let proof <- withRef tkp ``()
-    let proofSeq ← `(tacticSeq|
+    let proofSeq ← withRef tkp `(tacticSeq|
       unfold $name
       ($proof))
     let thmCmd <- withRef tkp `(command|
