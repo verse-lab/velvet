@@ -99,9 +99,16 @@ def generateWPStep : TacticM (Bool × Expr) := withMainContext do
             (←`(term| $spec))
             (Array.replicate num_args (←`(term|?_)))
         let refine_tac ← `(tactic|refine $refine_part)
-        evalTactic $ <- `(tactic|
+        try
+          evalTactic $ <- `(tactic|
+          eapply $(mkIdent ``WPGen.spec_triple);
+          apply $spec)
+          return (true, x)
+        catch _ =>
+          evalTactic $ <- `(tactic|
           eapply $(mkIdent ``WPGen.spec_triple);
           $refine_tac)
+          return (true, x)
       return (true, x)
     catch _ => continue
   let some ⟨rsx, _⟩ := x.getAppFn.const? | return (false, x)
