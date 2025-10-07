@@ -59,12 +59,12 @@ initialize loomAssertionsMap :
   }
 
 section
-variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u}
+variable {m : Type u -> Type v} [Monad m] [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattice l]
 
 set_option linter.unusedVariables false in
-def invariantGadget {l : Type u} [CompleteLattice l] [MAlgOrdered m l] (inv : List l): m PUnit := pure .unit
+def invariantGadget (inv : List l): m PUnit := pure .unit
 
-variable {l : Type u} [CompleteLattice l] [MAlgOrdered m l]
+variable [MAlgOrdered m l]
 
 @[simp]
 abbrev invariants (f : List l) := f.foldr (·⊓·) ⊤
