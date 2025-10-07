@@ -18,7 +18,6 @@ In some cases, `loom_solve` may not be able to solve all proof goals. Here, we c
 
 ```lean
 prove_correct cbrt by
-  dsimp [cbrt]
   loom_solve
   -- SMT failed to discharge one goal, but grind succeeds
   grind
@@ -66,7 +65,7 @@ Methods are the basic unit of programs in Velvet. They are defined using the `me
 
 **Syntax:**
 ```lean
-method <method_name> (<arg1>: <Type1>, ...) return (<ret_val_name>: <Type>)
+method <method_name> (<arg1>: <Type1>) (<arg2>: <Type2>) ... return (<ret_val_name>: <Type>)
 ```
 
 **Example:**
@@ -138,6 +137,7 @@ The implementation of a method goes inside a `do` block.
 
 *   **Loops**: `while` loops are used for iteration. For verification, they can be annotated with `invariant` clauses (conditions that are true at the start of each iteration) and a `done_with` clause (a condition that is true upon loop termination).
 
+    Note: `done_with` clause can be omitted, in this case it becomes negation of the loop condition. 
     **Syntax:**
     ```lean
     while <condition>
@@ -158,6 +158,12 @@ The implementation of a method goes inside a `do` block.
         i := i + 1
     ```
 
+*   **Non-determenistic operations**: syntax `let <name> :| <cond>` is used to assign a value using non-determenism.
+    **Example:**
+    ```lean
+    let ans :| ans > inp + 200
+    ```
+    You can choose the type of non-determenism by switching between `AngelicChoice` and `DemonicChoice`.
 *   **Array Operations**: For `Array <Type>`:
     *   **Creation**: `Array.replicate <size> <default_value>`
     *   **Size**: `<array>.size`
@@ -170,11 +176,25 @@ The implementation of a method goes inside a `do` block.
     cubedArray := Array.set! cubedArray i (a[i]! * a[i]! * a[i]!)
     ```
 
+*   **Call of another method**: Use Lean's monadic computation syntax to call another method.
+    **Example:**
+    ```lean
+    let pre_res ← pickGreaterN (n - 1)
+    ```
+
 *   **Return Statement**: The `return` keyword is used to return a value from a method.
     **Example:**
     ```lean
     return cubedArray
     ```
+
+### Testing
+Velvet `method`s are executable definitions in Lean, therefore you can do property based testing before attempting verification. For an example on how to do testing for `insertionSort`, please refer to `VelvetExamples/Examples.lean`. 
+You can execute programs with Lean commands as well:
+```lean
+#eval (insertionSort #[9,3,1,5]).run
+--output: DivM.res ⟨(), ⟨#[1, 3, 5, 9], ()⟩⟩
+```
 
 ### Verification
 
@@ -192,9 +212,26 @@ prove_correct <method_name> by
 
 *   **`unfold <method_name>`**: Unfolds the definition of the method.
 *   **`loom_solve`**: An automated tactic to solve the proof obligations.
+*   **`loom_solve!`**: Similar to `loom_solve`, but also highlights all places which caused automation to fail (related `ensures`/`require`/`invariant`/`decreasing`). Please note that highlighting remains after completing the proof manually and the intended way is to use `loom_solve` for proofs that involve manual part.
 *   **`grind`**: A general-purpose tactic for finishing proofs after SMT fails.
 *   **`simp_all`**: Simplifies all hypotheses and the goal.
 *   **`aesop`**: A tableau-based proof search tactic.
+
+**Advanced Tactics**
+*   **`loom_auto`**: SMT tactic customizable with hints (more in **`Solver Hints`** section).
+*   **`loom_solver`**: Customizable tactic used by `loom_solve` to discharge goals automatically. Default is `loom_auto`.
+*   **`loom_goals_intro`**: Tactic that introduces raw goals. Might be helpful in case where user needs to manually inspect generated goals before running automation.
+*   **`loom_unfold`**: Tactic that can be used to unfold `WithName` constructs after `loom_goals_intro`.
+
+**`loom_solver`** customization example:
+```lean
+macro_rules
+| `(tactic|loom_solver) => `(tactic|(
+  try simp at *
+  try grind
+  try lean_auto))
+```
+If you need to inspect how goals are generated, please refer to `loom_goals_intro` and `wpgen` tactics implementation.
 
 **Example:**
 ```lean
@@ -228,7 +265,7 @@ For complex proofs that `loom_solve` cannot handle completely, you can combine a
 
 **Pattern 1: Fallback to interactive tactics**
 ```lean
-prove_correct method by
+prove_correct method_name by
   loom_solve
   -- SMT failed on remaining goals, use interactive tactics
   grind
@@ -236,12 +273,18 @@ prove_correct method by
 
 **Pattern 2: Manual proof after automation**
 ```lean
-prove_correct method by
+prove_correct method_name by
   loom_solve <;> simp_all
   -- Handle remaining subgoals manually
-  intros k hk
-  by_cases h : k = i <;> simp_all
+  { intros k hk
+    by_cases h : k = i <;> simp_all }
 ```
+
+To assist the user in interactive mode, Velvet supports:
+* convenient naming for hypotheses produced by `invariant`/`ensures`/`require`.
+* increnemental mode (that is, automation won't rerun on each proof change)
+  To ensure that incremental mode works as expected, we suggest using `{ subgoal_proof }` pattern in manual proofs
+
 
 **Pattern 3: Helper lemmas**
 When proofs are complex, define helper lemmas and use them as solver hints:
@@ -354,6 +397,19 @@ method simple_recursion (x : Nat) return (res: Nat)
       return pre_res + 1
 ```
 
+**Structural Recursion:**
+```lean
+method SimpleList (li: List Nat) return (res: Nat)
+  ensures res > 0
+  do
+    match li with
+    | x :: xs =>
+      let prev ← SimpleList xs
+      return (prev.1 + x)
+    | [] =>
+      return 1
+```
+
 **Verification with Recursion:**
 ```lean
 prove_correct simple_recursion by
@@ -365,26 +421,54 @@ Velvet supports `decreasing_by` and `termination_by` clauses similar to Lean, wh
 
 ```lean
 method gcd (a : Nat) (b : Nat) return (res : Nat)
-  require b > 0
+  require a > 0
   ensures res > 0
   do
-    if a % b = 0 then
-      return b
+    if b = 0 then
+      return a
     else
-      let result ← gcd b (a % b)
-      return result
+      let remainder := a % b
+      let result ← gcd b remainder
+      return result.1
   termination_by b
-  decreasing_by sorry -- proof that a % b < b
+  decreasing_by
+    apply Nat.mod_lt
+    grind -- proof that a % b < b
 
-prove_correct gcd by
-  termination_by b
-  decreasing_by sorry -- same termination proof
+prove_correct gcd
+termination_by b
+decreasing_by all_goals(
+  apply Nat.mod_lt
+  grind)
+by
   loom_solve
 ```
 
-**Note:** Recursion is also a newer feature in Velvet and may have issues with more complex recursive patterns. Additionally, inductive proofs are not yet supported in Velvet's verification system when using recursion.
+**Note:** Recursion is also a newer feature in Velvet and may have issues with more complex recursive patterns.
 
 ### Advanced Features
+
+#### `triple`s and definitions
+
+After `method` declaration it becomes a regular Lean 4 definition of a monadic computation with the same name and parameters as `method` and with return type `VelvetM`.
+You can use it as a Lean definition if needed, for example, to run it with `#eval`.
+
+`prove_correct ...` command creates a Lean 4 statement about the related `method`, which has the form of:
+```lean
+lemma method_name_correct: triple preconditions (method_name args) postconditions
+```
+It can be further used as a Lean 4 definition if needed. 
+For an example on how to do 2 layer proofs using `triple`s produced by Velvet, please refer to `VelvetExamples/SpMSpV_Example.lean`.
+
+You can also use `#print method_name_correct` to inspect the generated triple.
+
+#### Total correctness
+
+Velvet can be used to reason about terminating loops. In this case, each loop should be annotated with `decreasing <term>` clause, and a goal about the `<term>` being decreased will be generated.
+
+Velvet provides support for proving termination and functional correctness separately by combining `triple`s of different `method`s.
+For an example on how to prove functional correctness from partial correctness and termination, please refer to `VelvetExample/Total_Partial_example.lean`.
+
 
 #### Custom Data Types and Structures
 
@@ -541,9 +625,6 @@ prove_correct ComplexMethod by
 
 **Issue**: Complex logical equivalences in specifications
 **Solution**: Break down into helper lemmas and prove them separately
-
-**Issue**: Loop termination not obvious
-**Solution**: Use `done_with` clauses that clearly express termination conditions
 
 #### Best Practices for Porting
 

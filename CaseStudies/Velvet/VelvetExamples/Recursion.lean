@@ -105,16 +105,15 @@ prove_correct SimpleOption by
 method SimpleList (li: List Nat) return (res: Nat)
   ensures res > 0
   do
-    let rs ← match li with
-      | x :: xs =>
-        let prev ← SimpleList xs
-        pure (prev.1 + x)
-      | [] =>
-        pure 1
-    return rs
+    match li with
+    | x :: xs =>
+      let prev ← SimpleList xs
+      return (prev.1 + x)
+    | [] =>
+      return 1
 
 prove_correct SimpleList by
-  cases li <;> loom_solve
+  loom_solve
 
 @[reducible]
 def contains (tree: mt1 β) (elem: β) :=

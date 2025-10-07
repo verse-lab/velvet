@@ -28,7 +28,7 @@ def get_cnt_sum (l: List Encoding) :=
   match l with
   | List.nil => 0
   | List.cons x xs => x.cnt + get_cnt_sum xs
-  
+
 @[grind]
 lemma get_cnt_sum_hd e l : get_cnt_sum (e::l) = e.cnt + get_cnt_sum l := by
   conv  => {
@@ -44,13 +44,13 @@ lemma get_cnt_sum_append l1 l2:  get_cnt_sum (l1 ++ l2) = get_cnt_sum l1 + get_c
     simp_all
     grind
 
-    
+
 
 @[reducible]
-def is_valid_run_sequence (encoded_str: Array Encoding) := 
-    forall i, ( h: i < encoded_str.size ) -> (encoded_str[i]'h).cnt > 0 
+def is_valid_run_sequence (encoded_str: Array Encoding) :=
+    forall i, ( h: i < encoded_str.size ) -> (encoded_str[i]'h).cnt > 0
 
-method decodeStr' (encoded_str: Array Encoding) 
+method decodeStr' (encoded_str: Array Encoding)
    return (res: Array Char)
    require is_valid_run_sequence encoded_str
    ensures (res.size = get_cnt_sum encoded_str.toList)
@@ -93,14 +93,14 @@ def decodeStrLeanList (encoded_str: List Encoding) : List Char :=
 def decodeStrLean' (encoded_str: Array Encoding) : Array Char :=
   Array.mk (decodeStrLeanList encoded_str.toList)
 
-def decodeStrLean (encoded_str: Array Encoding) : Array Char := 
+def decodeStrLean (encoded_str: Array Encoding) : Array Char :=
   let mp := Array.map (fun e => Array.replicate e.cnt e.c) encoded_str
   mp.flatten
 
 lemma decodeStrLean_append : forall arr1 arr2,
   decodeStrLean (arr1 ++ arr2) = ( decodeStrLean arr1 ) ++ ( decodeStrLean arr2 ) := by
     intros arr1 arr2
-    unfold decodeStrLean 
+    unfold decodeStrLean
     simp_all
 
 
@@ -109,14 +109,14 @@ method encodeStr (str: Array Char) return (res: Array Encoding)
   ensures (decodeStrLean res = str) do
     let mut encoding : Array Encoding := #[]
     let mut i := 0
-    while i < str.size 
+    while i < str.size
     invariant 0 <= i  ∧ i <= str.size
     invariant decodeStrLean encoding = str.extract 0 i
     invariant is_valid_run_sequence encoding
     do
       let curChar := str[i]!
       let mut j := i+1
-      while j < str.size ∧ str[j]! == curChar 
+      while j < str.size ∧ str[j]! == curChar
       invariant i < j ∧ j <= str.size
       invariant (forall k, i <= k ∧ k < j -> str[k]! = curChar )
       do
@@ -125,7 +125,7 @@ method encodeStr (str: Array Char) return (res: Array Encoding)
       encoding := encoding.push ({cnt:= cnt, c:=curChar})
       i:=j
     return encoding
-    
+
 lemma array_extract_split (arr : Array α) (i j : Nat) :
     i < j → j ≤ arr.size →
     arr.extract 0 j = (arr.extract 0 i) ++ (arr.extract i j) := by
@@ -173,9 +173,9 @@ prove_correct encodeStr by
     rw [Array.getElem_push]
     split_ifs with hk <;> grind
   · assumption
-  · unfold decodeStrLean 
+  · unfold decodeStrLean
     simp[*]
-  · unfold is_valid_run_sequence 
+  · unfold is_valid_run_sequence
     simp
   · grind
   · grind
