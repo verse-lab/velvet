@@ -377,9 +377,9 @@ method gcd (a : Nat) (b : Nat) return (res : Nat)
   decreasing_by sorry -- proof that a % b < b
 
 prove_correct gcd by
-  loom_solve
   termination_by b
   decreasing_by sorry -- same termination proof
+  loom_solve
 ```
 
 **Note:** Recursion is also a newer feature in Velvet and may have issues with more complex recursive patterns. Additionally, inductive proofs are not yet supported in Velvet's verification system when using recursion.
