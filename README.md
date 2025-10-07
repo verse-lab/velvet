@@ -60,6 +60,8 @@ This folder contains two framework examples powered by Loom: `Velvet` and `Cashm
   Theory about separated proofs for termination and correctness in Velvet is in `CaseStudies/Velvet/VelvetTheory.lean`,
   related example file is `CaseStudies/Velvet/VelvetExamples/Total_Partial_example.lean`
 
+  Please refer to `CaseStudies/Velvet/velvet_documentation.md` for detailed documentation about Velvet.
+
 - `Cashmere` is a simple framework used to showcase variety of monadic effects `Loom` can provide.
 
   Theory about Incorrectness reasoning in Cashmere is located in `CaseStudies/Cashmere/CashmereTheory.lean`,
