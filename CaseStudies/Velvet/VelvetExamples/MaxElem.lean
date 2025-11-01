@@ -9,15 +9,10 @@ import CaseStudies.TestingUtil
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
-
 section MaxElem
 
-@[reducible]
-def isMax (mx: Int) (arr: Array Int) := 
+@[grind]
+def isMax (mx: Int) (arr: Array Int) :=
     forall i, ( h: i < arr.size ) -> mx >= (arr[i]'h)
 
 method maxElem (arr: Array Int) return (res: Int)
@@ -43,9 +38,5 @@ method maxElem (arr: Array Int) return (res: Int)
 prove_correct maxElem by
   unfold isMax
   loom_solve
-  · intro k hk
-    have inv : forall j , j < i -> mx >= arr[j]! := by trivial
-    have hISize : i = arr.size := by trivial
-    aesop
 
 end MaxElem

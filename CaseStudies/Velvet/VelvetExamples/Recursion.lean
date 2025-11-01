@@ -13,11 +13,6 @@ import CaseStudies.TestingUtil
 
 open TotalCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
-
 method simple_recursion (x : Nat) return (res: Nat)
   require True
   ensures res = x
@@ -54,6 +49,7 @@ method pickGreaterN (n: Nat) return (res: Nat)
 prove_correct pickGreaterN by
   loom_solve
 
+@[grind]
 def fact (n: Nat): Nat :=
   if n = 0 then
     0
@@ -81,12 +77,7 @@ method calc_fact (n: Nat) return (res: Nat)
 
 prove_correct calc_fact by
   loom_solve
-  unfold fact at *
-  aesop
-  unfold fact
-  aesop
-  have : n = i := by omega
-  simp [this]
+
 
 method SimpleOption (x: Option Nat) return (res: Nat)
   ensures res > 0
@@ -184,8 +175,13 @@ method complex_measure_binsearch (l : Nat) (r: Nat) (x: Nat) return (res: Nat)
 
 prove_correct complex_measure_binsearch by
   loom_solve
-  have eq: l < r := by loom_auto
-  grind
+  {
+    have eq: l * l < r * r := by grind
+    have : l < r := by exact Nat.mul_self_lt_mul_self_iff.mp eq
+    grind
+  }
+  -- have eq: l < r := by
+
 
 method pow2 (n: Nat) return (res: Nat)
   ensures 2 ^ n = res
@@ -205,9 +201,8 @@ method pow2 (n: Nat) return (res: Nat)
           i := i + 1
       return ans
 
-lemma po2zer: 2 ^ 0 = 1 := by rfl
-
-attribute [solverHint] Nat.two_pow_succ po2zer
+-- lemma po2zer: 2 ^ 0 = 1 := by rfl
 
 prove_correct pow2 by
   loom_solve
+  rw [if_pos]; rfl

@@ -13,13 +13,6 @@ import CaseStudies.TestingUtil
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
-
-attribute [solverHint] TArray.get_set TArray.size_set
-
 section insertionSort
 
 /-
@@ -57,15 +50,14 @@ method insertionSort(arr: array<int>)
 -/
 
 -- set_option trace.profiler true
-attribute [local solverHint] Array.multiset_swap
-attribute [solverHint] Array.size_set_c Array.get_set_c
+attribute [grind] Array.multiset_swap
 
 --partial correctness version of insertionSort
 method insertionSort
   (mut arr: Array Int) return (u: Unit)
   require 1 ≤ arr.size
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < size arr → arrNew[i]! ≤ arrNew[j]!
-  ensures toMultiset arr = toMultiset arrNew
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
+  ensures arr.toMultiset = arrNew.toMultiset
   do
     let arr₀ := arr
     let arr_size := arr.size
@@ -74,7 +66,7 @@ method insertionSort
     invariant arr.size = arr_size
     invariant 1 ≤ n ∧ n ≤ arr.size
     invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i]! ≤ arr[j]!
-    invariant toMultiset arr = toMultiset arr₀
+    invariant arr.toMultiset = arr₀.toMultiset
     done_with n = arr.size
     do
       let mut mind := n
@@ -82,7 +74,7 @@ method insertionSort
       invariant arr.size = arr_size
       invariant mind ≤ n
       invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
-      invariant toMultiset arr = toMultiset arr₀
+      invariant arr.toMultiset = arr₀.toMultiset
       done_with mind = 0
       do
         if arr[mind]! < arr[mind - 1]! then
@@ -94,7 +86,7 @@ method insertionSort
 extract_program_for insertionSort
 prove_precondition_decidable_for insertionSort
 prove_postcondition_decidable_for insertionSort by
-  (exact (decidable_by_nat_upperbound [(size arr), (size arr)]))
+  (exact (decidable_by_nat_upperbound [(arr.size), (arr.size)]))
 derive_tester_for insertionSort
 
 -- doing simple testing
@@ -136,7 +128,12 @@ method sqrt (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 
+set_option auto.smt.trust true
+set_option auto.smt true
+set_option auto.smt.timeout 4
+set_option auto.smt.solver.name "cvc5"
+
 prove_correct sqrt by
-  loom_solve!
+  loom_solve <;> auto [*]
 
 end squareRoot

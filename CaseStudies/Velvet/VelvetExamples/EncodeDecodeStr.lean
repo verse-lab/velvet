@@ -9,20 +9,12 @@ import CaseStudies.TestingUtil
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
-
 section RunLengthEncoding
 
 structure Encoding where
   cnt: Nat
   c: Char
   deriving Inhabited
-
-variable {velvetString} [arr_inst_int: TArray Char velvetString]
-variable {arrEncoding} [arr_encoding_inst: TArray Encoding arrEncoding]
 
 def get_cnt_sum (l: List Encoding) :=
   match l with
@@ -93,6 +85,7 @@ def decodeStrLeanList (encoded_str: List Encoding) : List Char :=
 def decodeStrLean' (encoded_str: Array Encoding) : Array Char :=
   Array.mk (decodeStrLeanList encoded_str.toList)
 
+@[grind]
 def decodeStrLean (encoded_str: Array Encoding) : Array Char :=
   let mp := Array.map (fun e => Array.replicate e.cnt e.c) encoded_str
   mp.flatten
@@ -144,8 +137,6 @@ lemma array_extract_split_i_j_k (arr : Array α) (i j k: Nat) :
 
 prove_correct encodeStr by
   loom_solve
-  · intros k hik hkj
-    grind
   · rw [array_extract_split str i j (by assumption) (by assumption)]
     rw [Array.push_eq_append]
     rw [decodeStrLean_append]
@@ -156,28 +147,8 @@ prove_correct encodeStr by
     apply Array.ext
     grind
     intros l hl hl2
-    rw [Array.size_replicate] at hl
-    simp_all
     have inv : ∀ (k : ℕ), i ≤ k → k < j → str[k]! = str[i] := by trivial
     have inv' := inv (i+l)
-    simp[*] at inv'
-    have : i+l < j  := by grind
-    have heq := (inv' this)
-    have : i + l < str.size := by
-      grind
-    simp_all
-  · dsimp[is_valid_run_sequence]
-    intros k hk
-    unfold is_valid_run_sequence at *
-    simp_all
-    rw [Array.getElem_push]
-    split_ifs with hk <;> grind
-  · assumption
-  · unfold decodeStrLean
-    simp[*]
-  · unfold is_valid_run_sequence
-    simp
-  · grind
-  · grind
+    grind
 
 end RunLengthEncoding

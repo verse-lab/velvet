@@ -12,12 +12,7 @@ import CaseStudies.Velvet.Std
 
 open TotalCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
-
-attribute [solverHint] TArray.get_set TArray.size_set
+attribute [grind] Array.multiset_swap
 
 section insertionSort
 
@@ -55,44 +50,39 @@ method insertionSort(arr: array<int>)
 }
 -/
 
-variable {arrInt} [arr_inst_int: TArray Int arrInt]
-variable {arrNat} [arr_inst: TArray Nat arrNat]
-
---it is possible to add custom solver hints for Velvet
-attribute [local solverHint] TArray.multiSet_swap
-
 --insertion sort implemented in Velvet
 method insertionSort_total
-  (mut arr: arrInt) return (u: Unit)
-  require 1 ≤ size arr
-  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < size arr → arrNew[i] ≤ arrNew[j]
-  ensures toMultiset arr = toMultiset arrNew
+  (mut arr: Array Int) return (u: Unit)
+  require 1 ≤ arr.size
+  ensures forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → arrNew[i]! ≤ arrNew[j]!
+  ensures arr.toMultiset = arrNew.toMultiset
   do
     let arr₀ := arr
-    let arr_size := size arr
+    let arr_size := arr.size
     let mut n := 1
-    while n ≠ size arr
-    invariant size arr = arr_size
-    invariant 1 ≤ n ∧ n ≤ size arr
-    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i] ≤ arr[j]
-    invariant toMultiset arr = toMultiset arr₀
+    while n ≠ arr.size
+    invariant arr.size = arr_size
+    invariant 1 ≤ n ∧ n ≤ arr.size
+    invariant forall i j, 0 ≤ i ∧ i < j ∧ j <= n - 1 → arr[i]! ≤ arr[j]!
+    invariant arr.toMultiset = arr₀.toMultiset
     --explicit decreasing measure for loop termination is required in TotalCorrectness
-    decreasing size arr - n
+    decreasing arr.size - n
     do
       let mut mind := n
       while mind ≠ 0
-      invariant size arr = arr_size
+      invariant arr.size = arr_size
       invariant mind ≤ n
-      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i] ≤ arr[j]
-      invariant toMultiset arr = toMultiset arr₀
+      invariant forall i j, 0 ≤ i ∧ i < j ∧ j ≤ n ∧ j ≠ mind → arr[i]! ≤ arr[j]!
+      invariant arr.toMultiset = arr₀.toMultiset
       decreasing mind
       do
-        if arr[mind] < arr[mind - 1] then
-          swap arr[mind - 1] arr[mind]
+        if arr[mind]! < arr[mind - 1]! then
+          swap! arr[mind - 1]! arr[mind]!
         mind := mind - 1
       -- comment out line below to check produced goals
       n := n + 1
     return
+set_option maxHeartbeats 1000000 in
 prove_correct insertionSort_total by
   loom_solve!
 
@@ -100,7 +90,10 @@ end insertionSort
 
 section squareRoot
 
-set_option trace.Loom true
+set_option auto.smt.trust true
+set_option auto.smt true
+set_option auto.smt.timeout 4
+set_option auto.smt.solver.name "cvc5"
 
 --square root of a non-negative integer implemented in Velvet
 method sqrt_total (x: ℕ) return (res: ℕ)
@@ -119,7 +112,7 @@ method sqrt_total (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct sqrt_total by
-  loom_solve
+  loom_solve <;> auto [*]
 
 --root of power 3 for a non-negative integer implemented in Velvet
 method cbrt (x: ℕ) return (res: ℕ)
@@ -138,9 +131,8 @@ method cbrt (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct cbrt by
-  loom_solve
-  --SMT failed to discharge one goal, but grind succeeds
-  grind
+  loom_solve <;> try auto [*]
+
 
 /-
 Dafny code for reference below
@@ -196,6 +188,6 @@ method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
         r := m
     return l
 prove_correct sqrt_bn by
-  loom_solve!
+  loom_solve <;> auto [*]
 
 end squareRoot

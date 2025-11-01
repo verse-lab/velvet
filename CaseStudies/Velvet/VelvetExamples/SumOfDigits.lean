@@ -9,11 +9,6 @@ import CaseStudies.TestingUtil
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 2
-set_option auto.smt.solver.name "cvc5"
-
 def SumDigits (n: Nat): Nat :=
   if n = 0 then 0
   else (n % 10) + SumDigits (n / 10)
@@ -47,7 +42,7 @@ lemma SumDigits_zero : SumDigits 0 = 0 := by
   unfold SumDigits
   simp
 
-attribute [local solverHint] Nat.mod_add_div SumDigits_unfold SumDigits_zero
+attribute [grind] Nat.mod_add_div SumDigits_unfold SumDigits_zero
 
 prove_correct SumOfDigits by
-  loom_solve 
+  loom_solve

@@ -9,10 +9,6 @@ import CaseStudies.TestingUtil
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 2
-set_option auto.smt.solver.name "cvc5"
 
 method IsSorted(a: Array Int) return (sorted: Bool)
     require a.size > 0
@@ -54,7 +50,7 @@ lemma adjacent_to_global_sorted (a : Array Int) :
   have ⟨h_i_ge, h_i_lt_j, h_j_lt_size⟩ := h_bounds
   exact chain_le a h_adjacent i j h_i_ge h_i_lt_j h_j_lt_size
 
-attribute [local solverHint] adjacent_to_global_sorted
+attribute [grind] adjacent_to_global_sorted
 
 prove_correct IsSorted by
   loom_solve

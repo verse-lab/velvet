@@ -31,7 +31,7 @@ method test1 (n : Nat) return (res : Nat)
       pure (Nat.succ b.1)
 -- set_option trace.Loom.debug true in
 prove_correct test1 by
-  loom_solve <;> aesop
+  loom_solve
 
 
 /-
@@ -60,7 +60,7 @@ prove_correct test2
 decreasing_by
   all_goals (simp_all ; grind) by
   unfold test2
-  loom_solve <;> aesop
+  loom_solve
 
 method test3 (a : Nat) (b : Nat) (c : Nat) return (res : Nat)
   ensures res > 9
@@ -69,4 +69,4 @@ method test3 (a : Nat) (b : Nat) (c : Nat) return (res : Nat)
     | 2, 3, 4 => pure (10 : Nat)
     | _, _, _ => pure (a + b + c + 10)
 prove_correct test3 by
-  loom_solve <;> simp +arith +decide
+  loom_solve
