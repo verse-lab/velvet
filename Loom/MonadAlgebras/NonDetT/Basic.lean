@@ -7,15 +7,17 @@ import Loom.MonadAlgebras.WP.Basic
 import Loom.MonadAlgebras.WP.Tactic
 import Loom.MonadAlgebras.WP.Gen
 
+import Loom.MonadAlgebras.NonDetT.Findable
+
 universe u v w
 
-section NonDetermenisticTransformer
+section NonDeterministicTransformer
 
 /- NonDetT transformer definition -/
 inductive NonDetT (m : Type u -> Type v) : (α : Type u) -> Type _ where
   | pure {α} (ret : α) : NonDetT m α
   | vis {α} {β} (x : m β) (f : β → NonDetT m α) : NonDetT m α
-  | pickCont {α} (τ : Type u) (p : τ -> Prop) (f : τ → NonDetT m α) : NonDetT m α
+  | pickCont {α} (τ : Type u) (p : τ -> Prop) [Findable p] (f : τ → NonDetT m α) : NonDetT m α
   | repeatCont {α} {β} (init : β) (f : β -> NonDetT m (ForInStep β)) (cont : β -> NonDetT m α) : NonDetT m α
 
 variable {m : Type u -> Type v} {α β : Type u} [Monad m]
@@ -49,21 +51,21 @@ lemma meet_himp (x x' y z : l) :
   rintro rfl
   simp [himp_eq]; rw [@sup_inf_right]
 
-def NonDetT.pick (τ : Type u) : NonDetT m τ :=
+def NonDetT.pick (τ : Type u) [Inhabited τ] : NonDetT m τ :=
   NonDetT.pickCont _ (fun _ => True) pure
-def NonDetT.assume (as : Prop) : NonDetT m PUnit :=
+def NonDetT.assume (as : Prop) [Decidable as] : NonDetT m PUnit :=
   NonDetT.pickCont PUnit (fun _ => as) fun _ => pure .unit
-def NonDetT.pickSuchThat (τ : Type u) (p : τ → Prop) : NonDetT m τ :=
+def NonDetT.pickSuchThat (τ : Type u) (p : τ → Prop) [Findable p] : NonDetT m τ :=
   NonDetT.pickCont τ p pure
 def NonDetT.repeat (init : α) (f : α -> NonDetT m (ForInStep α)) : NonDetT m α :=
   NonDetT.repeatCont init f pure
 
-/- Non Determenism Monad typeclass -/
+/- Non Determinism Monad typeclass -/
 class MonadNonDet (m : Type u → Type v) where
-  pick : (τ : Type u) →  m τ
+  pick : (τ : Type u) → [Inhabited τ] → m τ
   -- get a value with given property
-  pickSuchThat : (τ : Type u) → (τ → Prop) → m τ
-  assume : Prop → m PUnit.{u+1}
+  pickSuchThat : (τ : Type u) → (p : τ → Prop) → [Findable p] → m τ
+  assume : (as : Prop) → [Decidable as] → m PUnit.{u+1}
   -- loop instance
   rep {α : Type u} : α → (α → m (ForInStep α)) → m α
 
@@ -84,7 +86,10 @@ noncomputable
 def NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
-  | _, .pickCont τ p f => fun post => let p : Set τ := p; ⨅ a ∈ (p : Set τ), wp (f a) post
+  | _, @NonDetT.pickCont _ _ τ p _ f =>
+  fun post =>
+    let p : Set τ := p;
+    ⨅ a ∈ (p : Set τ), wp (f a) post
   | _, @NonDetT.repeatCont _ _ β init f cont => fun post => ⨆ (inv : ForInStep β -> l),
       ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) inv⌝ ⊓
       spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
@@ -153,8 +158,8 @@ lemma NonDetT.wp_lift (c : m α) post :
   simp [NonDetT.wp_eq_wp]; rfl
 
 @[simp]
-lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) post :
-  _root_.wp (NonDetT.pickCont τ p f) post = ⨅ a, ⌜p a⌝ ⇨ _root_.wp (f a) post := by
+lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) [Findable p] post :
+  _root_.wp (NonDetT.pickCont τ p f) post =  ⨅ a, ⌜p a⌝ ⇨ _root_.wp (f a) post := by
   simp [NonDetT.wp_eq_wp, NonDetT.wp]; congr; ext x
   simp [Membership.mem, Set.Mem]
   by_cases h: p x <;> simp [h]
@@ -170,14 +175,15 @@ lemma NonDetT.wp_repeatCont {α : Type u} (init : α) (f : α -> NonDetT m (ForI
 lemma NonDetT.wp_pure (x : α) post :
   _root_.wp (NonDetT.pure (m := m) x) post = post x := by erw [_root_.wp_pure]
 
-lemma MonadNonDet.wp_pick {τ : Type u} post :
+lemma MonadNonDet.wp_pick {τ : Type u} [Inhabited τ] post :
   _root_.wp (MonadNonDet.pick (m := NonDetT m) τ) post = iInf post := by
   simp [MonadNonDet.pick, NonDetT.pick]
 
-lemma MonadNonDet.wp_assume {as : Prop} post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⇨ post .unit := by
+lemma MonadNonDet.wp_assume {as : Prop} [Decidable as] post :
+  _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⇨ post .unit := by
   simp [MonadNonDet.assume, NonDetT.assume, iInf_const]
 
-lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
+lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) [Findable p] post :
   _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨅ a, ⌜p a⌝ ⇨ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
 
@@ -245,10 +251,10 @@ namespace AngelicChoice
 
 /- WP for NonDetT -/
 noncomputable
-def   NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
+def NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
-  | _, .pickCont _ p f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
+  | _, @NonDetT.pickCont _ _ τ p _ f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
   | _, .repeatCont init f cont => fun post => ⨆ (inv : ForInStep _ -> l),
     ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) inv⌝ ⊓
     spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
@@ -315,7 +321,7 @@ lemma NonDetT.wp_lift (c : m α) post :
   simp [NonDetT.wp_eq_wp]; rfl
 
 @[simp]
-lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) post :
+lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) [Findable p] post :
   _root_.wp (NonDetT.pickCont τ p f) post = ⨆ a, ⌜p a⌝ ⊓ _root_.wp (f a) post := by
   simp [NonDetT.wp_eq_wp]; rfl
 
@@ -330,14 +336,14 @@ lemma NonDetT.wp_repeatCont {α : Type u} (init : α) (f : α -> NonDetT m (ForI
 lemma NonDetT.wp_pure (x : α) post :
   _root_.wp (NonDetT.pure (m := m) x) post = post x := by erw [_root_.wp_pure]
 
-lemma MonadNonDet.wp_pick {τ : Type u} post :
+lemma MonadNonDet.wp_pick {τ : Type u} [Inhabited τ] post :
   _root_.wp (MonadNonDet.pick (m := NonDetT m) τ) post = iSup post := by
   simp [MonadNonDet.pick, NonDetT.pick]
 
-lemma MonadNonDet.wp_assume {as : Prop} post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⊓ post .unit := by
+lemma MonadNonDet.wp_assume {as : Prop} [Decidable as] post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⊓ post .unit := by
   simp [MonadNonDet.assume, NonDetT.assume, iSup_const]
 
-lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
+lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) [Findable p] post :
   _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨆ a, ⌜p a⌝ ⊓ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
 
@@ -409,7 +415,7 @@ noncomputable
 def NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
-  | _, .pickCont τ p f => fun post => let p : Set τ := p; ⨅ a ∈ (p : Set τ), wp (f a) post
+  | _, @NonDetT.pickCont _ _ τ p _ f => fun post => let p : Set τ := p; ⌜∃ h, p h⌝ ⊓  ⨅ a ∈ (p : Set τ), wp (f a) post
   | _, @NonDetT.repeatCont _ _ β init f cont => fun post => ⨆ (inv : ForInStep β -> l) (measure : β -> Nat),
       ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) (fun | .yield b' => inv (.yield b') ⊓ ⌜ measure b' < measure b ⌝ | .done b' => inv (.done b'))⌝ ⊓
       spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
@@ -429,7 +435,7 @@ lemma NonDetT.wp_mono [LawfulMonad m] {α : Type u} {l : Type u} [CompleteLattic
     intro h; induction x
     <;> simp [NonDetT.wp, pure, h, -le_himp_iff, -iSup_le_iff]
     <;> try solve_by_elim [wp_cons, iInf_le_of_le, himp_le_himp_left]
-    { intro _ _; solve_by_elim [iInf₂_le_of_le] }
+    { intro _ _ _; solve_by_elim [iInf₂_le_of_le] }
     apply iSup_mono; intro inv; apply iSup_mono; intro wf
     solve_by_elim [wp_cons, spec_mono, inf_le_inf_left]
 
@@ -479,8 +485,8 @@ lemma NonDetT.wp_lift (c : m α) post :
   simp [NonDetT.wp_eq_wp]; rfl
 
 @[simp]
-lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) post :
-  _root_.wp (NonDetT.pickCont τ p f) post = ⨅ a, ⌜p a⌝ ⇨ _root_.wp (f a) post := by
+lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) [Findable p] post :
+  _root_.wp (NonDetT.pickCont τ p f) post = ⌜∃ h, p h⌝ ⊓ ⨅ a, ⌜p a⌝ ⇨ _root_.wp (f a) post := by
   simp [NonDetT.wp_eq_wp, NonDetT.wp]; congr; ext x
   simp [Membership.mem, Set.Mem]
   by_cases h: p x <;> simp [h]
@@ -497,15 +503,15 @@ lemma NonDetT.wp_repeatCont {α : Type u} (init : α) (f : α -> NonDetT m (ForI
 lemma NonDetT.wp_pure (x : α) post :
   _root_.wp (NonDetT.pure (m := m) x) post = post x := by erw [_root_.wp_pure]
 
-lemma MonadNonDet.wp_pick {τ : Type u} post :
+lemma MonadNonDet.wp_pick {τ : Type u} [Inhabited τ] post :
   _root_.wp (MonadNonDet.pick (m := NonDetT m) τ) post = iInf post := by
   simp [MonadNonDet.pick, NonDetT.pick]
 
-lemma MonadNonDet.wp_assume {as : Prop} post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⇨ post .unit := by
+lemma MonadNonDet.wp_assume {as : Prop} [Decidable as] post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⊓ post .unit := by
   simp [MonadNonDet.assume, NonDetT.assume, iInf_const]
 
-lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
-  _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨅ a, ⌜p a⌝ ⇨ post a := by
+lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) [Findable p] post :
+  _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⌜∃ h, p h⌝ ⊓ ⨅ a, ⌜p a⌝ ⇨ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
 
 lemma MonadNonDet.wp_repeat {α : Type u} (init : α) (f : α -> NonDetT m (ForInStep α)) post :
@@ -572,7 +578,7 @@ noncomputable
 def   NonDetT.wp {l : Type u} [CompleteLattice l] [MAlgOrdered m l] : {α : Type u} -> NonDetT m α -> Cont l α
   | _, .pure ret => pure ret
   | _, .vis x f => fun post => _root_.wp x fun a => wp (f a) post
-  | _, .pickCont _ p f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
+  | _, @NonDetT.pickCont _ _ _ p _ f => fun post => ⨆ a, ⌜p a⌝ ⊓ wp (f a) post
   | _, .repeatCont init f cont => fun post => ⨆ (inv : ForInStep _ -> l) (measure : _ -> Nat),
     ⌜ ∀ b, (inv (ForInStep.yield b)) <= wp (f b) (fun | .yield b' => inv (.yield b') ⊓ ⌜ measure b' < measure b ⌝ | .done b' => inv (.done b'))⌝ ⊓
     spec (inv (.yield init)) (fun b => inv (.done b)) (fun b => wp (cont b) post)
@@ -639,7 +645,7 @@ lemma NonDetT.wp_lift (c : m α) post :
   simp [NonDetT.wp_eq_wp]; rfl
 
 @[simp]
-lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) post :
+lemma NonDetT.wp_pickCont {τ : Type u} p (f : τ → NonDetT m α) [Findable p] post :
   _root_.wp (NonDetT.pickCont τ p f) post = ⨆ a, ⌜p a⌝ ⊓ _root_.wp (f a) post := by
   simp [NonDetT.wp_eq_wp]; rfl
 
@@ -654,14 +660,14 @@ lemma NonDetT.wp_repeatCont {α : Type u} (init : α) (f : α -> NonDetT m (ForI
 lemma NonDetT.wp_pure (x : α) post :
   _root_.wp (NonDetT.pure (m := m) x) post = post x := by erw [_root_.wp_pure]
 
-lemma MonadNonDet.wp_pick {τ : Type u} post :
+lemma MonadNonDet.wp_pick {τ : Type u} [Inhabited τ] post :
   _root_.wp (MonadNonDet.pick (m := NonDetT m) τ) post = iSup post := by
   simp [MonadNonDet.pick, NonDetT.pick]
 
-lemma MonadNonDet.wp_assume {as : Prop} post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⊓ post .unit := by
+lemma MonadNonDet.wp_assume {as : Prop} [Decidable as] post : _root_.wp (MonadNonDet.assume (m := NonDetT m) as) post = ⌜as⌝ ⊓ post .unit := by
   simp [MonadNonDet.assume, NonDetT.assume, iSup_const]
 
-lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) post :
+lemma MonadNonDet.wp_pickSuchThat {τ : Type u} (p : τ → Prop) [Findable p] post :
   _root_.wp (MonadNonDet.pickSuchThat (m := NonDetT m) τ p) post = ⨆ a, ⌜p a⌝ ⊓ post a := by
   simp [MonadNonDet.pickSuchThat, NonDetT.pickSuchThat]
 
