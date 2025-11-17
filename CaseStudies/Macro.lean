@@ -72,7 +72,7 @@ syntax "for" ident "in" termBeforeInvariant
   "do" doSeq : doElem
 
 macro_rules
-  | `(doElem| let $x:term :| $t) => `(doElem| let $x:term <- pickSuchThat _ (fun $x => $t))
+  | `(doElem| let $x:term :| $t) => `(doElem| let $x:term <- pickSuchThat _ (fun $x => type_with_name_prefix `choice $t))
 
 /-
 ### While loop elaboration rules
