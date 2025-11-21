@@ -7,6 +7,7 @@ import Loom.MonadAlgebras.WP.Tactic
 -- import Loom.MonadAlgebras.WP.DoNames'
 import Loom.MonadAlgebras.WP.Gen
 import Loom.Tactic
+import Loom.SMT
 
 import CaseStudies.Extension
 import CaseStudies.Macro
@@ -100,7 +101,7 @@ elab_rules : tactic
     for c in ctx do
       hints := hints.push $ <- `(Auto.hintelem| $(mkIdent c):ident)
     hints := hints.push $ <- `(Auto.hintelem| *)
-    let vlsAuto <- `(tactic| try (try simp only [loomAbstractionSimp] at *); auto [$hints,*])
+    let vlsAuto <- `(tactic| try (try simp only [loomAbstractionSimp] at *); loom_smt [$hints,*])
     evalTactic vlsAuto
 
 elab_rules : tactic
@@ -162,6 +163,6 @@ elab "loom_solve?" : tactic => withMainContext do
   try simp only [$(mkIdent `loomLogicSimp):ident]
   try simp only [$(mkIdent `simpMAlg):ident]
   repeat' (apply $(mkIdent ``And.intro) <;> (repeat loom_intro))
-  any_goals auto [$hints,*]
+  any_goals loom_smt [$hints,*]
   ))
   Tactic.TryThis.addSuggestion (<-getRef) tac

@@ -1,41 +1,58 @@
 import Lean
 import Lean.Parser
 
-import Mathlib.Algebra.BigOperators.Intervals
-import Mathlib.Algebra.Ring.Int.Defs
-
-import Loom.MonadAlgebras.NonDetT.Extract
-import Loom.MonadAlgebras.WP.Tactic
-
-import Loom.MonadAlgebras.WP.DoNames'
-
 open Lean Elab Command Term Meta Lean.Parser
+
+inductive SmtSolver where
+  | z3
+  | cvc5
+deriving BEq, Hashable, Inhabited
+
+instance : ToString SmtSolver where
+  toString
+    | SmtSolver.z3  => "z3"
+    | SmtSolver.cvc5 => "cvc5"
+
+instance : Lean.KVMap.Value SmtSolver where
+  toDataValue n := toString n
+  ofDataValue?
+  | "z3"  => some .z3
+  | "cvc5" => some .cvc5
+  | _     => none
 
 /--
 Options to control the solver used by the `loom_solve` tactic.
 -/
 inductive LoomSolver : Type where
   | cvc5
-  | z3
+  | smt (smtSolver : SmtSolver)
   | grind
   | custom
+
+instance : ToString LoomSolver where
+  toString
+    | .cvc5 => "cvc5"
+    | .smt .z3 => "z3"
+    | .smt .cvc5 => "cvc5"
+    | .grind => "grind"
+    | .custom => "custom"
 
 instance : KVMap.Value LoomSolver where
   toDataValue
     | .cvc5 => "cvc5"
-    | .z3 => "z3"
+    | .smt .z3 => "z3"
+    | .smt .cvc5 => "cvc5"
     | .grind => "grind"
     | .custom => "custom"
   ofDataValue?
     | .ofString s =>
       match s with
-      | "cvc5" => some .cvc5
-      | "z3" => some .z3
       | "grind" => some .grind
+      | "z3" => some (.smt .z3)
+      | "cvc5" => some (.smt .cvc5)
       | "custom" => some .custom
       | _ => none
     | _ => none
-
 
 instance : Inhabited LoomSolver := ⟨.grind⟩
 
@@ -55,9 +72,24 @@ register_option loom.solver : LoomSolver := {
   "
 }
 
+register_option loom.solver.smt.default : SmtSolver := {
+  defValue := .cvc5
+  descr := "Default SMT solver to use if not specified explicitly via `loom.solver`. Default is `cvc5`."
+}
+
+register_option loom.solver.smt.retryOnUnknown : Bool := {
+  defValue := true
+  descr := "Should the query be retried with a different SMT solver if it the first check returns `unknown`? (default: true)"
+}
+
 register_option loom.solver.smt.timeout : Nat := {
   defValue := 1
   descr := "Timeout for cvc5 and z3 SMT solvers in seconds. Default is 1 second."
+}
+
+register_option loom.solver.smt.seed : Nat := {
+  defValue := 0
+  descr := "Seed for cvc5 and z3 SMT solvers. Default is 0."
 }
 
 register_option loom.solver.grind.splits : Nat := {
@@ -175,3 +207,9 @@ register_option loom.linter.errors : Bool := {
   defValue := true
   descr := "`(true/false)` Option to control whether to show errors related to Loom programms annotations."
 }
+
+
+initialize
+  registerTraceClass `loom.smt.debug
+  registerTraceClass `loom.smt.result
+  registerTraceClass `loom.smt.query

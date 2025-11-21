@@ -369,19 +369,7 @@ elab_rules : command
       | "custom" => pure thmCmd
       | _ =>
         /- This is the case of `cvc5` or `z3` solver. We also need to fetch the timeout from the options. -/
-        let timeout := Syntax.mkNatLit <| (opts.getNat (defVal := 1) `loom.solver.smt.timeout)
-        let solver := Syntax.mkStrLit <| (opts.getString (defVal := "cvc5") `loom.solver.smt.solver)
-        let autoSMTTrust := Lean.mkIdent `auto.smt.trust
-        let autoSMT := Lean.mkIdent `auto.smt
-        let autoSMTSolverName := Lean.mkIdent `auto.smt.solver.name
-        let autoSMTTimeout := Lean.mkIdent `auto.smt.timeout
-        `(command|
-          set_option $autoSMTTrust true in
-          set_option $autoSMT true in
-          set_option $autoSMTSolverName $solver in
-          set_option $autoSMTTimeout $timeout in
-          macro_rules | `(tactic| loom_solver) => do `(tactic| loom_auto) in
-          $thmCmd)
+        `(command| macro_rules | `(tactic| loom_solver) => do `(tactic| loom_auto) in $thmCmd)
     trace[Loom] "{thmCmd}"
     match pv with
     | `(prove_correct_command| prove_correct) =>

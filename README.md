@@ -14,20 +14,62 @@
 
 For automated weakest precondition generation, `Loom` uses Monad Transformer Algebras.
 
-## Build and Dependencies
+## Using `Loom`
 
-To build the project run `lake build` command in terminal from project's root directory.
+To use `Loom` in your project, add the following to your
+`lakefile.lean`:
 
-`Loom` has the following dependencies:
+```lean
+require "verse-lab" / "loom" @ git "master"
+```
 
-- [Lean 4](https://lean-lang.org/) - foundational program verifier in which the framework was implemented. Version 4.20 is required.
+Or add the following to your `lakefile.toml`:
 
-- [Mathlib4](https://github.com/leanprover-community/mathlib4) - Mathlib4 library for Lean, provides necessarily theoretical foundations
+```toml
+[[require]]
+name = "loom"
+git = "https://github.com/verse-lab/loom.git"
+rev = "master"
+```
 
-- [lean-auto](https://github.com/leanprover-community/lean-auto) - SMT backend for `Velvet`. 
-Note that as `lean-auto` depends on `cvc5` which is not available for native Windows, therefore `Velvet` won't work on native Windows as well, but `Loom` is still available (use `lake build Loom` for standalone build)
+## Build
 
-You need `cvc5` to be on your PATH to run `Velvet` examples.  
+Loom requires [Lean 4](https://github.com/leanprover/lean4). We have tested Loom
+on macOS (arm64) and Ubuntu (x86_64). Windows with WSL2 is also supported.
+Native Windows support is not yet available.
+
+To build Loom, run:
+
+```bash
+lake build
+```
+
+<details close>
+<summary><strong>How to install Lean?</strong></summary>
+
+If you don't have Lean installed, we recommend installing it via
+[`elan`](https://github.com/leanprover/elan):
+
+
+```bash
+curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain leanprover/lean4:stable
+```
+
+</details>
+
+<details close>
+<summary><strong>Dependencies</strong></summary>
+
+Loom depends on [`z3`](https://github.com/Z3Prover/z3),
+[`cvc5`](https://github.com/cvc5/cvc5), and
+[`uv`](https://github.com/astral-sh/uv). You do not need to have these installed
+on your system, as our build system will download them automatically when you
+run `lake build`. Loom will use its own copies of these tools, and will not
+touch your system-wide versions.
+
+Note that if you want to invoke Lean-Auto's `auto` tactic, you need to have
+`z3` and `cvc5` installed on your system and available in your PATH.
+</details>
 
 ## Navigation Guide
 

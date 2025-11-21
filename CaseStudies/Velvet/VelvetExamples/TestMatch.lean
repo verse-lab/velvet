@@ -16,13 +16,6 @@ import CaseStudies.Velvet.Std
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
 
-/-
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
--/
-
 method test1 (n : Nat) return (res : Nat)
   ensures n = res
   do

@@ -53,10 +53,6 @@ import CaseStudies.TestingUtil
 
 open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
 ```
 
 ### Method Definition

@@ -91,10 +91,7 @@ end insertionSort
 
 section squareRoot
 
-set_option auto.smt.trust true
-set_option auto.smt true
-set_option auto.smt.timeout 4
-set_option auto.smt.solver.name "cvc5"
+set_option loom.solver.smt.timeout 4
 
 --square root of a non-negative integer implemented in Velvet
 method sqrt_total (x: ℕ) return (res: ℕ)
@@ -113,7 +110,7 @@ method sqrt_total (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct sqrt_total by
-  loom_solve <;> auto [*]
+  loom_solve <;> loom_smt [*]
 
 --root of power 3 for a non-negative integer implemented in Velvet
 method cbrt (x: ℕ) return (res: ℕ)
@@ -132,7 +129,7 @@ method cbrt (x: ℕ) return (res: ℕ)
         i := i + 1
       return i - 1
 prove_correct cbrt by
-  loom_solve <;> try auto [*]
+  loom_solve <;> try loom_smt [*]
 
 
 /-
@@ -189,6 +186,6 @@ method sqrt_bn (x: ℕ) (bnd: ℕ) return (res: ℕ)
         r := m
     return l
 prove_correct sqrt_bn by
-  loom_solve <;> auto [*]
+  loom_solve <;> loom_smt [*]
 
 end squareRoot
