@@ -1,12 +1,5 @@
-import Auto
-import Lean
-
 import Mathlib.Algebra.BigOperators.Intervals
 import Mathlib.Algebra.Ring.Int.Defs
-
-import Loom.MonadAlgebras.NonDetT.Extract
-import Loom.MonadAlgebras.WP.Tactic
-import Loom.MonadAlgebras.WP.DoNames'
 
 import CaseStudies.Velvet.Std
 import CaseStudies.TestingUtil
@@ -102,6 +95,12 @@ run_elab do
 
 set_option maxHeartbeats 1000000
 
+/--
+info: DivM.res ((), #[1, 2, 3])
+-/
+#guard_msgs in
+#eval (insertionSort #[3,2,1]).run
+
 prove_correct insertionSort by
   loom_solve
 
@@ -128,5 +127,11 @@ method sqrt (x: ℕ) return (res: ℕ)
 
 prove_correct sqrt by
   loom_solve <;> loom_smt [*]
+
+/--
+info: DivM.res 10
+-/
+#guard_msgs in
+#eval (sqrt 100).run
 
 end squareRoot

@@ -1,6 +1,3 @@
-import Auto
-import Lean
-
 import CaseStudies.Velvet.Std
 import CaseStudies.TestingUtil
 
