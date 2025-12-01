@@ -10,6 +10,7 @@ import Loom.MonadAlgebras.WP.Tactic
 import CaseStudies.Theory
 import CaseStudies.Velvet.VelvetTheory
 import CaseStudies.Tactic
+import CaseStudies.TestingUtil
 import Loom.MonadAlgebras.WP.DoNames'
 
 open Lean Elab Command Term Meta Lean.Parser
@@ -393,7 +394,7 @@ elab_rules : command
   elabCommand execDefCmd
 
 def elabDefiningDecidableInstancesForVelvetSpec (nameRaw : Ident)
-    (pre? : Bool) (tac : Option (TSyntax `Lean.Parser.Tactic.tacticSeq)) : CommandElabM Unit := do
+    (pre? : Bool) (tk : Option Syntax) (tac : Option (TSyntax `Lean.Parser.Tactic.tacticSeq)) : CommandElabM Unit := do
   let (ctx, name) ← obtainVelvetTestingCtx nameRaw
   let bindersIdents := ctx.binderIdents
   let (target, suffix, binders) :=
@@ -403,10 +404,10 @@ def elabDefiningDecidableInstancesForVelvetSpec (nameRaw : Ident)
   let decidableInstName := name.appendAfter suffix
   -- let proof := tac.getD (← `(term| (by infer_instance) ))
   let tac := tac.getD (← `(Lean.Parser.Tactic.tacticSeq| skip ))
-  let proof := (← `(Lean.Parser.Tactic.tacticSeq|
+  let proof ← (tk.elim id withRef) `(Lean.Parser.Tactic.tacticSeq|
     repeat' refine @instDecidableAnd _ _ ?_ ?_
-    all_goals (try infer_instance)
-    ($tac) ))
+    all_goals (try (infer_aux_decidable_instance ; infer_instance))
+    ($tac) )
   let decidableInstDefCmd ← `(command|
     def $(mkIdent decidableInstName) $binders* :
       $(mkIdent ``Decidable) ($target) := by $proof)
@@ -414,13 +415,13 @@ def elabDefiningDecidableInstancesForVelvetSpec (nameRaw : Ident)
 
 elab_rules : command
   | `(command| prove_precondition_decidable_for $nameRaw:ident ) => do
-    elabDefiningDecidableInstancesForVelvetSpec nameRaw true none
-  | `(command| prove_precondition_decidable_for $nameRaw:ident by $tac) => do
-    elabDefiningDecidableInstancesForVelvetSpec nameRaw true (some tac)
+    elabDefiningDecidableInstancesForVelvetSpec nameRaw true none none
+  | `(command| prove_precondition_decidable_for $nameRaw:ident by%$tk $tac) => do
+    elabDefiningDecidableInstancesForVelvetSpec nameRaw true (some tk) (some tac)
   | `(command| prove_postcondition_decidable_for $nameRaw:ident ) => do
-    elabDefiningDecidableInstancesForVelvetSpec nameRaw false none
-  | `(command| prove_postcondition_decidable_for $nameRaw:ident by $tac) => do
-    elabDefiningDecidableInstancesForVelvetSpec nameRaw false (some tac)
+    elabDefiningDecidableInstancesForVelvetSpec nameRaw false none none
+  | `(command| prove_postcondition_decidable_for $nameRaw:ident by%$tk $tac) => do
+    elabDefiningDecidableInstancesForVelvetSpec nameRaw false (some tk) (some tac)
 
 elab_rules : command
   | `(command| derive_tester_for $nameRaw:ident ) => do

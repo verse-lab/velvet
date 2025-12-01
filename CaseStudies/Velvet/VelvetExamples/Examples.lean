@@ -77,8 +77,7 @@ method insertionSort
 
 extract_program_for insertionSort
 prove_precondition_decidable_for insertionSort
-prove_postcondition_decidable_for insertionSort by
-  (exact (decidable_by_nat_upperbound [(arr.size), (arr.size)]))
+prove_postcondition_decidable_for insertionSort
 derive_tester_for insertionSort
 
 -- doing simple testing

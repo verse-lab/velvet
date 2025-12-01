@@ -488,6 +488,7 @@ method ProcessArray (mut arr: Array Int) return (u: Unit)
 - When using `break`, the `done_with` clause must account for the break condition
 - Loop invariants must hold when `continue` is executed
 - Early returns must satisfy all postconditions at the point of return
+- Early return from within a loop is not supported currently.
 
 #### Array Operations
 
@@ -808,8 +809,7 @@ import CaseStudies.TestingUtil
 -- Extract executable version
 extract_program_for insertionSort
 prove_precondition_decidable_for insertionSort
-prove_postcondition_decidable_for insertionSort by
-  (exact (decidable_by_nat_upperbound [(arr.size), (arr.size)]))
+prove_postcondition_decidable_for insertionSort
 derive_tester_for insertionSort
 
 -- Run property-based tests
@@ -827,7 +827,13 @@ run_elab do
 
 **Decidability proof patterns:**
 
-**For biconditional postconditions (↔):**
+**Auto-solved (recommended):** By default, `prove_precondition_decidable_for` and `prove_postcondition_decidable_for` will apply some heuristics to synthesize the `Decidable` instances for the pre- and postconditions. If the synthesis fails for some instances, then the commands will leave them as proof goals for users. Note that to facilitate the heuristics, the definitions appearing in the pre- or postconditions should be marked with the `loomAbstractionSimp` attribute. 
+```lean
+prove_precondition_decidable_for Method
+prove_postcondition_decidable_for Method
+```
+
+**Manual proving:** If there is a single goal left, for example, in the shape of `Decidable (p ↔ q)`:
 ```lean
 prove_postcondition_decidable_for Method by (
   simp_all
@@ -835,18 +841,12 @@ prove_postcondition_decidable_for Method by (
 )
 ```
 
-**For bounded quantifiers:**
+If there are multiple goals left:
 ```lean
--- For: forall i j, 0 ≤ i ∧ i ≤ j ∧ j < arr.size → ...
-prove_postcondition_decidable_for Method by
-  (exact (decidable_by_nat_upperbound [(arr.size), (arr.size)]))
-```
-
-**Auto-solved (recommended):**
-```lean
-prove_precondition_decidable_for Method by (done)
-prove_postcondition_decidable_for Method by (done)
--- If it fails, the error shows what needs to be proved
+prove_postcondition_decidable_for Method by 
+  { /- manual proof for the first -/ }
+  { /- manual proof for the second -/ }
+  /- ... -/
 ```
 
 **Benefits:**

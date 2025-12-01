@@ -14,9 +14,14 @@ structure SubstringResult where
 deriving Repr, Inhabited
 
 --predicate for substring all characters of which satisfy the predicate
+
+@[loomAbstractionSimp]
+def lrBounds (s : Array Char) (l r : Nat) : Prop :=
+  l ≤ r ∧ r < s.size
+
 @[grind, loomAbstractionSimp]
 def CorrectSubstring (s : Array Char) (p : Char -> Bool) (l r : Nat) : Prop :=
-  l ≤ r ∧ r < s.size ∧
+  ( lrBounds s l r ) ∧
   (∀ i, l ≤ i ∧ i ≤ r → p s[i]!)
 
 --actual method
@@ -75,6 +80,29 @@ do
         cnt := 0
       pnt := pnt + 1
     return ⟨l_ans, r_ans, ans > 0⟩
+
+extract_program_for SubstringSearch
+prove_precondition_decidable_for SubstringSearch
+
+-- NOTE: Without a proper scoring mechanism, this can take up to 2 min;
+-- however, that might be actually due to some bug in Lean, since the error
+-- reports "heartbeats exceeded" instead of synthesis failing.
+#time
+set_option maxHeartbeats 10000000 in
+prove_postcondition_decidable_for SubstringSearch
+
+derive_tester_for SubstringSearch
+
+run_elab do
+  let g : Plausible.Gen (_ × Bool) := do
+    let arr ← Plausible.SampleableExt.interpSample (Array Char)
+    let res := SubstringSearchTester arr (fun c => c.isDigit)
+    pure (arr, res)
+  for _ in [1: 50] do
+    let res ← Plausible.Gen.run g 100
+    unless res.2 do
+      IO.println s!"postcondition violated for input {res.1}"
+      break
 
 #time
 prove_correct SubstringSearch by
