@@ -136,12 +136,12 @@ def bindersMatch (b1 b2 : Syntax) : CommandElabM Bool := do
   return b1 == b2
 
 -- Syntax for def_pre and def_post
-syntax "def_pre" bracketedBinder* ":" term : command
-syntax "def_post" bracketedBinder* ":" term : command
+syntax "def_pre" bracketedBinder* ":=" term : command
+syntax "def_post" bracketedBinder* ":=" term : command
 
 -- Elaborate def_pre
 elab_rules : command
-  | `(command| def_pre $params* : $body) => do
+  | `(command| def_pre $params* := $body) => do
     let inSpecDef <- inSpecDefSection
     unless inSpecDef do
       throwError "def_pre can only be used inside a specdef section"
@@ -183,7 +183,7 @@ elab_rules : command
 
 -- Elaborate def_post
 elab_rules : command
-  | `(command| def_post $params* : $body) => do
+  | `(command| def_post $params* := $body) => do
     let inSpecDef <- inSpecDefSection
     unless inSpecDef do
       throwError "def_post can only be used inside a specdef section"

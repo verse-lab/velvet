@@ -27,7 +27,7 @@ def testLetRec : Nat :=
 def invalidFunction (xs : List Nat) : List Nat :=
   List.filter (· > 0) xs
 
-def_pre : True
+def_pre := True
 
 -- This should error: specdef section must contain def_post
 specend TestSection
