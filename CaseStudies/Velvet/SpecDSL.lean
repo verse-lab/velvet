@@ -1,4 +1,5 @@
 import Lean
+import Loom.MonadAlgebras.WP.Attr
 
 open Lean Elab Command Term Meta
 open Lean.Parser.Command
@@ -176,9 +177,9 @@ elab_rules : command
     }
     prePostState.modify (fun _ => some newInfo)
 
-    -- Create the actual definition named 'pre' with unhygienic identifier
+    -- Create the actual definition named 'pre' with unhygienic identifier and loomAbstractionSimp attribute
     let preId := mkIdent `pre
-    let defStx <- `(command| def $preId $params:bracketedBinder* : Prop := $body)
+    let defStx <- `(command| @[loomAbstractionSimp] def $preId $params:bracketedBinder* : Prop := $body)
     elabCommand defStx
 
 -- Elaborate def_post
@@ -237,9 +238,9 @@ elab_rules : command
     }
     prePostState.modify (fun _ => some newInfo)
 
-    -- Create the actual definition named 'post' with unhygienic identifier
+    -- Create the actual definition named 'post' with unhygienic identifier and loomAbstractionSimp attribute
     let postId := mkIdent `post
-    let defStx <- `(command| def $postId $params:bracketedBinder* : Prop := $body)
+    let defStx <- `(command| @[loomAbstractionSimp] def $postId $params:bracketedBinder* : Prop := $body)
     elabCommand defStx
 
 -- Enter a specdef section
@@ -308,3 +309,14 @@ elab dec:declaration : command => do
 
   -- Elaborate the declaration normally (checks passed or not in specdef section)
   elabCommand dec
+
+  -- If in specdef section, add loomAbstractionSimp attribute to definitions
+  if inSpecDef then
+    match dec with
+    | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? def $id:ident $_ := $_) =>
+      let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
+      elabCommand attrCmd
+    | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? theorem $id:ident $_ := $_) =>
+      let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
+      elabCommand attrCmd
+    | _ => pure ()
