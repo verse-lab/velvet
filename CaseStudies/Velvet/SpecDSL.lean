@@ -15,7 +15,7 @@ abbrev ForbidRecursionState := Bool
 
 -- Environment extension to track whether recursion is forbidden
 initialize forbidRecursion : EnvExtension ForbidRecursionState ←
-  registerEnvExtension (pure false)
+  registerEnvExtension (pure true)
 
 -- State to track whether we're in a specdef section
 abbrev SpecDefSectExtState := List Name
@@ -58,8 +58,8 @@ elab "register_specdef_forbidden" id:ident : command => do
   forbiddenFunctions.modify (name :: ·)
 
 -- Command to enable recursion checking in specdef sections
-elab "register_specdef_forbid_recursion" : command => do
-  forbidRecursion.modify (fun _ => true)
+elab "register_specdef_allow_recursion" : command => do
+  forbidRecursion.modify (fun _ => false)
 
 -- Check if a term contains any forbidden function
 partial def containsForbiddenFunction (forbidden : List Name) (stx : Syntax) : Option Name :=
