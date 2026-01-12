@@ -39,7 +39,7 @@ set_option loom.semantics.choice "demonic"
 -- Helper function: compute the nth digit of the decimal expansion
 -- This is the mathematical definition of what we're computing
 
-specdef FindNthDigitSpec
+section Specs
 
 -- Helper Functions
 
@@ -60,18 +60,18 @@ def ensures1 (numerator : Nat) (denominator : Nat) (n : Nat) (digit : Nat) :=
 def ensures2 (numerator : Nat) (denominator : Nat) (n : Nat) (digit : Nat) :=
   digit ≥ 0 ∧ digit ≤ 9  -- result is a valid decimal digit
 
-def_pre (numerator : Nat) (denominator : Nat) (n : Nat) :=
+def precondition (numerator : Nat) (denominator : Nat) (n : Nat) :=
   require1 numerator denominator n ∧require2 numerator denominator n ∧require3 numerator denominator n
-def_post (numerator : Nat) (denominator : Nat) (n : Nat) (digit : Nat) :=
+def postcondition (numerator : Nat) (denominator : Nat) (n : Nat) (digit : Nat) :=
   ensures1 numerator denominator n digit ∧
   ensures2 numerator denominator n digit
 
-specend FindNthDigitSpec
+end Specs
 
 method FindNthDigit (numerator: Nat) (denominator: Nat) (n: Nat)
   return (digit: Nat)
-  require FindNthDigitSpec.pre numerator denominator n
-  ensures FindNthDigitSpec.post numerator denominator n digit
+  require precondition numerator denominator n
+  ensures postcondition numerator denominator n digit
   do
     sorry
 

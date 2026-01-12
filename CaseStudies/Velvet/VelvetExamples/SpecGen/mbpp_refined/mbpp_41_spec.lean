@@ -30,7 +30,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Predicate: a number is even if it is divisible by 2
 
-specdef FilterEvenSpec
+section Specs
 
 -- Helper Functions
 
@@ -42,17 +42,17 @@ def ensures1 (lst : List Int) (result : List Int) :=
     (x % 2 ≠ 0 → result.count x = 0)
 
 
-def_pre (lst : List Int) :=
+def precondition (lst : List Int) :=
   True  -- no preconditions
-def_post (lst : List Int) (result : List Int) :=
+def postcondition (lst : List Int) (result : List Int) :=
   ensures1 lst result
 
-specend FilterEvenSpec
+end Specs
 
 method FilterEven (lst: List Int)
   return (result: List Int)
-  require FilterEvenSpec.pre lst
-  ensures FilterEvenSpec.post lst result
+  require precondition lst
+  ensures postcondition lst result
   do
     sorry
 

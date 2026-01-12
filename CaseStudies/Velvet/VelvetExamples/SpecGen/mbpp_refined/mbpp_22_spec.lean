@@ -29,7 +29,7 @@ set_option loom.semantics.choice "demonic"
 -- Helper Functions
 -- None needed for this simplified specification
 
-specdef FirstDuplicateSpec
+section Specs
 
 -- Postcondition clauses
 def ensures1 (arr : List Int) (result : Option Int) :=
@@ -39,17 +39,17 @@ def ensures1 (arr : List Int) (result : Option Int) :=
       ∃ i j, (i < j ∧ j < arr.length ∧ arr[i]! = x ∧ arr[j]! = x) ∧
               (∀ i' j', i' < j' → j' < arr.length → arr[i']! = arr[j']! → j ≤ j')
 
-def_pre (arr : List Int) :=
+def precondition (arr : List Int) :=
   True  -- no preconditions
-def_post (arr : List Int) (result : Option Int) :=
+def postcondition (arr : List Int) (result : Option Int) :=
   ensures1 arr result
 
-specend FirstDuplicateSpec
+end Specs
 
 method FirstDuplicate (arr: List Int)
   return (result: Option Int)
-  require FirstDuplicateSpec.pre arr
-  ensures FirstDuplicateSpec.post arr result
+  require precondition arr
+  ensures postcondition arr result
   do
     sorry
 

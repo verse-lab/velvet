@@ -24,7 +24,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper Functions
 
-specdef MatchWordAtBeginningSpec
+section Specs
 
 -- Helper Functions
 
@@ -42,18 +42,18 @@ def ensures1 (input : String) (result : String) :=
 def ensures2 (input : String) (result : String) :=
   result = "Matched!" ↔ startsWithWord input
 
-def_pre (input : String) :=
+def precondition (input : String) :=
   True  -- no preconditions
-def_post (input : String) (result : String) :=
+def postcondition (input : String) (result : String) :=
   ensures1 input result ∧
   ensures2 input result
 
-specend MatchWordAtBeginningSpec
+end Specs
 
 method MatchWordAtBeginning (input: String)
   return (result: String)
-  require MatchWordAtBeginningSpec.pre input
-  ensures MatchWordAtBeginningSpec.post input result
+  require precondition input
+  ensures postcondition input result
   do
     sorry
 

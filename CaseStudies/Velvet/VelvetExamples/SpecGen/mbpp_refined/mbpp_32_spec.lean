@@ -32,7 +32,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper definition to count divisors of a natural number
 
-specdef LargestPrimeFactorSpec
+section Specs
 
 -- Helper Functions
 
@@ -53,18 +53,18 @@ def ensures1 (n : Nat) (result : Nat) :=
 def ensures2 (n : Nat) (result : Nat) :=
   ∀ p, isPrimeFactor p n → p ≤ result  -- Result is the largest prime factor
 
-def_pre (n : Nat) :=
+def precondition (n : Nat) :=
   require1 n
-def_post (n : Nat) (result : Nat) :=
+def postcondition (n : Nat) (result : Nat) :=
   ensures1 n result ∧
   ensures2 n result
 
-specend LargestPrimeFactorSpec
+end Specs
 
 method LargestPrimeFactor (n: Nat)
   return (result: Nat)
-  require LargestPrimeFactorSpec.pre n
-  ensures LargestPrimeFactorSpec.post n result
+  require precondition n
+  ensures postcondition n result
   do
     sorry
 

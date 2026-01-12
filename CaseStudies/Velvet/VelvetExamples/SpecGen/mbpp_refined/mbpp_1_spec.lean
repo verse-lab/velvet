@@ -24,7 +24,7 @@ set_option loom.semantics.choice "demonic"
        - Diagonal moves can provide shortcuts and reduce total cost
 -/
 
-specdef MinCostPathSpec
+section Specs
 
 -- Helper Functions
 
@@ -61,23 +61,23 @@ def ensures2 (cost: Array (Array Nat)) (m: Nat) (n: Nat) (minCost: Nat) :=
   ∀ path, isValidPath path 0 0 m n → pathCost cost path ≥ minCost  -- truly minimum
 def ensures3 (cost: Array (Array Nat)) (m: Nat) (n: Nat) (minCost: Nat) :=
   (m = 0 ∧ n = 0) → minCost = (cost[0]!)[0]!  -- edge case: start equals end
-def_pre (cost: Array (Array Nat)) (m: Nat) (n: Nat) :=
+def precondition (cost: Array (Array Nat)) (m: Nat) (n: Nat) :=
   require1 cost m n ∧
   require2 cost m n ∧
   require3 cost m n ∧
   require4 cost m n ∧
   require5 cost m n
-def_post (cost: Array (Array Nat)) (m: Nat) (n: Nat) (minCost: Nat) :=
+def postcondition (cost: Array (Array Nat)) (m: Nat) (n: Nat) (minCost: Nat) :=
   ensures1 cost m n minCost ∧
   ensures2 cost m n minCost ∧
   ensures3 cost m n minCost
 
-specend MinCostPathSpec
+end Specs
 
 method MinCostPath (cost: Array (Array Nat)) (m: Nat) (n: Nat)
   return (minCost: Nat)
-  require MinCostPathSpec.pre cost m n
-  ensures MinCostPathSpec.post cost m n minCost
+  require precondition cost m n
+  ensures postcondition cost m n minCost
   do
   pure 0  -- placeholder body for type checking
 

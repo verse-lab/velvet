@@ -29,7 +29,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Check if all elements in a single list equal k
 
-specdef CheckAllKElementsSpec
+section Specs
 
 -- Helper Functions
 
@@ -44,17 +44,17 @@ def allListsHaveAllElementsK (lists : List (List Nat)) (k : Nat) : Prop :=
 def ensures1 (lists : List (List Nat)) (k : Nat) (result : Bool) :=
   result = true ↔ allListsHaveAllElementsK lists k
 
-def_pre (lists : List (List Nat)) (k : Nat) :=
+def precondition (lists : List (List Nat)) (k : Nat) :=
   True  -- no preconditions
-def_post (lists : List (List Nat)) (k : Nat) (result : Bool) :=
+def postcondition (lists : List (List Nat)) (k : Nat) (result : Bool) :=
   ensures1 lists k result
 
-specend CheckAllKElementsSpec
+end Specs
 
 method CheckAllKElements (lists : List (List Nat)) (k : Nat)
   return (result : Bool)
-  require CheckAllKElementsSpec.pre lists k
-  ensures CheckAllKElementsSpec.post lists k result
+  require precondition lists k
+  ensures postcondition lists k result
   do
     sorry
 

@@ -27,7 +27,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Compute the factorial of a natural number
 
-specdef LastDigitFactorialDivSpec
+section Specs
 
 -- Helper Functions
 
@@ -52,18 +52,18 @@ def ensures1 (a : Nat) (b : Nat) (result : Nat) :=
 def ensures2 (a : Nat) (b : Nat) (result : Nat) :=
   result < 10
 
-def_pre (a : Nat) (b : Nat) :=
+def precondition (a : Nat) (b : Nat) :=
   True
-def_post (a : Nat) (b : Nat) (result : Nat) :=
+def postcondition (a : Nat) (b : Nat) (result : Nat) :=
   ensures1 a b result ∧
   ensures2 a b result
 
-specend LastDigitFactorialDivSpec
+end Specs
 
 method LastDigitFactorialDiv (a: Nat) (b: Nat)
   return (result: Nat)
-  require LastDigitFactorialDivSpec.pre a b
-  ensures LastDigitFactorialDivSpec.post a b result
+  require precondition a b
+  ensures postcondition a b result
   do
     sorry
 

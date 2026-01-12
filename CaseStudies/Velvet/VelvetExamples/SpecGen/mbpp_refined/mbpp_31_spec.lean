@@ -23,7 +23,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper Functions
 
-specdef TopKFrequentSpec
+section Specs
 
 -- Helper Functions
 
@@ -61,17 +61,17 @@ def ensures1 (lists : List (List Int)) (k : Nat) (result : List Int) :=
     isSortedByFreqThenOccurrence sorted lists ∧
     result = sorted.take k
 
-def_pre (lists : List (List Int)) (k : Nat) :=
+def precondition (lists : List (List Int)) (k : Nat) :=
   require1 lists k ∧require2 lists k
-def_post (lists : List (List Int)) (k : Nat) (result : List Int) :=
+def postcondition (lists : List (List Int)) (k : Nat) (result : List Int) :=
   ensures1 lists k result
 
-specend TopKFrequentSpec
+end Specs
 
 method TopKFrequent (lists: List (List Int)) (k: Nat)
   return (result: List Int)
-  require TopKFrequentSpec.pre lists k
-  ensures TopKFrequentSpec.post lists k result
+  require precondition lists k
+  ensures postcondition lists k result
   do
     sorry
 

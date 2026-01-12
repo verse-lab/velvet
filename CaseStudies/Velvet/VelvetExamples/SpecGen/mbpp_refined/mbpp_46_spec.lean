@@ -30,7 +30,7 @@ set_option loom.semantics.choice "demonic"
 -- Predicate: check if all elements in a list are pairwise distinct
 -- All elements are different if no two distinct indices have the same value
 
-specdef AllNumbersDifferentSpec
+section Specs
 
 -- Helper Functions
 
@@ -41,17 +41,17 @@ def allDifferent (lst: List Int) : Prop :=
 def ensures1 (lst : List Int) (result : Bool) :=
   result = true ↔ allDifferent lst
 
-def_pre (lst : List Int) :=
+def precondition (lst : List Int) :=
   True  -- no preconditions
-def_post (lst : List Int) (result : Bool) :=
+def postcondition (lst : List Int) (result : Bool) :=
   ensures1 lst result
 
-specend AllNumbersDifferentSpec
+end Specs
 
 method AllNumbersDifferent (lst: List Int)
   return (result: Bool)
-  require AllNumbersDifferentSpec.pre lst
-  ensures AllNumbersDifferentSpec.post lst result
+  require precondition lst
+  ensures postcondition lst result
   do
     sorry
 

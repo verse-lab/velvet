@@ -20,23 +20,23 @@ set_option loom.semantics.choice "demonic"
 -- 10. This is a property-oriented specification: we define what constitutes
 --     "n smallest" rather than prescribing an algorithm
 
-specdef getNSmallestSpec
+section Specs
 
 -- Postcondition clauses
 def ensures1 (dataset : List Nat) (n : Nat) (result : List Nat) :=
   result = (dataset.mergeSort (· ≤ ·)).take n  -- result is exactly the first n elements of sorted dataset
 
-def_pre (dataset : List Nat) (n : Nat) :=
+def precondition (dataset : List Nat) (n : Nat) :=
   True  -- no preconditions
-def_post (dataset : List Nat) (n : Nat) (result : List Nat) :=
+def postcondition (dataset : List Nat) (n : Nat) (result : List Nat) :=
   ensures1 dataset n result
 
-specend getNSmallestSpec
+end Specs
 
 method getNSmallest (dataset : List Nat) (n : Nat)
   return (result : List Nat)
-  require getNSmallestSpec.pre dataset n
-  ensures getNSmallestSpec.post dataset n result
+  require precondition dataset n
+  ensures postcondition dataset n result
   do
     sorry
 

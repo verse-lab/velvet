@@ -18,25 +18,25 @@ abbrev ForbidRecursionState := Bool
 initialize forbidRecursion : EnvExtension ForbidRecursionState ←
   registerEnvExtension (pure true)
 
--- State to track whether we're in a specdef section
-abbrev SpecDefSectExtState := List Name
+-- State to track whether we're in a Specs section
+abbrev SpecsSectExtState := Bool
 
--- Environment extension to track active specdef sections
-initialize specDefSect : EnvExtension SpecDefSectExtState ←
-  registerEnvExtension (pure [])
+-- Environment extension to track active Specs section
+initialize specsSect : EnvExtension SpecsSectExtState ←
+  registerEnvExtension (pure false)
 
--- Structure to track def_pre and def_post information
+-- Structure to track precondition and postcondition information
 structure PrePostInfo where
-  preParams : Array Syntax  -- Parameters of def_pre
-  postParams : Array Syntax -- Parameters of def_post
+  preParams : Array Syntax  -- Parameters of precondition
+  postParams : Array Syntax -- Parameters of postcondition
   postReturnParam : Syntax  -- The return value parameter
-  hasDefPre : Bool := false
-  hasDefPost : Bool := false
+  hasPrecondition : Bool := false
+  hasPostcondition : Bool := false
 
--- State to track def_pre and def_post per section
+-- State to track precondition and postcondition per section
 abbrev PrePostState := Option PrePostInfo
 
--- Environment extension to track pre/post conditions
+-- Environment extension to track precondition/postcondition
 initialize prePostState : EnvExtension PrePostState ←
   registerEnvExtension (pure none)
 
@@ -48,10 +48,9 @@ private def _root_.Lean.EnvExtension.get [Inhabited σ] (ext : EnvExtension σ) 
 private def _root_.Lean.EnvExtension.modify [Inhabited σ] (ext : EnvExtension σ) [MonadEnv m] (s : σ -> σ) : m Unit :=
   Lean.modifyEnv (ext.modifyState · s)
 
--- Check if we're currently in a specdef section
-def inSpecDefSection {m} [Monad m] [MonadEnv m] : m Bool := do
-  let state <- specDefSect.get
-  return !state.isEmpty
+-- Check if we're currently in a Specs section
+def inSpecsSection {m} [Monad m] [MonadEnv m] : m Bool := do
+  specsSect.get
 
 -- Command to register a forbidden function
 elab "register_specdef_forbidden" id:ident : command => do
@@ -136,187 +135,175 @@ def bindersMatch (b1 b2 : Syntax) : CommandElabM Bool := do
   -- For simplicity, we compare the syntax directly
   return b1 == b2
 
--- Syntax for def_pre and def_post
-syntax "def_pre" bracketedBinder* ":=" term : command
-syntax "def_post" bracketedBinder* ":=" term : command
+-- Intercept section command to detect "section Specs"
+@[command_elab «section»] def elabSectionSpecs : CommandElab := fun stx => do
+  -- First try to handle Specs section
+  match stx with
+  | `(section $id:ident) =>
+    let sectName := id.getId
+    if sectName == `Specs then
+      -- Entering a Specs section
+      specsSect.modify (fun _ => true)
+      prePostState.modify (fun _ => none)  -- Reset pre/post state for new section
+    -- Call the builtin section elaborator
+    Lean.Elab.Command.elabSection stx
+  | _ =>
+    -- Fallback to default section elaborator
+    Lean.Elab.Command.elabSection stx
 
--- Elaborate def_pre
-elab_rules : command
-  | `(command| def_pre $params* := $body) => do
-    let inSpecDef <- inSpecDefSection
-    unless inSpecDef do
-      throwError "def_pre can only be used inside a specdef section"
+-- Intercept end command to detect "end Specs"
+@[command_elab «end»] def elabEndSpecs : CommandElab := fun stx => do
+  -- First check if we're exiting a Specs section
+  match stx with
+  | `(end $id:ident) =>
+    let sectName := id.getId
+    let inSpecs <- inSpecsSection
+    if inSpecs && sectName == `Specs then
+      -- Exiting a Specs section, check that both precondition and postcondition are defined
+      let state <- prePostState.get
+      match state with
+      | none => throwError "Specs section must contain both def precondition and def postcondition"
+      | some info =>
+        unless info.hasPrecondition do
+          throwError "Specs section must contain def precondition"
+        unless info.hasPostcondition do
+          throwError "Specs section must contain def postcondition"
 
-    -- Check if def_pre already exists
-    let state <- prePostState.get
-    if let some info := state then
-      if info.hasDefPre then
-        throwError "def_pre already defined in this specdef section"
+      specsSect.modify (fun _ => false)
+      prePostState.modify (fun _ => none)  -- Clear state when exiting
+    -- Call the builtin end elaborator
+    Lean.Elab.Command.elabEnd stx
+  | _ =>
+    -- Fallback to default end elaborator
+    Lean.Elab.Command.elabEnd stx
 
-    -- Apply the same restrictions as def
-    if containsSorry body.raw then
-      throwError "sorry is not allowed in def_pre"
-    if containsAdmitted body.raw then
-      throwError "admitted is not allowed in def_pre"
+-- Apply common restrictions for Specs sections
+def checkSpecsRestrictions (stx : Syntax) (defName : Option Name := none) : CommandElabM Unit := do
+  -- Check for sorry
+  if containsSorry stx then
+    throwErrorAt stx "sorry is not allowed in Specs sections"
 
-    let forbidden <- forbiddenFunctions.get
-    if let some forbiddenName := containsForbiddenFunction forbidden body.raw then
-      throwErrorAt body s!"'{forbiddenName}' is not allowed in def_pre"
+  -- Check for admitted
+  if containsAdmitted stx then
+    throwErrorAt stx "admitted is not allowed in Specs sections"
 
-    let forbidRec <- forbidRecursion.get
-    if forbidRec && containsLetRec body.raw then
-      throwError "'let rec' is not allowed in def_pre"
+  -- Check for forbidden functions
+  let forbidden <- forbiddenFunctions.get
+  if let some forbiddenName := containsForbiddenFunction forbidden stx then
+    throwErrorAt stx s!"'{forbiddenName}' is not allowed in Specs sections"
 
-    -- Update state
-    let newInfo : PrePostInfo := {
-      preParams := params
-      postParams := state.map (·.postParams) |>.getD #[]
-      postReturnParam := state.map (·.postReturnParam) |>.getD (← `(bracketedBinder| (dummy : Unit)))
-      hasDefPre := true
-      hasDefPost := state.map (·.hasDefPost) |>.getD false
-    }
-    prePostState.modify (fun _ => some newInfo)
+  -- Check for let rec if recursion is forbidden
+  let forbidRec <- forbidRecursion.get
+  if forbidRec && containsLetRec stx then
+    throwErrorAt stx "'let rec' (recursive let binding) is not allowed in Specs sections"
 
-    -- Create the actual definition named 'pre' with unhygienic identifier and loomAbstractionSimp attribute
-    let preId := mkIdent `pre
-    let defStx <- `(command| @[loomAbstractionSimp] def $preId $params:bracketedBinder* : Prop := $body)
-    elabCommand defStx
+  -- Check for recursion if forbidden and defName is provided
+  if let some name := defName then
+    if forbidRec && containsReference name stx then
+      throwErrorAt stx s!"recursive function '{name}' is not allowed in Specs sections"
 
--- Elaborate def_post
-elab_rules : command
-  | `(command| def_post $params* := $body) => do
-    let inSpecDef <- inSpecDefSection
-    unless inSpecDef do
-      throwError "def_post can only be used inside a specdef section"
-
-    -- Check if def_post already exists
-    let state <- prePostState.get
-    if let some info := state then
-      if info.hasDefPost then
-        throwError "def_post already defined in this specdef section"
-
-    -- Check if def_pre exists
-    let some info := state | throwError "def_pre must be defined before def_post"
-    unless info.hasDefPre do
-      throwError "def_pre must be defined before def_post"
-
-    -- Check parameter consistency
-    let preParamCount := info.preParams.size
-    if params.size <= preParamCount then
-      throwError s!"def_post must have more parameters than def_pre (expected at least {preParamCount + 1}, got {params.size})"
-
-    -- Check that first parameters match def_pre
-    for i in [:preParamCount] do
-      let isMatch <- bindersMatch info.preParams[i]! params[i]!
-      unless isMatch do
-        throwErrorAt params[i]! s!"Parameter {i} of def_post must match parameter {i} of def_pre"
-
-    -- The last parameter is the return value
-    let returnParam := params[params.size - 1]!
-
-    -- Apply the same restrictions as def
-    if containsSorry body.raw then
-      throwError "sorry is not allowed in def_post"
-    if containsAdmitted body.raw then
-      throwError "admitted is not allowed in def_post"
-
-    let forbidden <- forbiddenFunctions.get
-    if let some forbiddenName := containsForbiddenFunction forbidden body.raw then
-      throwErrorAt body s!"'{forbiddenName}' is not allowed in def_post"
-
-    let forbidRec <- forbidRecursion.get
-    if forbidRec && containsLetRec body.raw then
-      throwError "'let rec' is not allowed in def_post"
-
-    -- Update state
-    let newInfo : PrePostInfo := {
-      preParams := info.preParams
-      postParams := params
-      postReturnParam := returnParam
-      hasDefPre := true
-      hasDefPost := true
-    }
-    prePostState.modify (fun _ => some newInfo)
-
-    -- Create the actual definition named 'post' with unhygienic identifier and loomAbstractionSimp attribute
-    let postId := mkIdent `post
-    let defStx <- `(command| @[loomAbstractionSimp] def $postId $params:bracketedBinder* : Prop := $body)
-    elabCommand defStx
-
--- Enter a specdef section
-elab "specdef" n:ident : command => do
-  specDefSect.modify (n.getId :: ·)
-  prePostState.modify (fun _ => none)  -- Reset pre/post state for new section
-  elabCommand (← `(namespace $n))
-
--- Exit a specdef section
-elab "specend" n:ident : command => do
-  -- Check that both def_pre and def_post are defined
-  let inSpecDef <- inSpecDefSection
-  if inSpecDef then
-    let state <- prePostState.get
-    match state with
-    | none => throwError "specdef section must contain both def_pre and def_post"
-    | some info =>
-      unless info.hasDefPre do
-        throwError "specdef section must contain def_pre"
-      unless info.hasDefPost do
-        throwError "specdef section must contain def_post"
-
-  specDefSect.modify List.tail
-  prePostState.modify (fun _ => none)  -- Clear state when exiting
-  elabCommand (← `(end $n))
-
--- Intercept all declarations to add restrictions in specdef sections
+-- Intercept all declarations to add restrictions in Specs sections
 elab dec:declaration : command => do
-  -- Check if we're in a specdef section
-  let inSpecDef <- inSpecDefSection
+  -- Check if we're in a Specs section
+  let inSpecs <- inSpecsSection
 
-  if inSpecDef then
-    -- Check restrictions before elaborating
-    -- First check for sorry and admitted in the entire declaration
-    if containsSorry dec.raw then
-      throwErrorAt dec "sorry is not allowed in specdef sections"
-    if containsAdmitted dec.raw then
-      throwErrorAt dec "admitted is not allowed in specdef sections"
+  if inSpecs then
+    -- Apply common restrictions first
+    checkSpecsRestrictions dec.raw
 
-    -- Get the list of forbidden functions
-    let forbidden <- forbiddenFunctions.get
-
-    -- Check if recursion is forbidden
-    let forbidRec <- forbidRecursion.get
-
-    -- Check for let rec if recursion is forbidden
-    if forbidRec && containsLetRec dec.raw then
-      throwErrorAt dec "'let rec' (recursive let binding) is not allowed in specdef sections"
-
-    -- Then check for specific forbidden constructs
+    -- Check if this is a precondition or postcondition definition
     match dec with
-    | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? def $id:ident $_ := $val:term) =>
-      -- Check if the definition body contains any forbidden function
-      if let some forbiddenName := containsForbiddenFunction forbidden val.raw then
-        throwErrorAt val s!"'{forbiddenName}' is not allowed in specdef sections"
+    | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? def $id:ident $params* $[: $ty]? := $val:term) =>
+      let defName := id.getId
 
-      -- Check for recursion if forbidden
-      if forbidRec then
-        let defName := id.getId
-        if containsReference defName val.raw then
-          throwErrorAt val s!"recursive function '{defName}' is not allowed in specdef sections"
+      if defName == `precondition then
+        -- Handle precondition definition
+        let state <- prePostState.get
+        if let some info := state then
+          if info.hasPrecondition then
+            throwError "precondition already defined in this Specs section"
+
+        -- Update state
+        let newInfo : PrePostInfo := {
+          preParams := params
+          postParams := state.map (·.postParams) |>.getD #[]
+          postReturnParam := state.map (·.postReturnParam) |>.getD (← `(bracketedBinder| (dummy : Unit)))
+          hasPrecondition := true
+          hasPostcondition := state.map (·.hasPostcondition) |>.getD false
+        }
+        prePostState.modify (fun _ => some newInfo)
+
+        -- Elaborate with loomAbstractionSimp attribute
+        let defStx <- `(command| @[loomAbstractionSimp] def $id $params* $[: $ty]? := $val)
+        elabCommand defStx
+        return
+
+      else if defName == `postcondition then
+        -- Handle postcondition definition
+        let state <- prePostState.get
+        if let some info := state then
+          if info.hasPostcondition then
+            throwError "postcondition already defined in this Specs section"
+
+        -- Check if precondition exists
+        let some info := state | throwError "precondition must be defined before postcondition"
+        unless info.hasPrecondition do
+          throwError "precondition must be defined before postcondition"
+
+        -- Check parameter consistency
+        let preParamCount := info.preParams.size
+        if params.size <= preParamCount then
+          throwError s!"postcondition must have more parameters than precondition (expected at least {preParamCount + 1}, got {params.size})"
+
+        -- Check that first parameters match precondition
+        for i in [:preParamCount] do
+          let isMatch <- bindersMatch info.preParams[i]! params[i]!
+          unless isMatch do
+            throwErrorAt params[i]! s!"Parameter {i} of postcondition must match parameter {i} of precondition"
+
+        -- The last parameter is the return value
+        let returnParam := params[params.size - 1]!
+
+        -- Update state
+        let newInfo : PrePostInfo := {
+          preParams := info.preParams
+          postParams := params
+          postReturnParam := returnParam
+          hasPrecondition := true
+          hasPostcondition := true
+        }
+        prePostState.modify (fun _ => some newInfo)
+
+        -- Elaborate with loomAbstractionSimp attribute
+        let defStx <- `(command| @[loomAbstractionSimp] def $id $params* $[: $ty]? := $val)
+        elabCommand defStx
+        return
+
+      else
+        -- Regular definition in Specs section
+        -- Check for recursion (not checked by common restrictions without defName)
+        checkSpecsRestrictions val.raw (some defName)
+
+        -- Elaborate normally, then add attribute
+        elabCommand dec
+        let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
+        elabCommand attrCmd
+        return
+
     | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? axiom $id:ident : $_) =>
-      -- Axiom is not allowed in specdef sections
-      throwErrorAt id "axiom is not allowed in specdef sections"
-    | _ => pure ()
+      -- Axiom is not allowed in Specs sections
+      throwErrorAt id "axiom is not allowed in Specs sections"
 
-  -- Elaborate the declaration normally (checks passed or not in specdef section)
-  elabCommand dec
-
-  -- If in specdef section, add loomAbstractionSimp attribute to definitions
-  if inSpecDef then
-    match dec with
-    | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? def $id:ident $_ := $_) =>
-      let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
-      elabCommand attrCmd
     | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? theorem $id:ident $_ := $_) =>
+      -- Elaborate normally, then add attribute
+      elabCommand dec
       let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
       elabCommand attrCmd
-    | _ => pure ()
+      return
+
+    | _ =>
+      -- Other declarations, already checked by common restrictions
+      pure ()
+
+  -- Elaborate the declaration normally (checks passed or not in Specs section)
+  elabCommand dec

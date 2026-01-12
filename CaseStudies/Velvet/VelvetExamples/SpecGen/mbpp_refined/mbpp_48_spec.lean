@@ -24,7 +24,7 @@ set_option loom.semantics.choice "demonic"
 --    b. Keep all bits at 0-indexed ODD positions (1, 3, 5, ...) unchanged
 -- 8. The result is a new number with this modified bit pattern
 
-specdef SetOddBitsSpec
+section Specs
 
 -- Helper Functions
 
@@ -39,17 +39,17 @@ def ensures1 (n : Nat) (result : Nat) :=
 def ensures2 (n : Nat) (result : Nat) :=
   ∀ i ≥ n.size, result.testBit i = false
 
-def_pre (n : Nat) :=
+def precondition (n : Nat) :=
   True  -- no preconditions
-def_post (n : Nat) (result : Nat) :=
+def postcondition (n : Nat) (result : Nat) :=
   ensures1 n result ∧ ensures2 n result
 
-specend SetOddBitsSpec
+end Specs
 
 method SetOddBits (n : Nat)
   return (result : Nat)
-  require SetOddBitsSpec.pre n
-  ensures SetOddBitsSpec.post n result
+  require precondition n
+  ensures postcondition n result
   do
     sorry
 

@@ -27,7 +27,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper function to compute factorial
 
-specdef BinomialCoefficientSpec
+section Specs
 
 -- Helper Functions
 
@@ -51,17 +51,17 @@ def require1 (n : Nat) (k : Nat) :=
 def ensures1 (n : Nat) (k : Nat) (result : Nat) :=
   result = binomialCoeff n k  -- The result equals the binomial coefficient
 
-def_pre (n : Nat) (k : Nat) :=
+def precondition (n : Nat) (k : Nat) :=
   require1 n k
-def_post (n : Nat) (k : Nat) (result : Nat) :=
+def postcondition (n : Nat) (k : Nat) (result : Nat) :=
   ensures1 n k result
 
-specend BinomialCoefficientSpec
+end Specs
 
 method BinomialCoefficient (n: Nat) (k: Nat)
   return (result: Nat)
-  require BinomialCoefficientSpec.pre n k
-  ensures BinomialCoefficientSpec.post n k result
+  require precondition n k
+  ensures postcondition n k result
   do
     sorry
 

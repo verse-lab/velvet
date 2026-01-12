@@ -26,7 +26,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Check if a string is a permutation of another (same character counts)
 
-specdef RearrangeStringSpec
+section Specs
 
 -- Helper Functions
 
@@ -65,20 +65,20 @@ def ensures3 (s : String) (result : String) :=
 def ensures4 (s : String) (result : String) :=
   ¬canRearrange s → result = s
 
-def_pre (s : String) :=
+def precondition (s : String) :=
   True  -- no preconditions
-def_post (s : String) (result : String) :=
+def postcondition (s : String) (result : String) :=
   ensures1 s result ∧
   ensures2 s result ∧
   ensures3 s result ∧
   ensures4 s result
 
-specend RearrangeStringSpec
+end Specs
 
 method RearrangeString (s: String)
   return (result: String)
-  require RearrangeStringSpec.pre s
-  ensures RearrangeStringSpec.post s result
+  require precondition s
+  ensures postcondition s result
   do
     sorry
 

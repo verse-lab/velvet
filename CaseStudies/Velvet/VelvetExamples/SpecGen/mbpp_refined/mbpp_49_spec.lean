@@ -19,7 +19,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Extract element at index n if the list is long enough
 
-specdef ExtractNthElementsSpec
+section Specs
 
 -- Helper Functions
 
@@ -34,17 +34,17 @@ def filterMapExtract (lists : List (List Nat)) (n : Nat) : List Nat :=
 def ensures1 (lists : List (List Nat)) (n : Nat) (result : List Nat) :=
   result = filterMapExtract lists n
 
-def_pre (lists : List (List Nat)) (n : Nat) :=
+def precondition (lists : List (List Nat)) (n : Nat) :=
   True  -- no preconditions
-def_post (lists : List (List Nat)) (n : Nat) (result : List Nat) :=
+def postcondition (lists : List (List Nat)) (n : Nat) (result : List Nat) :=
   ensures1 lists n result
 
-specend ExtractNthElementsSpec
+end Specs
 
 method ExtractNthElements (lists : List (List Nat)) (n : Nat)
   return (result : List Nat)
-  require ExtractNthElementsSpec.pre lists n
-  ensures ExtractNthElementsSpec.post lists n result
+  require precondition lists n
+  ensures postcondition lists n result
   do
     sorry
 

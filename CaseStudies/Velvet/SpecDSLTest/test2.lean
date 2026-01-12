@@ -1,12 +1,9 @@
 import CaseStudies.Velvet.SpecDSL
 
--- Enable recursion checking
-register_specdef_forbid_recursion
-
 -- Register forbidden function
 register_specdef_forbidden List.filter
 
-specdef TestSection
+section Specs
 
 -- This should error: "axiom is not allowed in specdef sections"
 axiom myAxiom : Nat
@@ -27,7 +24,7 @@ def testLetRec : Nat :=
 def invalidFunction (xs : List Nat) : List Nat :=
   List.filter (· > 0) xs
 
-def_pre := True
+def precondition := True
 
 -- This should error: specdef section must contain def_post
-specend TestSection
+end Specs

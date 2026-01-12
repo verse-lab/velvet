@@ -28,7 +28,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Find the index of the first list with the given length
 
-specdef MinLengthListSpec
+section Specs
 
 -- Helper Functions
 
@@ -54,20 +54,20 @@ def ensures3 (lists : List (List Nat)) (result : (Nat × List Nat)) :=
 def ensures4 (lists : List (List Nat)) (result : (Nat × List Nat)) :=
   isFirstWithLength lists result.2 result.1
 
-def_pre (lists : List (List Nat)) :=
+def precondition (lists : List (List Nat)) :=
   require1 lists
-def_post (lists : List (List Nat)) (result : (Nat × List Nat)) :=
+def postcondition (lists : List (List Nat)) (result : (Nat × List Nat)) :=
   ensures1 lists result ∧
   ensures2 lists result ∧
   ensures3 lists result ∧
   ensures4 lists result
 
-specend MinLengthListSpec
+end Specs
 
 method MinLengthList (lists : List (List Nat))
   return (result : (Nat × List Nat))
-  require MinLengthListSpec.pre lists
-  ensures MinLengthListSpec.post lists result
+  require precondition lists
+  ensures postcondition lists result
   do
     sorry
 

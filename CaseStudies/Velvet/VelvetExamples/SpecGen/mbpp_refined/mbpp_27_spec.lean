@@ -30,7 +30,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper function to check if a character is a digit
 
-specdef RemoveDigitsFromListSpec
+section Specs
 
 -- Helper Functions
 
@@ -45,17 +45,17 @@ def ensures1 (strings : List String) (result : List String) :=
   result.length = strings.length ∧
   ∀ i, i < strings.length → isRemoveDigits strings[i]! result[i]!
 
-def_pre (strings : List String) :=
+def precondition (strings : List String) :=
   True  -- no preconditions
-def_post (strings : List String) (result : List String) :=
+def postcondition (strings : List String) (result : List String) :=
   ensures1 strings result
 
-specend RemoveDigitsFromListSpec
+end Specs
 
 method RemoveDigitsFromList (strings: List String)
   return (result: List String)
-  require RemoveDigitsFromListSpec.pre strings
-  ensures RemoveDigitsFromListSpec.post strings result
+  require precondition strings
+  ensures postcondition strings result
   do
     sorry
 

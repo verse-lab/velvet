@@ -27,7 +27,7 @@ set_option loom.semantics.choice "demonic"
 -- The recurrence relation for domino tiling of 3×n board
 -- This captures the mathematical structure of the problem
 
-specdef DominoTilingSpec
+section Specs
 
 register_specdef_allow_recursion
 
@@ -45,17 +45,17 @@ def dominoTilingRecurrence (n: Nat) : Nat :=
 def ensures1 (n : Nat) (count : Nat) :=
   count = dominoTilingRecurrence n  -- For even n≥4, follows recurrence relation
 
-def_pre (n : Nat) :=
+def precondition (n : Nat) :=
   True  -- no preconditions
-def_post (n : Nat) (count : Nat) :=
+def postcondition (n : Nat) (count : Nat) :=
   ensures1 n count
 
-specend DominoTilingSpec
+end Specs
 
 method DominoTiling (n: Nat)
   return (count: Nat)
-  require DominoTilingSpec.pre n
-  ensures DominoTilingSpec.post n count
+  require precondition n
+  ensures postcondition n count
   do
     sorry
 

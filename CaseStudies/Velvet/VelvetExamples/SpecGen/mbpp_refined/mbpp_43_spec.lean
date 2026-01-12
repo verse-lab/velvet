@@ -30,7 +30,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Check if a character is a lowercase letter
 
-specdef FindLowercaseUnderscorePatternSpec
+section Specs
 
 -- Helper Functions
 
@@ -47,18 +47,18 @@ def ensures1 (input : List Char) (result : String) :=
 def ensures2 (input : List Char) (result : String) :=
   ¬containsPattern input → result = "Not matched!"
 
-def_pre (input : List Char) :=
+def precondition (input : List Char) :=
   True  -- no preconditions
-def_post (input : List Char) (result : String) :=
+def postcondition (input : List Char) (result : String) :=
   ensures1 input result ∧
   ensures2 input result
 
-specend FindLowercaseUnderscorePatternSpec
+end Specs
 
 method FindLowercaseUnderscorePattern (input : List Char)
   return (result : String)
-  require FindLowercaseUnderscorePatternSpec.pre input
-  ensures FindLowercaseUnderscorePatternSpec.post input result
+  require precondition input
+  ensures postcondition input result
   do
     sorry
 

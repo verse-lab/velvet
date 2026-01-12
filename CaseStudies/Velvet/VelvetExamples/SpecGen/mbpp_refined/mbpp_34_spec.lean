@@ -44,7 +44,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper definition: check if a value is in the array
 
-specdef FindMissingNumberSpec
+section Specs
 
 -- Helper Functions
 
@@ -89,19 +89,19 @@ def ensures2 (arr : Array Int) (missing : Int) :=
 def ensures3 (arr : Array Int) (missing : Int) :=
   ∃ k, k + 1 < arr.size ∧ arr[k + 1]! - arr[k]! = 2 ∧ missing = arr[k]! + 1
 
-def_pre (arr : Array Int) :=
+def precondition (arr : Array Int) :=
   require1 arr ∧require2 arr ∧require3 arr ∧require4 arr ∧require5 arr
-def_post (arr : Array Int) (missing : Int) :=
+def postcondition (arr : Array Int) (missing : Int) :=
   ensures1 arr missing ∧
   ensures2 arr missing ∧
   ensures3 arr missing
 
-specend FindMissingNumberSpec
+end Specs
 
 method FindMissingNumber (arr: Array Int)
   return (missing: Int)
-  require FindMissingNumberSpec.pre arr
-  ensures FindMissingNumberSpec.post arr missing
+  require precondition arr
+  ensures postcondition arr missing
   do
     sorry
 

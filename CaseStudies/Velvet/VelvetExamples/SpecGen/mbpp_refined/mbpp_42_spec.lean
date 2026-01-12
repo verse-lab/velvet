@@ -28,7 +28,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Count how many times a value appears in an array
 
-specdef SumOfRepeatedSpec
+section Specs
 
 -- Helper Functions
 
@@ -43,17 +43,17 @@ def sumOfRepeatedElements (arr : Array Int) : Int :=
 def ensures1 (arr : Array Int) (sum : Int) :=
   sum = sumOfRepeatedElements arr
 
-def_pre (arr : Array Int) :=
+def precondition (arr : Array Int) :=
   True  -- no preconditions
-def_post (arr : Array Int) (sum : Int) :=
+def postcondition (arr : Array Int) (sum : Int) :=
   ensures1 arr sum
 
-specend SumOfRepeatedSpec
+end Specs
 
 method SumOfRepeated (arr: Array Int)
   return (sum: Int)
-  require SumOfRepeatedSpec.pre arr
-  ensures SumOfRepeatedSpec.post arr sum
+  require precondition arr
+  ensures postcondition arr sum
   do
     sorry
 

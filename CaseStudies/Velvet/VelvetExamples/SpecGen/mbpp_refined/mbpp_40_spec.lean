@@ -18,7 +18,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Flatten a list of lists into a single list
 
-specdef FindFrequencySpec
+section Specs
 
 -- Helper Functions
 
@@ -51,19 +51,19 @@ def ensures2 (lists : List (List Nat)) (result : List (Nat × Nat)) :=
 def ensures3 (lists : List (List Nat)) (result : List (Nat × Nat)) :=
   isSortedByCountAndOccurrence lists.flatten result
 
-def_pre (lists : List (List Nat)) :=
+def precondition (lists : List (List Nat)) :=
   True  -- no preconditions
-def_post (lists : List (List Nat)) (result : List (Nat × Nat)) :=
+def postcondition (lists : List (List Nat)) (result : List (Nat × Nat)) :=
   ensures1 lists result ∧
   ensures2 lists result ∧
   ensures3 lists result
 
-specend FindFrequencySpec
+end Specs
 
 method FindFrequency (lists : List (List Nat))
   return (result : List (Nat × Nat))
-  require FindFrequencySpec.pre lists
-  ensures FindFrequencySpec.post lists result
+  require precondition lists
+  ensures postcondition lists result
   do
     sorry
 

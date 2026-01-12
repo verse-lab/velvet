@@ -31,7 +31,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Predicate: result divides all elements in the array
 
-specdef FindArrayGCDSpec
+section Specs
 
 -- Helper Functions
 
@@ -53,18 +53,18 @@ def ensures1 (arr : Array Nat) (result : Nat) :=
 def ensures2 (arr : Array Nat) (result : Nat) :=
   ∀ d, dividesAll d arr → d ≤ result
 
-def_pre (arr : Array Nat) :=
+def precondition (arr : Array Nat) :=
   require1 arr ∧require2 arr
-def_post (arr : Array Nat) (result : Nat) :=
+def postcondition (arr : Array Nat) (result : Nat) :=
   ensures1 arr result ∧
   ensures2 arr result
 
-specend FindArrayGCDSpec
+end Specs
 
 method FindArrayGCD (arr: Array Nat)
   return (result: Nat)
-  require FindArrayGCDSpec.pre arr
-  ensures FindArrayGCDSpec.post arr result
+  require precondition arr
+  ensures postcondition arr result
   do
     sorry
 

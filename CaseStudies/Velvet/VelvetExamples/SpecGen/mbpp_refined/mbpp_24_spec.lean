@@ -27,7 +27,7 @@ set_option loom.semantics.choice "demonic"
 -- Helper function to extract the digits of a binary string in reverse order
 -- For example: "1011" -> [1, 1, 0, 1]
 
-specdef BinaryStrToDecimalSpec
+section Specs
 
 -- Helper Functions
 
@@ -50,17 +50,17 @@ def ensures2 (binary : String) (decimal : Nat) :=
   ∀ k ≥ binary.length,
     decimal.testBit k = false
 
-def_pre (binary : String) :=
+def precondition (binary : String) :=
   require1 binary
-def_post (binary : String) (decimal : Nat) :=
+def postcondition (binary : String) (decimal : Nat) :=
   ensures1 binary decimal ∧ ensures2 binary decimal
 
-specend BinaryStrToDecimalSpec
+end Specs
 
 method BinaryStrToDecimal (binary: String)
   return (decimal: Nat)
-  require BinaryStrToDecimalSpec.pre binary
-  ensures BinaryStrToDecimalSpec.post binary decimal
+  require precondition binary
+  ensures postcondition binary decimal
   do
     sorry
 

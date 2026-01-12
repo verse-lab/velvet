@@ -28,7 +28,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper function to count occurrences of an element in a list
 
-specdef GetOddOccurrenceSpec
+section Specs
 
 -- Helper Functions
 
@@ -47,17 +47,17 @@ def require1 (lst : List Nat) :=
 def ensures1 (lst : List Nat) (result: Nat) :=
   isOddOccurrenceElement lst result
 
-def_pre (lst : List Nat) :=
+def precondition (lst : List Nat) :=
   require1 lst
-def_post (lst : List Nat) (result: Nat) :=
+def postcondition (lst : List Nat) (result: Nat) :=
   ensures1 lst result
 
-specend GetOddOccurrenceSpec
+end Specs
 
 method GetOddOccurrence (lst : List Nat)
   return (result: Nat)
-  require GetOddOccurrenceSpec.pre lst
-  ensures GetOddOccurrenceSpec.post lst result
+  require precondition lst
+  ensures postcondition lst result
   do
     sorry
 

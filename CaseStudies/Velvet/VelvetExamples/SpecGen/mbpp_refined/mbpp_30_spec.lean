@@ -36,7 +36,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper definition: Count occurrences of a character in a list
 
-specdef CountMatchingSubstringsSpec
+section Specs
 
 -- Helper Functions
 
@@ -52,17 +52,17 @@ def ensures1 (s : List Char) (count : Nat) :=
         j < s.length ∧
         s[i]! = s[j]! }
 
-def_pre (s : List Char) :=
+def precondition (s : List Char) :=
   True  -- no preconditions
-def_post (s : List Char) (count : Nat) :=
+def postcondition (s : List Char) (count : Nat) :=
   ensures1 s count
 
-specend CountMatchingSubstringsSpec
+end Specs
 
 method CountMatchingSubstrings (s: List Char)
   return (count: Nat)
-  require CountMatchingSubstringsSpec.pre s
-  ensures CountMatchingSubstringsSpec.post s count
+  require precondition s
+  ensures postcondition s count
   do
     sorry
 

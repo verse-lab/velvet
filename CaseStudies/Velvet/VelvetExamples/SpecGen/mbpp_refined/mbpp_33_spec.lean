@@ -30,7 +30,7 @@ set_option loom.semantics.choice "demonic"
 -- Helper function: convert a list of binary digits to its decimal value
 -- This computes the value by treating the list as big-endian (most significant bit first)
 
-specdef DecimalToBinarySpec
+section Specs
 
 -- Helper Functions
 
@@ -55,20 +55,20 @@ def ensures3 (n : Nat) (binary : List Nat) :=
 def ensures4 (n : Nat) (binary : List Nat) :=
   binary.length > 0  -- Result is never empty
 
-def_pre (n : Nat) :=
+def precondition (n : Nat) :=
   True  -- no preconditions
-def_post (n : Nat) (binary : List Nat) :=
+def postcondition (n : Nat) (binary : List Nat) :=
   ensures1 n binary ∧
   ensures2 n binary ∧
   ensures3 n binary ∧
   ensures4 n binary
 
-specend DecimalToBinarySpec
+end Specs
 
 method DecimalToBinary (n: Nat)
   return (binary: List Nat)
-  require DecimalToBinarySpec.pre n
-  ensures DecimalToBinarySpec.post n binary
+  require precondition n
+  ensures postcondition n binary
   do
     sorry
 

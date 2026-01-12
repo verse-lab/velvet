@@ -24,7 +24,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper definition: count how many times a value appears in an array
 
-specdef ProductOfNonRepeatedSpec
+section Specs
 
 -- Helper Functions
 def productOfNonRepeatedElements (arr : Array Int) : Int :=
@@ -36,17 +36,17 @@ def productOfNonRepeatedElements (arr : Array Int) : Int :=
 def ensures1 (arr : Array Int) (product : Int) :=
   product = productOfNonRepeatedElements arr
 
-def_pre (arr : Array Int) :=
+def precondition (arr : Array Int) :=
   True  -- no preconditions
-def_post (arr : Array Int) (product : Int) :=
+def postcondition (arr : Array Int) (product : Int) :=
   ensures1 arr product
 
-specend ProductOfNonRepeatedSpec
+end Specs
 
 method ProductOfNonRepeated (arr : Array Int)
   return (product : Int)
-  require ProductOfNonRepeatedSpec.pre arr
-  ensures ProductOfNonRepeatedSpec.post arr product
+  require precondition arr
+  ensures postcondition arr product
   do
     sorry
 

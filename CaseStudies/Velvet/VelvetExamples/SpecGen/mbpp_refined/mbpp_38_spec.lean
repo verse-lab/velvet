@@ -38,7 +38,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper: Check if a number is even
 
-specdef DivFirstEvenOddSpec
+section Specs
 
 -- Helper Functions
 
@@ -68,17 +68,17 @@ def ensures1 (lst : Array Int) (result : Rat) :=
     isFirstOdd lst.toList j ∧
     result = ((lst[i]! : Rat) / (lst[j]! : Rat)))
 
-def_pre (lst : Array Int) :=
+def precondition (lst : Array Int) :=
   require1 lst ∧ require2 lst
-def_post (lst : Array Int) (result : Rat) :=
+def postcondition (lst : Array Int) (result : Rat) :=
   ensures1 lst result
 
-specend DivFirstEvenOddSpec
+end Specs
 
 method DivFirstEvenOdd (lst : Array Int)
   return (result : Rat)
-  require DivFirstEvenOddSpec.pre lst
-  ensures DivFirstEvenOddSpec.post lst result
+  require precondition lst
+  ensures postcondition lst result
   do
     sorry
 

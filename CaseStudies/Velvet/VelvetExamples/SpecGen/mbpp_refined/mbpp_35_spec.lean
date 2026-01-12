@@ -28,23 +28,23 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper definition: Check if a number is even
 
-specdef NthRectangularNumberSpec
+section Specs
 
 -- Postcondition clauses
 def ensures1 (n : Nat) (result : Nat) :=
   result = n * (n + 1)
 
-def_pre (n : Nat) :=
+def precondition (n : Nat) :=
   True  -- no preconditions
-def_post (n : Nat) (result : Nat) :=
+def postcondition (n : Nat) (result : Nat) :=
   ensures1 n result
 
-specend NthRectangularNumberSpec
+end Specs
 
 method NthRectangularNumber (n: Nat)
   return (result: Nat)
-  require NthRectangularNumberSpec.pre n
-  ensures NthRectangularNumberSpec.post n result
+  require precondition n
+  ensures postcondition n result
   do
     sorry
 

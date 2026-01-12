@@ -24,7 +24,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper function to check if an element is an integer
 
-specdef SortMixedListSpec
+section Specs
 
 inductive IntOrString where
   | int : Int → IntOrString
@@ -77,21 +77,19 @@ def ensures3 (input : List IntOrString) (result : List IntOrString) :=
   ∀ i j, i < result.length ∧ j < result.length ∧
             isInt result[i]! ∧ isString result[j]! → i < j  -- integers come before strings
 
-def_pre (input : List IntOrString) :=
+def precondition (input : List IntOrString) :=
   True  -- no preconditions
-def_post (input : List IntOrString) (result : List IntOrString) :=
+def postcondition (input : List IntOrString) (result : List IntOrString) :=
   ensures1 input result ∧
   ensures2 input result ∧
   ensures3 input result
 
-specend SortMixedListSpec
-
-open SortMixedListSpec
+end Specs
 
 method SortMixedList (input : List IntOrString)
   return (result : List IntOrString)
-  require SortMixedListSpec.pre input
-  ensures SortMixedListSpec.post input result
+  require precondition input
+  ensures postcondition input result
   do
     sorry
 

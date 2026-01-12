@@ -21,7 +21,7 @@ set_option loom.semantics.choice "demonic"
 --    - Both m and n can be any natural number (including 0)
 -- 8. The function should work for any non-negative values of m and n
 
-specdef FindMultiplesSpec
+section Specs
 
 -- Postcondition clauses
 def ensures1 (n : Nat) (m : Nat) (multiples : Array Nat) :=
@@ -29,18 +29,18 @@ def ensures1 (n : Nat) (m : Nat) (multiples : Array Nat) :=
 def ensures2 (n : Nat) (m : Nat) (multiples : Array Nat) :=
   ∀ i, i < m → multiples[i]! = (i + 1) * n  -- Each element is the (i+1)-th multiple of n
 
-def_pre (n : Nat) (m : Nat) :=
+def precondition (n : Nat) (m : Nat) :=
   True  -- no preconditions
-def_post (n : Nat) (m : Nat) (multiples : Array Nat) :=
+def postcondition (n : Nat) (m : Nat) (multiples : Array Nat) :=
   ensures1 n m multiples ∧
   ensures2 n m multiples
 
-specend FindMultiplesSpec
+end Specs
 
 method FindMultiples (n: Nat) (m: Nat)
   return (multiples: Array Nat)
-  require FindMultiplesSpec.pre n m
-  ensures FindMultiplesSpec.post n m multiples
+  require precondition n m
+  ensures postcondition n m multiples
   do
     sorry
 

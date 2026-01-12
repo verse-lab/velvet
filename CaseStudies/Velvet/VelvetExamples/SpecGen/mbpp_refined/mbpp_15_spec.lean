@@ -31,7 +31,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Check if a character is a lowercase ASCII letter
 
-specdef SplitAtLowercaseSpec
+section Specs
 
 -- Helper Functions
 
@@ -49,17 +49,17 @@ def ensures2 (str : List Char) (result : List (List Char)) :=
     (∀ x ∈ pre, ¬ x.isLower) ∧
     str = result.foldl (fun acc x => acc ++ x) pre
 
-def_pre (str : List Char) :=
+def precondition (str : List Char) :=
   True  -- no preconditions
-def_post (str : List Char) (result : List (List Char)) :=
+def postcondition (str : List Char) (result : List (List Char)) :=
   ensures1 str result ∧ ensures2 str result
 
-specend SplitAtLowercaseSpec
+end Specs
 
 method SplitAtLowercase (str: List Char)
   return (result: List (List Char))
-  require SplitAtLowercaseSpec.pre str
-  ensures SplitAtLowercaseSpec.post str result
+  require precondition str
+  ensures postcondition str result
   do
     sorry
 

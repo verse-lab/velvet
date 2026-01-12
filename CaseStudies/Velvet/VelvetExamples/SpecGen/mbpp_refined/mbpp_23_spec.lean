@@ -28,7 +28,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Helper function to compute the sum of integers in an array using foldl
 
-specdef MaxArraySumSpec
+section Specs
 
 -- Helper Functions
 
@@ -50,18 +50,18 @@ def ensures1 (arrays : Array (Array Int)) (maxSum : Int) :=
 def ensures2 (arrays : Array (Array Int)) (maxSum : Int) :=
   isMaximal maxSum arrays
 
-def_pre (arrays : Array (Array Int)) :=
+def precondition (arrays : Array (Array Int)) :=
   require1 arrays
-def_post (arrays : Array (Array Int)) (maxSum : Int) :=
+def postcondition (arrays : Array (Array Int)) (maxSum : Int) :=
   ensures1 arrays maxSum ∧
   ensures2 arrays maxSum
 
-specend MaxArraySumSpec
+end Specs
 
 method MaxArraySum (arrays: Array (Array Int))
   return (maxSum: Int)
-  require MaxArraySumSpec.pre arrays
-  ensures MaxArraySumSpec.post arrays maxSum
+  require precondition arrays
+  ensures postcondition arrays maxSum
   do
     sorry
 

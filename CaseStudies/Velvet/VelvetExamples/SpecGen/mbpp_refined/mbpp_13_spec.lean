@@ -26,7 +26,7 @@ set_option loom.semantics.choice "demonic"
 
 -- Count occurrences of a word in the List
 
-specdef Top4FrequentWordsSpec
+section Specs
 
 -- Helper Functions
 
@@ -59,17 +59,17 @@ def ensures1 (words : List String) (result : List (String × Nat)) : Prop :=
     isSortedByCountAndOccurrence words sorted ∧
     result = sorted.take 4
 
-def_pre (words : List String) :=
+def precondition (words : List String) :=
   True  -- no preconditions
-def_post (words : List String) (result : List (String × Nat)) :=
+def postcondition (words : List String) (result : List (String × Nat)) :=
   ensures1 words result
 
-specend Top4FrequentWordsSpec
+end Specs
 
 method Top4FrequentWords (words: List String)
   return (result: List (String × Nat))
-  require Top4FrequentWordsSpec.pre words
-  ensures Top4FrequentWordsSpec.post words result
+  require precondition words
+  ensures postcondition words result
   do
     sorry
 
