@@ -59,6 +59,8 @@ def postcondition (s : List Char) (count : Nat) :=
 
 end Specs
 
+section Impl
+
 method CountMatchingSubstrings (s: List Char)
   return (count: Nat)
   require precondition s
@@ -69,6 +71,8 @@ method CountMatchingSubstrings (s: List Char)
 prove_correct CountMatchingSubstrings by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 -- Test dataset for counting substrings starting and ending with same character
 

@@ -61,6 +61,8 @@ def postcondition (n : Nat) (result : Nat) :=
 
 end Specs
 
+section Impl
+
 method LargestPrimeFactor (n: Nat)
   return (result: Nat)
   require precondition n
@@ -71,6 +73,8 @@ method LargestPrimeFactor (n: Nat)
 prove_correct LargestPrimeFactor by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 1

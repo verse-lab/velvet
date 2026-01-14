@@ -57,6 +57,8 @@ def postcondition (binary : String) (decimal : Nat) :=
 
 end Specs
 
+section Impl
+
 method BinaryStrToDecimal (binary: String)
   return (decimal: Nat)
   require precondition binary
@@ -67,6 +69,8 @@ method BinaryStrToDecimal (binary: String)
 prove_correct BinaryStrToDecimal by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0: From problem description (sample)

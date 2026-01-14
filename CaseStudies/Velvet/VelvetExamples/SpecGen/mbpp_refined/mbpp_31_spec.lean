@@ -68,6 +68,8 @@ def postcondition (lists : List (List Int)) (k : Nat) (result : List Int) :=
 
 end Specs
 
+section Impl
+
 method TopKFrequent (lists: List (List Int)) (k: Nat)
   return (result: List Int)
   require precondition lists k
@@ -76,6 +78,8 @@ method TopKFrequent (lists: List (List Int)) (k: Nat)
     sorry
 
 prove_correct TopKFrequent by sorry
+
+end Impl
 
 section TestCases
 

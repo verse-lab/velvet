@@ -48,6 +48,8 @@ def postcondition (lst : List Int) (result : Bool) :=
 
 end Specs
 
+section Impl
+
 method AllNumbersDifferent (lst: List Int)
   return (result: Bool)
   require precondition lst
@@ -56,6 +58,8 @@ method AllNumbersDifferent (lst: List Int)
     sorry
 
 prove_correct AllNumbersDifferent by sorry
+
+end Impl
 
 section TestCases
 

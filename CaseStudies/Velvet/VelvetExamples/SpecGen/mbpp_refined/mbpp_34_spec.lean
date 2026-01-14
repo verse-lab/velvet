@@ -98,6 +98,8 @@ def postcondition (arr : Array Int) (missing : Int) :=
 
 end Specs
 
+section Impl
+
 method FindMissingNumber (arr: Array Int)
   return (missing: Int)
   require precondition arr
@@ -108,6 +110,8 @@ method FindMissingNumber (arr: Array Int)
 prove_correct FindMissingNumber by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0

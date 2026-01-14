@@ -41,6 +41,8 @@ def postcondition (lists : List (List Nat)) (n : Nat) (result : List Nat) :=
 
 end Specs
 
+section Impl
+
 method ExtractNthElements (lists : List (List Nat)) (n : Nat)
   return (result : List Nat)
   require precondition lists n
@@ -49,6 +51,8 @@ method ExtractNthElements (lists : List (List Nat)) (n : Nat)
     sorry
 
 prove_correct ExtractNthElements by sorry
+
+end Impl
 
 section TestCases
 

@@ -46,6 +46,8 @@ def postcondition (arr : List Int) (result : Option Int) :=
 
 end Specs
 
+section Impl
+
 method FirstDuplicate (arr: List Int)
   return (result: Option Int)
   require precondition arr
@@ -54,6 +56,8 @@ method FirstDuplicate (arr: List Int)
     sorry
 
 prove_correct FirstDuplicate by sorry
+
+end Impl
 
 section TestCases
 

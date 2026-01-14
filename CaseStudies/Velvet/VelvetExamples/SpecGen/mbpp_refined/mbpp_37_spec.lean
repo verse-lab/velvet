@@ -86,6 +86,8 @@ def postcondition (input : List IntOrString) (result : List IntOrString) :=
 
 end Specs
 
+section Impl
+
 method SortMixedList (input : List IntOrString)
   return (result : List IntOrString)
   require precondition input
@@ -96,6 +98,8 @@ method SortMixedList (input : List IntOrString)
 prove_correct SortMixedList by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0: Sample from the problem

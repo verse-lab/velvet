@@ -66,6 +66,8 @@ def postcondition (words : List String) (result : List (String × Nat)) :=
 
 end Specs
 
+section Impl
+
 method Top4FrequentWords (words: List String)
   return (result: List (String × Nat))
   require precondition words
@@ -74,6 +76,8 @@ method Top4FrequentWords (words: List String)
     sorry
 
 prove_correct Top4FrequentWords by sorry
+
+end Impl
 
 section TestCases
 

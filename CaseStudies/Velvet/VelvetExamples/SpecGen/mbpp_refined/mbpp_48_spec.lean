@@ -46,6 +46,8 @@ def postcondition (n : Nat) (result : Nat) :=
 
 end Specs
 
+section Impl
+
 method SetOddBits (n : Nat)
   return (result : Nat)
   require precondition n
@@ -56,6 +58,8 @@ method SetOddBits (n : Nat)
 prove_correct SetOddBits by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 1: Input n = 10 (binary: 1010)

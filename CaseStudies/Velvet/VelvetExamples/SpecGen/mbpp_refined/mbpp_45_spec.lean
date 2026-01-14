@@ -61,6 +61,8 @@ def postcondition (arr : Array Nat) (result : Nat) :=
 
 end Specs
 
+section Impl
+
 method FindArrayGCD (arr: Array Nat)
   return (result: Nat)
   require precondition arr
@@ -69,6 +71,8 @@ method FindArrayGCD (arr: Array Nat)
     sorry
 
 prove_correct FindArrayGCD by sorry
+
+end Impl
 
 section TestCases
 

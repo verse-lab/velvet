@@ -52,6 +52,8 @@ def postcondition (strings : List String) (result : List String) :=
 
 end Specs
 
+section Impl
+
 method RemoveDigitsFromList (strings: List String)
   return (result: List String)
   require precondition strings
@@ -62,6 +64,8 @@ method RemoveDigitsFromList (strings: List String)
 prove_correct RemoveDigitsFromList by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 -- Test case 0: From problem description
 def test0_arr : List String := ["4words", "3letters", "4digits"]

@@ -65,6 +65,8 @@ def postcondition (n : Nat) (binary : List Nat) :=
 
 end Specs
 
+section Impl
+
 method DecimalToBinary (n: Nat)
   return (binary: List Nat)
   require precondition n
@@ -75,6 +77,8 @@ method DecimalToBinary (n: Nat)
 prove_correct DecimalToBinary by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0

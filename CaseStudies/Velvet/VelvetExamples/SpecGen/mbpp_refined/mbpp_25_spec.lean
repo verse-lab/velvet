@@ -43,6 +43,8 @@ def postcondition (arr : Array Int) (product : Int) :=
 
 end Specs
 
+section Impl
+
 method ProductOfNonRepeated (arr : Array Int)
   return (product : Int)
   require precondition arr
@@ -53,6 +55,8 @@ method ProductOfNonRepeated (arr : Array Int)
 prove_correct ProductOfNonRepeated by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0: From problem description

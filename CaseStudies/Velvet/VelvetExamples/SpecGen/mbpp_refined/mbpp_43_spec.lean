@@ -55,6 +55,8 @@ def postcondition (input : List Char) (result : String) :=
 
 end Specs
 
+section Impl
+
 method FindLowercaseUnderscorePattern (input : List Char)
   return (result : String)
   require precondition input
@@ -63,6 +65,8 @@ method FindLowercaseUnderscorePattern (input : List Char)
     sorry
 
 prove_correct FindLowercaseUnderscorePattern by sorry
+
+end Impl
 
 section TestCases
 

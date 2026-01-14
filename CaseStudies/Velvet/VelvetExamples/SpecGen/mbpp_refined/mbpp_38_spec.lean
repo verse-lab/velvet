@@ -75,6 +75,8 @@ def postcondition (lst : Array Int) (result : Rat) :=
 
 end Specs
 
+section Impl
+
 method DivFirstEvenOdd (lst : Array Int)
   return (result : Rat)
   require precondition lst
@@ -83,6 +85,8 @@ method DivFirstEvenOdd (lst : Array Int)
     sorry
 
 prove_correct DivFirstEvenOdd by sorry
+
+end Impl
 
 section TestCases
 

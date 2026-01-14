@@ -68,6 +68,8 @@ def postcondition (numerator : Nat) (denominator : Nat) (n : Nat) (digit : Nat) 
 
 end Specs
 
+section Impl
+
 method FindNthDigit (numerator: Nat) (denominator: Nat) (n: Nat)
   return (digit: Nat)
   require precondition numerator denominator n
@@ -78,6 +80,8 @@ method FindNthDigit (numerator: Nat) (denominator: Nat) (n: Nat)
 prove_correct FindNthDigit by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 1: 1/2 = 0.5, digit at position 1 is 5

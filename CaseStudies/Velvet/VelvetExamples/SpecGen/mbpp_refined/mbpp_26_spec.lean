@@ -51,6 +51,8 @@ def postcondition (lists : List (List Nat)) (k : Nat) (result : Bool) :=
 
 end Specs
 
+section Impl
+
 method CheckAllKElements (lists : List (List Nat)) (k : Nat)
   return (result : Bool)
   require precondition lists k
@@ -59,6 +61,8 @@ method CheckAllKElements (lists : List (List Nat)) (k : Nat)
     sorry
 
 prove_correct CheckAllKElements by sorry
+
+end Impl
 
 section TestCases
 

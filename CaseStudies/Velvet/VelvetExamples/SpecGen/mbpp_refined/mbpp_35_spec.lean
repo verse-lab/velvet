@@ -41,6 +41,8 @@ def postcondition (n : Nat) (result : Nat) :=
 
 end Specs
 
+section Impl
+
 method NthRectangularNumber (n: Nat)
   return (result: Nat)
   require precondition n
@@ -51,6 +53,8 @@ method NthRectangularNumber (n: Nat)
 prove_correct NthRectangularNumber by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 -- Test case 0: Sample from the problem (n = 4)
 def test0_n : Nat := 4

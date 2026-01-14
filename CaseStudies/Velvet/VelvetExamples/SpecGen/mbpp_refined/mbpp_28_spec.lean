@@ -31,18 +31,11 @@ section Specs
 
 -- Helper Functions
 
-register_specdef_allow_recursion
-
-def factorial (n: Nat) : Nat :=
-  match n with
-  | 0 => 1
-  | n' + 1 => (n' + 1) * factorial n'
-
 -- Helper definition for binomial coefficient
 -- This is the mathematical definition: C(n, k) = n! / (k! * (n-k)!)
 def binomialCoeff (n: Nat) (k: Nat) : Nat :=
   if k > n then 0
-  else factorial n / (factorial k * factorial (n - k))
+  else n.factorial / (k.factorial * (n - k).factorial)
 
 def require1 (n : Nat) (k : Nat) :=
   k ≤ n  -- k cannot exceed n
@@ -58,6 +51,8 @@ def postcondition (n : Nat) (k : Nat) (result : Nat) :=
 
 end Specs
 
+section Impl
+
 method BinomialCoefficient (n: Nat) (k: Nat)
   return (result: Nat)
   require precondition n k
@@ -68,6 +63,8 @@ method BinomialCoefficient (n: Nat) (k: Nat)
 prove_correct BinomialCoefficient by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0: From problem description

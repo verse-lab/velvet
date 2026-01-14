@@ -37,6 +37,8 @@ def postcondition (n : Nat) (m : Nat) (multiples : Array Nat) :=
 
 end Specs
 
+section Impl
+
 method FindMultiples (n: Nat) (m: Nat)
   return (multiples: Array Nat)
   require precondition n m
@@ -47,6 +49,8 @@ method FindMultiples (n: Nat) (m: Nat)
 prove_correct FindMultiples by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 1: Find 5 multiples of 3

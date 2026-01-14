@@ -3,16 +3,11 @@ import Mathlib.Tactic
 
 -- Helper Functions
 
-def factorial (n: Nat) : Nat :=
-  match n with
-  | 0 => 1
-  | n + 1 => (n + 1) * factorial n
-
 def lastDigit (n: Nat) : Nat :=
   n % 10
 
 def factorialQuotient (a b: Nat) : Nat :=
-  factorial b / factorial a
+  b.factorial / a.factorial
 
 -- Postcondition clauses
 
@@ -110,9 +105,9 @@ lemma test3_postcondition :
   -- Let's calculate the factorial quotient and its last digit for the test case.
   have h_factorial_quotient : factorialQuotient 0 3 = 6 := by
     -- By definition of factorial, we know that 3! = 6 and 0! = 1.
-    have h_factorial : factorial 3 = 6 ∧ factorial 0 = 1 := by
+    have h_factorial : Nat.factorial 3 = 6 ∧ Nat.factorial 0 = 1 := by
       -- We can prove this by definition.
-      simp [factorial];
+      simp [Nat.factorial];
     unfold factorialQuotient
     simp [h_factorial];
   -- Since 6 is the last digit and it's less than 10, the postcondition holds.
@@ -133,7 +128,7 @@ lemma test5_postcondition :
   -- By definition of factorialQuotient, we know that factorialQuotient 3 5 = 5! / 3! = 120 / 6 = 20.
   have h_factorialQuotient : factorialQuotient 3 5 = 20 := by
     -- By definition of factorialQuotient, we have factorialQuotient 3 5 = factorial 5 / factorial 3.
-    simp [factorialQuotient, factorial];
+    simp [factorialQuotient, Nat.factorial];
   -- By definition of postcondition, we need to show that the last digit of 20 is 0 and that it's less than 10.
   simp [postcondition, h_factorialQuotient];
   -- By definition of ensures1 and ensures2, we need to show that the last digit of 20 is 0 and that it's less than 10.

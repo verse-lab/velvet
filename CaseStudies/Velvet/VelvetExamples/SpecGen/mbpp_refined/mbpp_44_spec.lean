@@ -50,6 +50,8 @@ def postcondition (input : String) (result : String) :=
 
 end Specs
 
+section Impl
+
 method MatchWordAtBeginning (input: String)
   return (result: String)
   require precondition input
@@ -58,6 +60,8 @@ method MatchWordAtBeginning (input: String)
     sorry
 
 prove_correct MatchWordAtBeginning by sorry
+
+end Impl
 
 section TestCases
 

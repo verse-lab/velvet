@@ -54,6 +54,8 @@ def postcondition (lst : List Nat) (result: Nat) :=
 
 end Specs
 
+section Impl
+
 method GetOddOccurrence (lst : List Nat)
   return (result: Nat)
   require precondition lst
@@ -64,6 +66,8 @@ method GetOddOccurrence (lst : List Nat)
 prove_correct GetOddOccurrence by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0: Single element (occurs once)

@@ -75,6 +75,8 @@ def postcondition (s : String) (result : String) :=
 
 end Specs
 
+section Impl
+
 method RearrangeString (s: String)
   return (result: String)
   require precondition s
@@ -83,6 +85,8 @@ method RearrangeString (s: String)
     sorry
 
 prove_correct RearrangeString by sorry
+
+end Impl
 
 section TestCases
 

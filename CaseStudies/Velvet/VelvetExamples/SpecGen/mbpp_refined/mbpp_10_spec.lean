@@ -33,6 +33,8 @@ def postcondition (dataset : List Nat) (n : Nat) (result : List Nat) :=
 
 end Specs
 
+section Impl
+
 method getNSmallest (dataset : List Nat) (n : Nat)
   return (result : List Nat)
   require precondition dataset n
@@ -43,6 +45,8 @@ method getNSmallest (dataset : List Nat) (n : Nat)
 prove_correct getNSmallest by sorry
 
 -- Test cases for specification validation
+end Impl
+
 section TestCases
 
 -- Test case 0: From problem description

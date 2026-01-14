@@ -3,14 +3,9 @@ import Mathlib.Tactic
 
 -- Helper Functions
 
-def factorial (n: Nat) : Nat :=
-  match n with
-  | 0 => 1
-  | n' + 1 => (n' + 1) * factorial n'
-
 def binomialCoeff (n: Nat) (k: Nat) : Nat :=
   if k > n then 0
-  else factorial n / (factorial k * factorial (n - k))
+  else n.factorial / (k.factorial * (n - k).factorial)
 
 def require1 (n : Nat) (k : Nat) :=
   k ≤ n  -- k cannot exceed n

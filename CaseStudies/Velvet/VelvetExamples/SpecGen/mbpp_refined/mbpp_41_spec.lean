@@ -49,6 +49,8 @@ def postcondition (lst : List Int) (result : List Int) :=
 
 end Specs
 
+section Impl
+
 method FilterEven (lst: List Int)
   return (result: List Int)
   require precondition lst
@@ -57,6 +59,8 @@ method FilterEven (lst: List Int)
     sorry
 
 prove_correct FilterEven by sorry
+
+end Impl
 
 section TestCases
 

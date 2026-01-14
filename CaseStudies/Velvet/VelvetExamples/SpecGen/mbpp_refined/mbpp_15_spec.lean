@@ -56,6 +56,8 @@ def postcondition (str : List Char) (result : List (List Char)) :=
 
 end Specs
 
+section Impl
+
 method SplitAtLowercase (str: List Char)
   return (result: List (List Char))
   require precondition str
@@ -64,6 +66,8 @@ method SplitAtLowercase (str: List Char)
     sorry
 
 prove_correct SplitAtLowercase by sorry
+
+end Impl
 
 section TestCases
 

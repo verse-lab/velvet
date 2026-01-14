@@ -64,6 +64,8 @@ def postcondition (lists : List (List Nat)) (result : (Nat × List Nat)) :=
 
 end Specs
 
+section Impl
+
 method MinLengthList (lists : List (List Nat))
   return (result : (Nat × List Nat))
   require precondition lists
@@ -72,6 +74,8 @@ method MinLengthList (lists : List (List Nat))
     sorry
 
 prove_correct MinLengthList by sorry
+
+end Impl
 
 section TestCases
 

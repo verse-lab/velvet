@@ -52,6 +52,8 @@ def postcondition (n : Nat) (count : Nat) :=
 
 end Specs
 
+section Impl
+
 method DominoTiling (n: Nat)
   return (count: Nat)
   require precondition n
@@ -60,6 +62,8 @@ method DominoTiling (n: Nat)
     sorry
 
 prove_correct DominoTiling by sorry
+
+end Impl
 
 section TestCases
 

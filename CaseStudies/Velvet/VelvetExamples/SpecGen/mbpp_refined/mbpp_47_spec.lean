@@ -31,20 +31,13 @@ section Specs
 
 -- Helper Functions
 
-register_specdef_allow_recursion
-
-def factorial (n: Nat) : Nat :=
-  match n with
-  | 0 => 1
-  | n + 1 => (n + 1) * factorial n
-
 -- Get the last digit (ones place) of a natural number
 def lastDigit (n: Nat) : Nat :=
   n % 10
 
 -- Compute the quotient of two factorials: b! / a!
 def factorialQuotient (a b: Nat) : Nat :=
-  factorial b / factorial a
+  b.factorial / a.factorial
 
 -- Postcondition clauses
 def ensures1 (a : Nat) (b : Nat) (result : Nat) :=
@@ -60,6 +53,8 @@ def postcondition (a : Nat) (b : Nat) (result : Nat) :=
 
 end Specs
 
+section Impl
+
 method LastDigitFactorialDiv (a: Nat) (b: Nat)
   return (result: Nat)
   require precondition a b
@@ -68,6 +63,8 @@ method LastDigitFactorialDiv (a: Nat) (b: Nat)
     sorry
 
 prove_correct LastDigitFactorialDiv by sorry
+
+end Impl
 
 section TestCases
 

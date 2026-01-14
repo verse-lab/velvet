@@ -50,6 +50,8 @@ def postcondition (arr : Array Int) (sum : Int) :=
 
 end Specs
 
+section Impl
+
 method SumOfRepeated (arr: Array Int)
   return (sum: Int)
   require precondition arr
@@ -58,6 +60,8 @@ method SumOfRepeated (arr: Array Int)
     sorry
 
 prove_correct SumOfRepeated by sorry
+
+end Impl
 
 section TestCases
 

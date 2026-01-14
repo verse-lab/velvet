@@ -58,6 +58,8 @@ def postcondition (arrays : Array (Array Int)) (maxSum : Int) :=
 
 end Specs
 
+section Impl
+
 method MaxArraySum (arrays: Array (Array Int))
   return (maxSum: Int)
   require precondition arrays
@@ -66,6 +68,8 @@ method MaxArraySum (arrays: Array (Array Int))
     sorry
 
 prove_correct MaxArraySum by sorry
+
+end Impl
 
 section TestCases
 

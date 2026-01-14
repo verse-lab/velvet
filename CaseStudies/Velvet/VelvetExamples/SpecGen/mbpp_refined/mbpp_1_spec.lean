@@ -74,6 +74,8 @@ def postcondition (cost: Array (Array Nat)) (m: Nat) (n: Nat) (minCost: Nat) :=
 
 end Specs
 
+section Impl
+
 method MinCostPath (cost: Array (Array Nat)) (m: Nat) (n: Nat)
   return (minCost: Nat)
   require precondition cost m n
@@ -82,6 +84,8 @@ method MinCostPath (cost: Array (Array Nat)) (m: Nat) (n: Nat)
   pure 0  -- placeholder body for type checking
 
 prove_correct MinCostPath by sorry
+
+end Impl
 
 section TestCases
 

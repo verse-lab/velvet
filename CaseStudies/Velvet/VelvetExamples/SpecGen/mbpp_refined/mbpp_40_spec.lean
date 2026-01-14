@@ -60,6 +60,8 @@ def postcondition (lists : List (List Nat)) (result : List (Nat × Nat)) :=
 
 end Specs
 
+section Impl
+
 method FindFrequency (lists : List (List Nat))
   return (result : List (Nat × Nat))
   require precondition lists
@@ -68,6 +70,8 @@ method FindFrequency (lists : List (List Nat))
     sorry
 
 prove_correct FindFrequency by sorry
+
+end Impl
 
 section TestCases
 
