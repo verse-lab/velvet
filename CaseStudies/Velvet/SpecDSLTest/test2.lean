@@ -5,26 +5,53 @@ register_specdef_forbidden List.filter
 
 section Specs
 
--- This should error: "axiom is not allowed in specdef sections"
+/--
+error: axiom is not allowed in Specs sections
+-/
+#guard_msgs in
 axiom myAxiom : Nat
 
--- This should error: "sorry is not allowed in specdef sections"
+/--
+error: sorry is not allowed in Specs sections
+-/
+#guard_msgs in
 def mylemma (x : Nat) : x ≤ 1 := sorry
 
--- This should error: recursive function is not allowed
+/--
+error: recursive function 'factorial' is not allowed in Specs sections
+-/
+#guard_msgs in
 def factorial (n : Nat) : Nat :=
   if n = 0 then 1 else n * factorial (n - 1)
 
--- This should error: let rec is not allowed
+/--
+error: 'let rec' (recursive let binding) is not allowed in Specs sections
+-/
+#guard_msgs in
 def testLetRec : Nat :=
   let rec f (x : Nat) := if x = 0 then 0 else f (x - 1)
   f 10
 
--- This should error: "'List.filter' is not allowed in specdef sections"
+/--
+error: recursive function 'fib' is not allowed in Specs sections
+-/
+#guard_msgs in
+def fib (n: Nat) : Nat :=
+  if n < 2 then 1 else
+  fib (n - 1) + fib (n - 2)
+  termination_by n
+
+/--
+error: 'List.filter' is not allowed in Specs sections
+-/
+#guard_msgs in
 def invalidFunction (xs : List Nat) : List Nat :=
   List.filter (· > 0) xs
 
 def precondition := True
 
--- This should error: specdef section must contain def_post
+/--
+error: Specs section must contain def postcondition
+-/
+#guard_msgs in
 end Specs

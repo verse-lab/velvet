@@ -89,3 +89,10 @@ abbrev PrePostState := Option PrePostInfo
 initialize prePostState : EnvExtension PrePostState ←
   registerEnvExtension (pure none)
 
+-- State to track function names that need attributes added at end of Specs section
+abbrev PendingAttrsState := List Name
+
+-- Environment extension to track pending attribute additions
+initialize pendingAttrs : EnvExtension PendingAttrsState ←
+  registerEnvExtension (pure [])
+

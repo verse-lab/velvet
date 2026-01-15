@@ -130,6 +130,16 @@ def bindersMatch (b1 b2 : Syntax) : CommandElabM Bool := do
       prePostState.modify (fun _ => none)  -- Clear state when exiting
     -- Call the builtin end elaborator
     Lean.Elab.Command.elabEnd stx
+    -- Add attributes to all pending functions
+    let pending <- pendingAttrs.get
+    for name in pending do
+      try
+        let attrCmd <- `(command| attribute [loomAbstractionSimp, velvetSpecHelper] $(mkIdent name))
+        logInfo s!"attribute [loomAbstractionSimp, velvetSpecHelper] {name}"
+        elabCommand attrCmd
+      catch e =>
+        logInfo s!"Failed to add attribute to {name}: {← e.toMessageData.toString}"
+    pendingAttrs.modify (fun _ => [])    -- Clear pending attributes
   | _ =>
     -- Fallback to default end elaborator
     Lean.Elab.Command.elabEnd stx
@@ -170,8 +180,16 @@ elab dec:declaration : command => do
 
     -- Check if this is a precondition or postcondition definition
     match dec with
-    | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? def $id:ident $params* $[: $ty]? := $val:term) =>
-      let defName := id.getId
+    | `(command| $[$doc:docComment]? $[$attrs:attributes]? $[$vis:visibility]? def $id:declId $sig:optDeclSig $val:declVal) =>
+      let defName := match id with
+        | `(declId| $name:ident) => name.getId
+        | _ => Name.anonymous
+
+      -- Extract parameters from optDeclSig
+      let params := match sig with
+        | `(optDeclSig| $params:bracketedBinder*) => params
+        | `(optDeclSig| $params:bracketedBinder* : $_) => params
+        | _ => #[]
 
       if defName == `precondition then
         -- Handle precondition definition
@@ -190,9 +208,13 @@ elab dec:declaration : command => do
         }
         prePostState.modify (fun _ => some newInfo)
 
-        -- Elaborate with loomAbstractionSimp attribute
-        let defStx <- `(command| @[loomAbstractionSimp] def $id $params* $[: $ty]? := $val)
-        elabCommand defStx
+        -- Elaborate original definition first
+        elabCommand dec
+        -- Record this function for later attribute addition
+        let name <- match id with
+          | `(declId| $name:ident) => pure name.getId
+          | _ => throwError "Invalid function name"
+        pendingAttrs.modify (name :: ·)
         return
 
       else if defName == `postcondition then
@@ -231,9 +253,13 @@ elab dec:declaration : command => do
         }
         prePostState.modify (fun _ => some newInfo)
 
-        -- Elaborate with loomAbstractionSimp attribute
-        let defStx <- `(command| @[loomAbstractionSimp] def $id $params* $[: $ty]? := $val)
-        elabCommand defStx
+        -- Elaborate original definition first
+        elabCommand dec
+        -- Record this function for later attribute addition
+        let name <- match id with
+          | `(declId| $name:ident) => pure name.getId
+          | _ => throwError "Invalid function name"
+        pendingAttrs.modify (name :: ·)
         return
 
       else
@@ -241,10 +267,13 @@ elab dec:declaration : command => do
         -- Check for recursion (not checked by common restrictions without defName)
         checkSpecsRestrictions val.raw (some defName)
 
-        -- Elaborate normally, then add attribute
+        -- Elaborate original definition first, then add attributes
         elabCommand dec
-        let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
-        elabCommand attrCmd
+        -- Extract identifier name for attribute command
+        let name <- match id with
+          | `(declId| $name:ident) => pure name.getId
+          | _ => throwError "Invalid function name"
+        pendingAttrs.modify (name :: ·)
         return
 
     | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? axiom $id:ident : $_) =>
@@ -254,7 +283,7 @@ elab dec:declaration : command => do
     | `(command| $[$_:docComment]? $[$_:attributes]? $[$_:visibility]? theorem $id:ident $_ := $_) =>
       -- Elaborate normally, then add attribute
       elabCommand dec
-      let attrCmd <- `(command| attribute [loomAbstractionSimp] $id)
+      let attrCmd <- `(command| attribute [loomAbstractionSimp, velvetSpecHelper] $id)
       elabCommand attrCmd
       return
 

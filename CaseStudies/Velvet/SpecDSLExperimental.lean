@@ -12,7 +12,7 @@ set_option loom.semantics.choice "demonic"
 open Lean Elab Command Parser Meta
 
 
--- `spec` is like `def` but automatically adds `@[loomAbstractionSimp, velvetSpecHelper]` attribute 
+-- `spec` is like `def` but automatically adds `@[loomAbstractionSimp, velvetSpecHelper]` attribute
 elab "spec " name:declId sig:optDeclSig val:declVal : command => do
   let valRaw := val.raw
   if valRaw.isOfKind ``Command.declValSimple then
