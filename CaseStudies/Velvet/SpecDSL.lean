@@ -135,7 +135,6 @@ def bindersMatch (b1 b2 : Syntax) : CommandElabM Bool := do
     for name in pending do
       try
         let attrCmd <- `(command| attribute [loomAbstractionSimp, velvetSpecHelper] $(mkIdent name))
-        logInfo s!"attribute [loomAbstractionSimp, velvetSpecHelper] {name}"
         elabCommand attrCmd
       catch e =>
         logInfo s!"Failed to add attribute to {name}: {← e.toMessageData.toString}"
