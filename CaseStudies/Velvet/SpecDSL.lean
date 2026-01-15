@@ -1,52 +1,9 @@
 import Lean
 import Loom.MonadAlgebras.WP.Attr
+import CaseStudies.Velvet.Attributes
 
 open Lean Elab Command Term Meta
 open Lean.Parser.Command
-
--- List of forbidden function names that cannot be used in specdef sections
-abbrev ForbiddenFunctionsState := List Name
-
--- Environment extension to track forbidden functions
-initialize forbiddenFunctions : EnvExtension ForbiddenFunctionsState ←
-  registerEnvExtension (pure [])
-
--- State to track whether recursion is forbidden in specdef sections
-abbrev ForbidRecursionState := Bool
-
--- Environment extension to track whether recursion is forbidden
-initialize forbidRecursion : EnvExtension ForbidRecursionState ←
-  registerEnvExtension (pure true)
-
--- State to track whether we're in a Specs section
-abbrev SpecsSectExtState := Bool
-
--- Environment extension to track active Specs section
-initialize specsSect : EnvExtension SpecsSectExtState ←
-  registerEnvExtension (pure false)
-
--- Structure to track precondition and postcondition information
-structure PrePostInfo where
-  preParams : Array Syntax  -- Parameters of precondition
-  postParams : Array Syntax -- Parameters of postcondition
-  postReturnParam : Syntax  -- The return value parameter
-  hasPrecondition : Bool := false
-  hasPostcondition : Bool := false
-
--- State to track precondition and postcondition per section
-abbrev PrePostState := Option PrePostInfo
-
--- Environment extension to track precondition/postcondition
-initialize prePostState : EnvExtension PrePostState ←
-  registerEnvExtension (pure none)
-
--- Helper to get environment extension state
-private def _root_.Lean.EnvExtension.get [Inhabited σ] (ext : EnvExtension σ) [Monad m] [MonadEnv m] : m σ := do
-  return ext.getState (<- getEnv)
-
--- Helper to modify environment extension state
-private def _root_.Lean.EnvExtension.modify [Inhabited σ] (ext : EnvExtension σ) [MonadEnv m] (s : σ -> σ) : m Unit :=
-  Lean.modifyEnv (ext.modifyState · s)
 
 -- Check if we're currently in a Specs section
 def inSpecsSection {m} [Monad m] [MonadEnv m] : m Bool := do
