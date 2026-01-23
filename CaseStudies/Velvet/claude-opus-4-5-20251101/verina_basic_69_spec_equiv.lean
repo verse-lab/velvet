@@ -1,12 +1,33 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: 446b14c8-767c-48cf-8544-813c2ced4876
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+
+The following was proved by Aristotle:
+
+- theorem precondition_equiv (a : Array Int) (e : Int):
+  VerinaSpec.LinearSearch_precond a e ↔ LeetProofSpec.precondition a e
+
+- theorem postcondition_equiv (a : Array Int) (e : Int) (result : Nat) (h_precond : VerinaSpec.LinearSearch_precond a e):
+  VerinaSpec.LinearSearch_postcond a e result h_precond ↔ LeetProofSpec.postcondition a e result
+-/
+
 import Lean
 import Mathlib.Tactic
+
 
 namespace VerinaSpec
 
 def LinearSearch_precond (a : Array Int) (e : Int) : Prop :=
   -- !benchmark @start precond
   ∃ i, i < a.size ∧ a[i]! = e
-  -- !benchmark @end precond
+
+-- !benchmark @end precond
 
 def linearSearchAux (a : Array Int) (e : Int) (n : Nat) : Nat :=
   if n < a.size then
@@ -17,7 +38,8 @@ def linearSearchAux (a : Array Int) (e : Int) (n : Nat) : Nat :=
 def LinearSearch_postcond (a : Array Int) (e : Int) (result: Nat) (h_precond : LinearSearch_precond (a) (e)) :=
   -- !benchmark @start postcond
   (result < a.size) ∧ (a[result]! = e) ∧ (∀ k : Nat, k < result → a[k]! ≠ e)
-  -- !benchmark @end postcond
+
+-- !benchmark @end postcond
 
 end VerinaSpec
 
@@ -42,8 +64,9 @@ end LeetProofSpec
 
 theorem precondition_equiv (a : Array Int) (e : Int):
   VerinaSpec.LinearSearch_precond a e ↔ LeetProofSpec.precondition a e := by
-  sorry
+  exact?
 
 theorem postcondition_equiv (a : Array Int) (e : Int) (result : Nat) (h_precond : VerinaSpec.LinearSearch_precond a e):
   VerinaSpec.LinearSearch_postcond a e result h_precond ↔ LeetProofSpec.postcondition a e result := by
-  sorry
+  -- The postconditions are equivalent because they both require the result to be a valid index, the element at that index to be e, and all elements before that index to be different from e.
+  simp [VerinaSpec.LinearSearch_postcond, LeetProofSpec.postcondition]

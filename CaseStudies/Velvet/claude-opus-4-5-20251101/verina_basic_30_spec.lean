@@ -30,7 +30,7 @@ section Specs
 
 -- Precondition: arrays have same length and all elements in b are non-zero
 def require1 (a : Array Int) (b : Array Int) :=
-  a.size = b.size
+  a.size = b.size ∧ a.size > 0
 
 def require2 (a : Array Int) (b : Array Int) :=
   ∀ i : Nat, i < b.size → b[i]! ≠ 0

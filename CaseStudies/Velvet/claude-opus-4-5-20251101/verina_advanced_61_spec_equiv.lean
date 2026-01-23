@@ -1,3 +1,21 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: 030f810e-5a2c-4c6c-8e73-efce57aaf827
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+
+The following was proved by Aristotle:
+
+- theorem precondition_equiv (nums : List Int):
+  VerinaSpec.productExceptSelf_precond nums ↔ LeetProofSpec.precondition nums
+
+- theorem postcondition_equiv (nums : List Int) (result : List Int) (h_precond : VerinaSpec.productExceptSelf_precond nums):
+  VerinaSpec.productExceptSelf_postcond nums result h_precond ↔ LeetProofSpec.postcondition nums result
+-/
 
 import Lean
 import Mathlib.Tactic
@@ -62,8 +80,17 @@ end LeetProofSpec
 
 theorem precondition_equiv (nums : List Int):
   VerinaSpec.productExceptSelf_precond nums ↔ LeetProofSpec.precondition nums := by
-  sorry
+  exact Iff.rfl
 
 theorem postcondition_equiv (nums : List Int) (result : List Int) (h_precond : VerinaSpec.productExceptSelf_precond nums):
   VerinaSpec.productExceptSelf_postcond nums result h_precond ↔ LeetProofSpec.postcondition nums result := by
-  sorry
+  -- By definition of `postcondition`, we need to show that the result of `productExceptSelf` satisfies the conditions given in both specifications.
+  simp [VerinaSpec.productExceptSelf_postcond, LeetProofSpec.postcondition];
+  -- By definition of `VerinaSpec.myprod`, we have `VerinaSpec.myprod xs = List.prod xs`.
+  have h_myprod : ∀ (xs : List ℤ), VerinaSpec.myprod xs = List.prod xs := by
+    intro xs
+    induction' xs with x xs ih;
+    · rfl;
+    · simp [ih, VerinaSpec.myprod];
+  simp +decide [ h_myprod, eq_comm, List.prod_eq_foldl ];
+  exact fun _ => Iff.rfl

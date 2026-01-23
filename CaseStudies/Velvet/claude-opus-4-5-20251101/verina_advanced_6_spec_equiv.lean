@@ -1,22 +1,6 @@
-/-
-This file was edited by Aristotle.
-
-Lean version: leanprover/lean4:v4.24.0
-Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
-This project request had uuid: 4de97130-3c29-4be5-9295-d1f1c7c290a7
-
-To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
-Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
-
-The following was proved by Aristotle:
-
-- theorem precondition_equiv (s : String):
-  VerinaSpec.allVowels_precond s ↔ LeetProofSpec.precondition s
--/
-
 import Lean
 import Mathlib.Tactic
-
+import Batteries.Data.String.Lemmas
 
 namespace VerinaSpec
 
@@ -71,14 +55,37 @@ theorem precondition_equiv (s : String):
 
 theorem postcondition_equiv (s : String) (result : Bool) (h_precond : VerinaSpec.allVowels_precond s):
   VerinaSpec.allVowels_postcond s result h_precond ↔ LeetProofSpec.postcondition s result := by
+  have hToLowerEq : ∀ c : Char, Char.toLower c = VerinaSpec.toLower c := by
+    intros c; simp [Char.toLower, VerinaSpec.toLower]; rfl
+  have toLowerSwap : ∀ str : String,
+    str.toLower.data = str.data.map Char.toLower := by
+    unfold String.toLower
+    simp [String.map_eq]
   have hfeq :
-    ∀ str : String,
-    ∀ v : Char,
+    ∀ str : String, ∀ v : Char,
       let chars := VerinaSpec.normalize_str str
-      (chars.contains v = true) ↔ (v ∈ s.toLower.toList) := by
+      (chars.contains v = true) ↔ (v ∈ str.toLower.toList) := by
     intro str v
     simp [VerinaSpec.normalize_str]
-    sorry
+    rw [toLowerSwap]
+    constructor
+    · intros ha; rcases ha with ⟨a, hin, hToLower⟩
+      rw [← hToLowerEq] at hToLower
+      simp [← hToLower]
+      use a
+    · intros hv
+      generalize str.data = s at *
+      induction s with
+      | nil => simp at hv
+      | cons head tail hind =>
+          simp at hv
+          cases hv with
+          | inl hv =>
+              use head
+              simp [← hToLowerEq, hv]
+          | inr hv =>
+              simp at *; right
+              simp [← hToLowerEq, hv]
   simp [VerinaSpec.allVowels_postcond, LeetProofSpec.postcondition]
   apply Iff.intro
   · intro hresult

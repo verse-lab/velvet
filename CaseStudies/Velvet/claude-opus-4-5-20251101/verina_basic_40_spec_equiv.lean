@@ -1,11 +1,33 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: 6bf0dcc8-209b-422b-9812-5a4803cfa602
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+
+The following was proved by Aristotle:
+
+- theorem precondition_equiv (s : Array Int):
+  VerinaSpec.secondSmallest_precond s ↔ LeetProofSpec.precondition s
+
+- theorem postcondition_equiv (s : Array Int) (result : Int) (h_precond : VerinaSpec.secondSmallest_precond s):
+  VerinaSpec.secondSmallest_postcond s result h_precond ↔ LeetProofSpec.postcondition s result
+-/
+
 import Lean
 import Mathlib.Tactic
+
 
 namespace VerinaSpec
 
 def secondSmallest_precond (s : Array Int) : Prop :=
   -- !benchmark @start precond
-  s.size > 1 ∧ ∃ i j, i < s.size ∧ j < s.size ∧ s[i]! ≠ s[j]!  -- at least two distinct values
+  s.size > 1 ∧ ∃ i j, i < s.size ∧ j < s.size ∧ s[i]! ≠ s[j]!
+
+-- at least two distinct values
   -- !benchmark @end precond
 
 def minListHelper : List Int → Int
@@ -39,7 +61,8 @@ def secondSmallest_postcond (s : Array Int) (result: Int) (h_precond : secondSma
   (∃ i, i < s.size ∧ s[i]! = result) ∧
   (∃ j, j < s.size ∧ s[j]! < result ∧
     ∀ k, k < s.size → s[k]! ≠ s[j]! → s[k]! ≥ result)
-  -- !benchmark @end postcond
+
+-- !benchmark @end postcond
 
 end VerinaSpec
 
@@ -62,10 +85,14 @@ def inArray (arr : Array Int) (val : Int) : Prop :=
 
 -- Precondition clauses
 def require1 (s : Array Int) :=
-  s.size ≥ 2  -- Array has at least two elements
+  s.size ≥ 2
+
+-- Array has at least two elements
 
 def require2 (s : Array Int) :=
-  hasAtLeastTwoDistinct s  -- Array has at least two distinct values
+  hasAtLeastTwoDistinct s
+
+-- Array has at least two distinct values
 
 -- Postcondition clauses
 -- The result is an element of the array
@@ -95,8 +122,28 @@ end LeetProofSpec
 
 theorem precondition_equiv (s : Array Int):
   VerinaSpec.secondSmallest_precond s ↔ LeetProofSpec.precondition s := by
-  sorry
+  bound
 
 theorem postcondition_equiv (s : Array Int) (result : Int) (h_precond : VerinaSpec.secondSmallest_precond s):
   VerinaSpec.secondSmallest_postcond s result h_precond ↔ LeetProofSpec.postcondition s result := by
-  sorry
+  constructor;
+  · rintro ⟨ ⟨ i, hi, hi' ⟩, ⟨ j, hj, hj', hj'' ⟩ ⟩;
+    constructor;
+    · exact ⟨ i, hi, hi' ⟩;
+    · constructor;
+      · intro m hm;
+        unfold LeetProofSpec.isMinimum at hm;
+        grind;
+      · -- To prove the third part of the postcondition, we need to show that for any minimum m, there's no element between m and result.
+        intro m hm
+        obtain ⟨k, hk⟩ : ∃ k, k < s.size ∧ s[k]! = m := by
+          exact hm.1;
+        grind;
+  · -- Let's choose any $m$ that is the minimum element of the array.
+    intro h
+    obtain ⟨i, hi⟩ : ∃ i < s.size, s[i]! = result := h.left
+    obtain ⟨m, hm⟩ : ∃ m, (∃ i < s.size, s[i]! = m) ∧ (∀ j < s.size, s[j]! ≥ m) := by
+      have h_min : ∃ m ∈ Finset.image (fun i => s[i]!) (Finset.range s.size), ∀ n ∈ Finset.image (fun i => s[i]!) (Finset.range s.size), m ≤ n := by
+        exact ⟨ Finset.min' ( Finset.image ( fun i => s[i]! ) ( Finset.range s.size ) ) ⟨ _, Finset.mem_image_of_mem _ ( Finset.mem_range.mpr hi.1 ) ⟩, Finset.min'_mem _ _, fun n hn => Finset.min'_le _ _ hn ⟩;
+      aesop;
+    exact ⟨ ⟨ i, hi.1, hi.2 ⟩, by obtain ⟨ j, hj₁, hj₂ ⟩ := hm.1; exact ⟨ j, hj₁, by linarith [ h.2.1 m hm ], fun k hk₁ hk₂ => by linarith [ h.2.2 m hm k hk₁ ( lt_of_le_of_ne ( hm.2 k hk₁ ) ( Ne.symm <| by aesop ) ) ] ⟩ ⟩

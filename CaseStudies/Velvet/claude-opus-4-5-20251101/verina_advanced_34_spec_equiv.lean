@@ -1,4 +1,12 @@
 /-
+The post-condition of LeetProof is weak.
+
+It uses result.toNat. However, Int.toNat maps negative integers to 0.
+
+Thus, if the actual result is 0, the LeetProof spec allows any negative integer as well.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

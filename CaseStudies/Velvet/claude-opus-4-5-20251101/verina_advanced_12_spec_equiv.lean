@@ -1,4 +1,29 @@
 /-
+Verina’s specification is incorrect because it characterizes the first
+value with multiple occurrences rather than the first duplicate encountered.
+For example, given the input
+
+```
+[1, 2, 2, 1]
+```
+
+the correct result should be 2, but Verina's specification only accepts 1
+
+Moreover, Verina’s benchmark includes a reference implementation:
+
+```lean
+def firstDuplicate (lst : List Int) (h_precond : firstDuplicate_precond (lst)) : Option Int :=
+  let rec helper (seen : List Int) (rem : List Int) : Option Int :=
+    match rem with
+    | [] => none
+    | h :: t => if seen.contains h then some h else helper (h :: seen) t
+  helper [] lst
+```
+
+While this implementation correctly returns the first duplicate when scanning left to right, it is misaligned with the specification.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

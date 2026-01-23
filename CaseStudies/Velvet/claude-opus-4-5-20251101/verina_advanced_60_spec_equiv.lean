@@ -1,3 +1,14 @@
+/-
+There is a misalignment between the problem description
+and the specification: the problem states that the input
+list consists of distinct positive integers, whereas
+Verina’s precondition only requires the elements to be
+distinct. While this discrepancy does not affect
+correctness, it reflects an inconsistency between the
+documentation and the formal specification.
+-/
+
+
 import Lean
 import Mathlib.Tactic
 

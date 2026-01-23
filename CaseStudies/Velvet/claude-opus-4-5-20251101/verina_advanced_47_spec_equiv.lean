@@ -1,18 +1,35 @@
 /-
+Verina's specification is weak.
+
+First, Verina’s precondition is simply True, meaning it imposes
+no restrictions on the input. In contrast, for interval problems,
+it is standard to require that the start of each interval is less
+than or equal to its end.
+
+More importantly, Verina’s postcondition only ensures that each
+original interval is covered by some result interval and that the
+result intervals do not overlap; it does not require that the set
+of points covered by the result exactly matches the set of points
+covered by the input intervals.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0
 Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
-This project request had uuid: a75d259c-6a7d-448e-8d76-625045328bee
+This project request had uuid: 9ff72b8d-bffa-481d-8f25-cbbcd160792a
 
 To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
 Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
 
 The following was negated by Aristotle:
 
-- def precondition_equiv : False
+- def precondition_equiv (intervals : List (Prod Int Int)) :
+  VerinaSpec.mergeIntervals_precond intervals ↔ LeetProofSpec.precondition intervals
 
-- def postcondition_equiv : False
+- def postcondition_equiv (intervals : List (Prod Int Int)) (result: List (Prod Int Int)) (h_precond : VerinaSpec.mergeIntervals_precond (intervals)) :
+  VerinaSpec.mergeIntervals_postcond intervals result h_precond ↔ LeetProofSpec.postcondition intervals result
 
 Here is the code for the `negate_state` tactic, used within these negations:
 
@@ -138,37 +155,60 @@ end LeetProofSpec
 
 
 
-/-
-Equivalence theorems
--/
-def precondition_equiv : False := by
+def precondition_equiv (intervals : List (Prod Int Int)) :
+  VerinaSpec.mergeIntervals_precond intervals ↔ LeetProofSpec.precondition intervals := by
   -- Wait, there's a mistake. We can actually prove the opposite.
   negate_state;
   -- Proof starts here:
-  -- Let's choose any two intervals from the list and show that they are disjoint.
-  aesop
+  -- Let's choose any interval $[a, b]$ where $a > b$.
+  use [(1, 0)];
+  -- By definition of `precondition`, we need to show that `allValid [(1, 0)]` does not hold.
+  unfold LeetProofSpec.precondition; simp +decide [LeetProofSpec.allValid];
+  -- By definition of `validInterval`, we need to show that `1 ≤ 0` does not hold.
+  unfold LeetProofSpec.validInterval; simp +decide [LeetProofSpec.validInterval];
+  -- By definition of `mergeIntervals_precond`, we need to show that `True`.
+  unfold VerinaSpec.mergeIntervals_precond; simp +decide [VerinaSpec.mergeIntervals_precond]
 
 -/
--- Equivalence theorems
-
-def precondition_equiv : False := by
+def precondition_equiv (intervals : List (Prod Int Int)) :
+  VerinaSpec.mergeIntervals_precond intervals ↔ LeetProofSpec.precondition intervals := by
   sorry
 
 /- Aristotle found this block to be false. Here is a proof of the negation:
 
+noncomputable section AristotleLemmas
 
+theorem postcondition_not_equiv : ¬ (∀ (intervals : List (Int × Int)) (result : List (Int × Int)) (h : VerinaSpec.mergeIntervals_precond intervals), VerinaSpec.mergeIntervals_postcond intervals result h ↔ LeetProofSpec.postcondition intervals result) := by
+  push_neg;
+  use [ ], [ ( 0, 1 ) ] ; simp +decide [ LeetProofSpec.postcondition ] ;
+  unfold LeetProofSpec.ensures1 LeetProofSpec.ensures2 LeetProofSpec.ensures3 LeetProofSpec.ensures4 LeetProofSpec.ensures5;
+  simp +decide [ LeetProofSpec.pointCoveredByList ];
+  simp +decide [ LeetProofSpec.pointInInterval ];
+  simp +decide [ VerinaSpec.mergeIntervals_postcond ];
+  exact ⟨ trivial, fun _ h2 _ => absurd ( h2 0 ( by norm_num ) ) ( by norm_num ) ⟩
 
-/-
-processing error: parameter types don't match
+end AristotleLemmas
+
+def postcondition_equiv (intervals : List (Prod Int Int)) (result: List (Prod Int Int)) (h_precond : VerinaSpec.mergeIntervals_precond (intervals)) :
+  VerinaSpec.mergeIntervals_postcond intervals result h_precond ↔ LeetProofSpec.postcondition intervals result := by
+  constructor <;> intro h;
+  sorry;
+  · -- Wait, there's a mistake. We can actually prove the opposite.
+    negate_state;
+    -- Let's choose specific intervals and result to demonstrate the equivalence.
+    use [(1, 3), (2, 4)], [(1, 4)];
+    -- Check that the result intervals are pairwise disjoint and sorted by start time with gaps between them.
+    simp [VerinaSpec.mergeIntervals_precond, LeetProofSpec.postcondition];
+    constructor;
+    sorry;
+    · simp +decide [ VerinaSpec.mergeIntervals_postcond ];
+      -- Wait, there's a mistake. We can actually prove the opposite.
+      negate_state;
+      -- Proof starts here:
+      -- Let's choose any two initial intervals, say $(0, 1)$ and $(1, 2)$.
+      aesop
+
 -/
-def postcondition_equiv : False := by
-  -- Wait, there's a mistake. We can actually prove the opposite.
-  negate_state;
-  -- Proof starts here:
-  grind
-
--/
--- processing error: parameter types don't match
-
-def postcondition_equiv : False := by
+def postcondition_equiv (intervals : List (Prod Int Int)) (result: List (Prod Int Int)) (h_precond : VerinaSpec.mergeIntervals_precond (intervals)) :
+  VerinaSpec.mergeIntervals_postcond intervals result h_precond ↔ LeetProofSpec.postcondition intervals result := by
   sorry

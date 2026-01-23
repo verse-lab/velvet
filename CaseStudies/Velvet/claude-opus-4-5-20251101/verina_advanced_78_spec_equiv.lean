@@ -1,4 +1,11 @@
 /-
+LeetProof’s precondition is weak.
+
+The problem description requires that there exists a unique pair of
+input elements whose sum equals the given target value; however, this
+requirement is not captured in LeetProof’s precondition.-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

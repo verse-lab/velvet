@@ -1,12 +1,76 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: af272ab7-41c5-443e-a099-3d472cb0f231
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+-/
+
 import Lean
 import Mathlib.Tactic
 
+
+/- Aristotle failed to load this code into its environment. Double check that the syntax is correct.
+
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  K
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Invalid projection: Type of
+  a
+is not known; cannot resolve projection `1`
+Invalid projection: Type of
+  b
+is not known; cannot resolve projection `1`-/
 namespace VerinaSpec
+
 
 def update_map_precond (m1 : Map Int Int) (m2 : Map Int Int) : Prop :=
   -- !benchmark @start precond
   True
-  -- !benchmark @end precond
+
+-- !benchmark @end precond
 
 def find? {K V : Type} [BEq K] [BEq V] (m : Map K V) (k : K) : Option V :=
   m.entries.find? (fun p => p.1 == k) |>.map (·.2)
@@ -27,7 +91,8 @@ def update_map_postcond (m1 : Map Int Int) (m2 : Map Int Int) (result: Map Int I
       | none => x.2 = v
     | none => find? m2 x.1 = some x.2
   )
-  -- !benchmark @end postcond
+
+-- !benchmark @end postcond
 
 end VerinaSpec
 
@@ -74,12 +139,56 @@ def postcondition (m1 : List (Int × Int)) (m2 : List (Int × Int)) (result : Li
 
 end LeetProofSpec
 
+/- Aristotle failed to load this code into its environment. Double check that the syntax is correct.
+
+Unknown identifier `VerinaSpec.update_map_precond`
+Unknown identifier `LeetProofSpec.precondition`
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int-/
 -- Equivalence theorems
 
 theorem precondition_equiv (m1 : Map Int Int) (m2 : Map Int Int):
   VerinaSpec.update_map_precond m1 m2 ↔ LeetProofSpec.precondition m1 m2 := by
   sorry
 
+/- Aristotle failed to load this code into its environment. Double check that the syntax is correct.
+
+Unknown identifier `VerinaSpec.update_map_precond`
+Unknown identifier `VerinaSpec.update_map_postcond`
+Unknown identifier `LeetProofSpec.postcondition`
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int
+Function expected at
+  Map
+but this term has type
+  ?m.1
+
+Note: Expected a function because this term is being applied to the argument
+  Int-/
 theorem postcondition_equiv (m1 : Map Int Int) (m2 : Map Int Int) (result : Map Int Int) (h_precond : VerinaSpec.update_map_precond m1 m2):
   VerinaSpec.update_map_postcond m1 m2 result h_precond ↔ LeetProofSpec.postcondition m1 m2 result := by
   sorry

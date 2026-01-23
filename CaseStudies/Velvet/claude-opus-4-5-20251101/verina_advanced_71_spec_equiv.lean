@@ -1,4 +1,11 @@
 /-
+Both specifications are valid, but they differ in their treatment of substrings.
+
+In Verina’s specification, a subarray is required to be non-empty,
+while LeetProof’s specification allows empty substrings.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

@@ -1,5 +1,25 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: 611d9eac-d5bf-4e88-922e-998c99f0fd51
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+
+The following was proved by Aristotle:
+
+- theorem precondition_equiv (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (atPos : Nat):
+  VerinaSpec.insert_precond oline l nl p atPos ↔ LeetProofSpec.precondition oline l nl p atPos
+
+- theorem postcondition_equiv (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (atPos : Nat) (result : Array Char) (h_precond : VerinaSpec.insert_precond oline l nl p atPos):
+  VerinaSpec.insert_postcond oline l nl p atPos result h_precond ↔ LeetProofSpec.postcondition oline l nl p atPos result
+-/
+
 import Lean
 import Mathlib.Tactic
+
 
 namespace VerinaSpec
 
@@ -8,7 +28,8 @@ def insert_precond (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (a
   l ≤ oline.size ∧
   p ≤ nl.size ∧
   atPos ≤ l
-  -- !benchmark @end precond
+
+-- !benchmark @end precond
 
 def insert_postcond (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (atPos : Nat) (result: Array Char) (h_precond : insert_precond (oline) (l) (nl) (p) (atPos)) :=
   -- !benchmark @start postcond
@@ -16,7 +37,8 @@ def insert_postcond (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (
   (List.range p).all (fun i => result[atPos + i]! = nl[i]!) ∧
   (List.range atPos).all (fun i => result[i]! = oline[i]!) ∧
   (List.range (l - atPos)).all (fun i => result[atPos + p + i]! = oline[atPos + i]!)
-  -- !benchmark @end postcond
+
+-- !benchmark @end postcond
 
 end VerinaSpec
 
@@ -55,8 +77,18 @@ end LeetProofSpec
 
 theorem precondition_equiv (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (atPos : Nat):
   VerinaSpec.insert_precond oline l nl p atPos ↔ LeetProofSpec.precondition oline l nl p atPos := by
-  sorry
+  -- The conditions are the same, so the preconditions are equivalent.
+  simp [VerinaSpec.insert_precond, LeetProofSpec.precondition];
+  tauto
 
 theorem postcondition_equiv (oline : Array Char) (l : Nat) (nl : Array Char) (p : Nat) (atPos : Nat) (result : Array Char) (h_precond : VerinaSpec.insert_precond oline l nl p atPos):
   VerinaSpec.insert_postcond oline l nl p atPos result h_precond ↔ LeetProofSpec.postcondition oline l nl p atPos result := by
-  sorry
+  unfold VerinaSpec.insert_postcond LeetProofSpec.postcondition;
+  simp +decide only [List.all_eq_true, LeetProofSpec.ensures1, LeetProofSpec.ensures2,
+        LeetProofSpec.ensures3, LeetProofSpec.ensures4];
+  simp +decide [ List.mem_range, add_assoc ];
+  -- By substituting $i = atPos + x$ in the second version's fourth condition, we can show that it is equivalent to the first version's fourth condition.
+  intros h_size
+  apply Iff.intro;
+  · exact fun h => ⟨ h.2.1, h.1, fun i hi₁ hi₂ => by convert h.2.2 ( i - atPos ) ( by omega ) using 1 <;> simp +decide [ add_tsub_cancel_of_le hi₁, add_comm, add_left_comm, add_assoc ] ⟩;
+  · grind

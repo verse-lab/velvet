@@ -1,4 +1,36 @@
 /-
+There are two issues in Verina's specification:
+
+First, the precondition does not enforce that the input contains exactly
+N chords. While the problem statement requires exactly N pairs of endpoints,
+the specification only constrains endpoint validity and distinctness,
+leaving the cardinality of chords unconstrained. This results in a mismatch
+between the specification and the intended input domain.
+
+Secondly, the postcondition inconsistently mixes normalized and non-normalized
+chord representations. In the last line,
+
+```
+((sortedChords.any (fun x => chords.any (fun y => hasIntersection x y))) → result)
+```
+
+the second quantification ranges over the original, potentially unsorted
+chords, even though hasIntersection assumes sorted endpoints. It should
+instead range over sortedChords:
+
+```
+((sortedChords.any (fun x => sortedChords.any (fun y => hasIntersection x y))) → result)
+```
+
+An example to hack this post-condition is:
+
+```
+N = 2
+chords = [[3, 1], [4, 2]]
+```
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

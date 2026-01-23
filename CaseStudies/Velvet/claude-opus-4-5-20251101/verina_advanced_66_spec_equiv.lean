@@ -1,4 +1,9 @@
 /-
+Two specifications seem to be equivalent. But it is extremly complex to write a
+formal proof
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

@@ -1,4 +1,14 @@
 /-
+Verina's post-condition is not strong enough.
+
+It constrains the behavior only when result = -1 or result ≥ 0,
+and therefore admits vacuous satisfaction for result ≤ -2.
+
+As a result, the post-condition does not rule out invalid return
+values and fails to fully characterize the intended output domain.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

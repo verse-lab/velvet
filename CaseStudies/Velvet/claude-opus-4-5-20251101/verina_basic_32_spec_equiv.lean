@@ -1,13 +1,34 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: 83c56942-fb52-4413-91c5-b30edddc7a09
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+
+The following was proved by Aristotle:
+
+- theorem precondition_equiv (a : Array Int):
+  VerinaSpec.swapFirstAndLast_precond a ↔ LeetProofSpec.precondition a
+
+- theorem postcondition_equiv (a : Array Int) (result : Array Int) (h_precond : VerinaSpec.swapFirstAndLast_precond a):
+  VerinaSpec.swapFirstAndLast_postcond a result h_precond ↔ LeetProofSpec.postcondition a result
+-/
+
 import Lean
 import Mathlib.Tactic
 import Mathlib
+
 
 namespace VerinaSpec
 
 def swapFirstAndLast_precond (a : Array Int) : Prop :=
   -- !benchmark @start precond
   a.size > 0
-  -- !benchmark @end precond
+
+-- !benchmark @end precond
 
 def swapFirstAndLast_postcond (a : Array Int) (result : Array Int) (h_precond: swapFirstAndLast_precond a) : Prop :=
   -- !benchmark @start postcond
@@ -15,7 +36,8 @@ def swapFirstAndLast_postcond (a : Array Int) (result : Array Int) (h_precond: s
   result[0]! = a[a.size - 1]! ∧
   result[result.size - 1]! = a[0]! ∧
   (List.range (result.size - 2)).all (fun i => result[i + 1]! = a[i + 1]!)
-  -- !benchmark @end postcond
+
+-- !benchmark @end postcond
 
 end VerinaSpec
 
@@ -42,8 +64,18 @@ end LeetProofSpec
 
 theorem precondition_equiv (a : Array Int):
   VerinaSpec.swapFirstAndLast_precond a ↔ LeetProofSpec.precondition a := by
-  sorry
+  bound
 
 theorem postcondition_equiv (a : Array Int) (result : Array Int) (h_precond : VerinaSpec.swapFirstAndLast_precond a):
   VerinaSpec.swapFirstAndLast_postcond a result h_precond ↔ LeetProofSpec.postcondition a result := by
-  sorry
+  -- By definition of `swapFirstAndLast_postcond` and `LeetProofSpec.postcondition`, we can show that they are equivalent by comparing their conditions.
+  simp [VerinaSpec.swapFirstAndLast_postcond, LeetProofSpec.postcondition];
+  -- Since the range in `List.range (result.size - 2)` is equivalent to the range in the LeetPostcondition's `∀ i` statement, the two conditions are equivalent.
+  intros h_size h_first h_last
+  apply Iff.intro;
+  · -- By substituting $x = i - 1$ into the hypothesis, we can conclude that $result[i]! = a[i]!$ for all $i$ in the specified range.
+    intros h x hx_pos hx_lt
+    have hx_range : x - 1 < result.size - 2 := by
+      omega;
+    cases x <;> aesop;
+  · grind

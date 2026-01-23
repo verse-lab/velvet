@@ -1,4 +1,15 @@
 /-
+Verina's specification is not correct.
+
+The major flaw in Verina’s specification is that its precondition
+does not require the input primes list to contain all prime factors
+of n, yet its postcondition enforces that the product of the primes
+raised to the output exponents equals n. As a result, the specification
+is unsatisfiable for any n whose prime factorization includes a prime
+not listed in primes.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

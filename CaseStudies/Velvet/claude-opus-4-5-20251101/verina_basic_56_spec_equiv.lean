@@ -1,5 +1,25 @@
+/-
+This file was edited by Aristotle.
+
+Lean version: leanprover/lean4:v4.24.0
+Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
+This project request had uuid: 68c25b99-7ab4-4f51-9369-e4623223f60d
+
+To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
+Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
+
+The following was proved by Aristotle:
+
+- theorem precondition_equiv (src : Array Int) (sStart : Nat) (dest : Array Int) (dStart : Nat) (len : Nat):
+  VerinaSpec.copy_precond src sStart dest dStart len ↔ LeetProofSpec.precondition src sStart dest dStart len
+
+- theorem postcondition_equiv (src : Array Int) (sStart : Nat) (dest : Array Int) (dStart : Nat) (len : Nat) (result : Array Int) (h_precond : VerinaSpec.copy_precond src sStart dest dStart len):
+  VerinaSpec.copy_postcond src sStart dest dStart len result h_precond ↔ LeetProofSpec.postcondition src sStart dest dStart len result
+-/
+
 import Lean
 import Mathlib.Tactic
+
 
 namespace VerinaSpec
 
@@ -7,7 +27,8 @@ def copy_precond (src : Array Int) (sStart : Nat) (dest : Array Int) (dStart : N
   -- !benchmark @start precond
   src.size ≥ sStart + len ∧
   dest.size ≥ dStart + len
-  -- !benchmark @end precond
+
+-- !benchmark @end precond
 
 def updateSegment : Array Int → Array Int → Nat → Nat → Nat → Array Int
   | r, src, sStart, dStart, 0 => r
@@ -21,7 +42,8 @@ def copy_postcond (src : Array Int) (sStart : Nat) (dest : Array Int) (dStart : 
   (∀ i, i < dStart → result[i]! = dest[i]!) ∧
   (∀ i, dStart + len ≤ i → i < result.size → result[i]! = dest[i]!) ∧
   (∀ i, i < len → result[dStart + i]! = src[sStart + i]!)
-  -- !benchmark @end postcond
+
+-- !benchmark @end postcond
 
 end VerinaSpec
 
@@ -48,8 +70,9 @@ end LeetProofSpec
 
 theorem precondition_equiv (src : Array Int) (sStart : Nat) (dest : Array Int) (dStart : Nat) (len : Nat):
   VerinaSpec.copy_precond src sStart dest dStart len ↔ LeetProofSpec.precondition src sStart dest dStart len := by
-  sorry
+  exact Iff.rfl
 
 theorem postcondition_equiv (src : Array Int) (sStart : Nat) (dest : Array Int) (dStart : Nat) (len : Nat) (result : Array Int) (h_precond : VerinaSpec.copy_precond src sStart dest dStart len):
   VerinaSpec.copy_postcond src sStart dest dStart len result h_precond ↔ LeetProofSpec.postcondition src sStart dest dStart len result := by
-  sorry
+  unfold VerinaSpec.copy_postcond LeetProofSpec.postcondition;
+  grind

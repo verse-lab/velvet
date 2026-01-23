@@ -1,4 +1,11 @@
 /-
+The LeetProof's pre-condition is weak.
+
+The original problem allows empty arrays as input, which is
+disallowed by Verina's pre-condition.
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0

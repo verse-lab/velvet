@@ -1,4 +1,14 @@
 /-
+LeetProof's post-condition is incorrect
+
+In the case where the result corresponds to the first greater
+element after xPos, it requires that result[i] ≠ -1. However,
+it is possible that the first greater element is actually -1,
+in which case the postcondition would incorrectly reject a
+valid result
+-/
+
+/-
 This file was edited by Aristotle.
 
 Lean version: leanprover/lean4:v4.24.0
@@ -116,7 +126,6 @@ theorem precondition_equiv (nums1 : List Int) (nums2 : List Int):
   VerinaSpec.nextGreaterElement_precond nums1 nums2 ↔ LeetProofSpec.precondition nums1 nums2 := by
   constructor <;> intro h <;> unfold LeetProofSpec.precondition at * <;> aesop
 
-/- Aristotle failed to find a proof. -/
 theorem postcondition_equiv (nums1 : List Int) (nums2 : List Int) (result : List Int) (h_precond : VerinaSpec.nextGreaterElement_precond nums1 nums2):
   VerinaSpec.nextGreaterElement_postcond nums1 nums2 result h_precond ↔ LeetProofSpec.postcondition nums1 nums2 result := by
   constructor
@@ -134,22 +143,28 @@ theorem postcondition_equiv (nums1 : List Int) (nums2 : List Int) (result : List
       | none => simp [hidx] at hfind
       | some ypos =>
           simp [hidx] at hfind
-          have Htmp := List.of_findIdx?_eq_some hidx
-          cases hnumy : nums2[ypos]? with
-          | none => simp [hnumy] at Htmp
-          | some valY =>
-              simp [hnumy] at Htmp
-              subst valY
-          have hxy : xpos = ypos := by
-            rw [List.of_findIdx?_eq_some] at hidx
-          cases hfi : List.find? (fun k ↦ decide (nums1[i] < nums2[ypos + k + 1]?.getD 0)) (List.range (nums2.length - ypos - 1)) with
+          simp [List.findIdx?_eq_some_iff_findIdx_eq] at *
+          have hxy : xpos = ypos := by grind
+          subst ypos
+          cases hf : List.find? (fun k ↦ decide (nums1[i] < nums2[xpos + k + 1]?.getD 0)) (List.range (nums2.length - xpos - 1)) with
           | none =>
-              simp [hfi] at hfind
-              left
-              constructor
-              · simp [hfind]
-              · rw [List.find?_eq_none] at hfi
-                intro j hj1 hj2
-                specialize hfi (j - ypos - 1) _
-                simp [hj1, hj2] at *
+              simp [hf] at hfind
+              left; constructor; assumption
+              simp [List.find?_eq_none] at hf
+              intros j hj1 hj2
+              specialize hf (j - xpos - 1) (by grind)
+              simp [num1i, hi];
+              have hcalc : xpos + (j - xpos - 1) + 1 = j := by
+                clear hf; grind
+              simp [hcalc] at hf; assumption
+          | some j =>
+              simp [hf] at hfind
+              simp [hlen, hi] at *
+              rcases hf with ⟨hle, hj, hnear⟩
+              have hle' : xpos + j + 1 < nums2.length := by grind
+              simp [hle'] at *
+              right; constructor
+              · -- unprovable
                 sorry
+              sorry
+  · sorry

@@ -1,45 +1,9 @@
 /-
-This file was edited by Aristotle.
+The post-condition of LeetProof is weak.
 
-Lean version: leanprover/lean4:v4.24.0
-Mathlib version: f897ebcf72cd16f89ab4577d0c826cd14afaafc7
-This project request had uuid: 32f0e6d4-d3dc-418b-a55a-8a59f8e81bc5
+It uses result.toNat. However, Int.toNat maps negative integers to 0.
 
-To cite Aristotle, tag @Aristotle-Harmonic on GitHub PRs/issues, and add as co-author to commits:
-Co-authored-by: Aristotle (Harmonic) <aristotle-harmonic@harmonic.fun>
-
-The following was proved by Aristotle:
-
-- theorem precondition_equiv (a : Array Int) (b : Array Int):
-  VerinaSpec.LongestCommonSubsequence_precond a b ↔ LeetProofSpec.precondition a b
-
-The following was negated by Aristotle:
-
-- theorem postcondition_equiv (a : Array Int) (b : Array Int) (result : Int) (h_precond : VerinaSpec.LongestCommonSubsequence_precond a b):
-  VerinaSpec.LongestCommonSubsequence_postcond a b result h_precond ↔ LeetProofSpec.postcondition a b result
-
-Here is the code for the `negate_state` tactic, used within these negations:
-
-```lean
-import Mathlib
-open Lean Meta Elab Tactic in
-elab "revert_all" : tactic => do
-  let goals ← getGoals
-  let mut newGoals : List MVarId := []
-  for mvarId in goals do
-    newGoals := newGoals.append [(← mvarId.revertAll)]
-  setGoals newGoals
-
-open Lean.Elab.Tactic in
-macro "negate_state" : tactic => `(tactic|
-  (
-    guard_goal_nums 1
-    revert_all
-    refine @(((by admit) : ∀ {p : Prop}, ¬p → p) ?_)
-    try (push_neg; guard_goal_nums 1)
-  )
-)
-```
+Thus, if the actual result is 0, the LeetProof spec allows any negative integer as well.
 -/
 
 import Lean
