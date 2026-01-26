@@ -1,0 +1,51 @@
+import CaseStudies.Velvet.Std
+import CaseStudies.Velvet.Utils
+import CaseStudies.Velvet.UtilsLemmas
+import Mathlib.Tactic
+-- Never add new imports here
+
+set_option loom.semantics.termination "partial"
+set_option loom.semantics.choice "demonic"
+
+/- Problem Description
+    isEven: determine whether a given integer is even
+    Natural language breakdown:
+    1. The input is an integer n.
+    2. The output is a Boolean.
+    3. The output is true exactly when n is even.
+    4. The output is false exactly when n is odd.
+    5. Evenness for integers can be characterized by remainder modulo 2 being 0.
+    6. There are no preconditions: the function is defined for all integers.
+-/
+
+section Specs
+-- Helper definition: evenness via Int modulo.
+-- We use the standard `%` on `Int` (implemented via `Int.fmod`).
+abbrev IntIsEven (n : Int) : Prop := n % 2 = 0
+
+abbrev precondition (n : Int) : Prop :=
+  True
+
+abbrev postcondition (n : Int) (result : Bool) : Prop :=
+  (result = true ↔ IntIsEven n) ∧
+  (result = false ↔ ¬ IntIsEven n)
+end Specs
+
+section Impl
+method isEven (n : Int)
+  return (result : Bool)
+  require precondition n
+  ensures postcondition n result
+  do
+  if n % 2 = 0 then
+    return true
+  else
+    return false
+end Impl
+
+section Proof
+set_option maxHeartbeats 10000000
+
+prove_correct isEven by
+  loom_solve <;> (try simp at *; expose_names)
+end Proof

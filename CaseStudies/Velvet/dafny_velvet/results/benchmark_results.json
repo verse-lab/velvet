@@ -1,0 +1,838 @@
+{
+  "metadata": {
+    "timestamp": "2026-01-26T14:52:07.768453",
+    "num_runs": 5,
+    "project_root": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code"
+  },
+  "folders": {
+    "both_easy": {
+      "folder_name": "both_easy",
+      "folder_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy",
+      "results": [
+        {
+          "program_name": "verina_basic_10_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_10_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_10_impl.lean",
+          "dafny_times": [
+            1.1189264999702573
+          ],
+          "dafny_avg": 1.1189264999702573,
+          "dafny_min": 1.1189264999702573,
+          "dafny_max": 1.1189264999702573,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.2442833750974387
+          ],
+          "lean_avg": 3.2442833750974387,
+          "lean_min": 3.2442833750974387,
+          "lean_max": 3.2442833750974387,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_11_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_11_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_11_impl.lean",
+          "dafny_times": [
+            1.041556250071153
+          ],
+          "dafny_avg": 1.041556250071153,
+          "dafny_min": 1.041556250071153,
+          "dafny_max": 1.041556250071153,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.7634160830639303
+          ],
+          "lean_avg": 2.7634160830639303,
+          "lean_min": 2.7634160830639303,
+          "lean_max": 2.7634160830639303,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_12_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_12_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_12_impl.lean",
+          "dafny_times": [
+            0.9933758748229593
+          ],
+          "dafny_avg": 0.9933758748229593,
+          "dafny_min": 0.9933758748229593,
+          "dafny_max": 0.9933758748229593,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.717851832974702
+          ],
+          "lean_avg": 2.717851832974702,
+          "lean_min": 2.717851832974702,
+          "lean_max": 2.717851832974702,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_13_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_13_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_13_impl.lean",
+          "dafny_times": [
+            1.1099047078751028
+          ],
+          "dafny_avg": 1.1099047078751028,
+          "dafny_min": 1.1099047078751028,
+          "dafny_max": 1.1099047078751028,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.191364167025313
+          ],
+          "lean_avg": 3.191364167025313,
+          "lean_min": 3.191364167025313,
+          "lean_max": 3.191364167025313,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_15_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_15_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_15_impl.lean",
+          "dafny_times": [
+            1.106588042108342
+          ],
+          "dafny_avg": 1.106588042108342,
+          "dafny_min": 1.106588042108342,
+          "dafny_max": 1.106588042108342,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.5747861249838024
+          ],
+          "lean_avg": 3.5747861249838024,
+          "lean_min": 3.5747861249838024,
+          "lean_max": 3.5747861249838024,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_1_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_1_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_1_impl.lean",
+          "dafny_times": [
+            0.9835175410844386
+          ],
+          "dafny_avg": 0.9835175410844386,
+          "dafny_min": 0.9835175410844386,
+          "dafny_max": 0.9835175410844386,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.7953574168495834
+          ],
+          "lean_avg": 2.7953574168495834,
+          "lean_min": 2.7953574168495834,
+          "lean_max": 2.7953574168495834,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_23_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_23_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_23_impl.lean",
+          "dafny_times": [
+            1.1956296670250595
+          ],
+          "dafny_avg": 1.1956296670250595,
+          "dafny_min": 1.1956296670250595,
+          "dafny_max": 1.1956296670250595,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            5.3310926670674235
+          ],
+          "lean_avg": 5.3310926670674235,
+          "lean_min": 5.3310926670674235,
+          "lean_max": 5.3310926670674235,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_25_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_25_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_25_impl.lean",
+          "dafny_times": [
+            1.0977547499351203
+          ],
+          "dafny_avg": 1.0977547499351203,
+          "dafny_min": 1.0977547499351203,
+          "dafny_max": 1.0977547499351203,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.811168957967311
+          ],
+          "lean_avg": 3.811168957967311,
+          "lean_min": 3.811168957967311,
+          "lean_max": 3.811168957967311,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_26_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_26_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_26_impl.lean",
+          "dafny_times": [
+            1.0293979160487652
+          ],
+          "dafny_avg": 1.0293979160487652,
+          "dafny_min": 1.0293979160487652,
+          "dafny_max": 1.0293979160487652,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.7711394999641925
+          ],
+          "lean_avg": 3.7711394999641925,
+          "lean_min": 3.7711394999641925,
+          "lean_max": 3.7711394999641925,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_29_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_29_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_29_impl.lean",
+          "dafny_times": [
+            1.076249374775216
+          ],
+          "dafny_avg": 1.076249374775216,
+          "dafny_min": 1.076249374775216,
+          "dafny_max": 1.076249374775216,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.908077625092119
+          ],
+          "lean_avg": 4.908077625092119,
+          "lean_min": 4.908077625092119,
+          "lean_max": 4.908077625092119,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_2_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_2_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_2_impl.lean",
+          "dafny_times": [
+            1.1513532078824937
+          ],
+          "dafny_avg": 1.1513532078824937,
+          "dafny_min": 1.1513532078824937,
+          "dafny_max": 1.1513532078824937,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.4570821658708155
+          ],
+          "lean_avg": 3.4570821658708155,
+          "lean_min": 3.4570821658708155,
+          "lean_max": 3.4570821658708155,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_30_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_30_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_30_impl.lean",
+          "dafny_times": [
+            1.1788450828753412
+          ],
+          "dafny_avg": 1.1788450828753412,
+          "dafny_min": 1.1788450828753412,
+          "dafny_max": 1.1788450828753412,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.36225645779632
+          ],
+          "lean_avg": 4.36225645779632,
+          "lean_min": 4.36225645779632,
+          "lean_max": 4.36225645779632,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_32_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_32_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_32_impl.lean",
+          "dafny_times": [
+            1.1642489170189947
+          ],
+          "dafny_avg": 1.1642489170189947,
+          "dafny_min": 1.1642489170189947,
+          "dafny_max": 1.1642489170189947,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.680857999948785
+          ],
+          "lean_avg": 4.680857999948785,
+          "lean_min": 4.680857999948785,
+          "lean_max": 4.680857999948785,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_3_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_3_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_3_impl.lean",
+          "dafny_times": [
+            1.025844749994576
+          ],
+          "dafny_avg": 1.025844749994576,
+          "dafny_min": 1.025844749994576,
+          "dafny_max": 1.025844749994576,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.76188129093498
+          ],
+          "lean_avg": 2.76188129093498,
+          "lean_min": 2.76188129093498,
+          "lean_max": 2.76188129093498,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_4_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_4_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_4_impl.lean",
+          "dafny_times": [
+            1.0938510419800878
+          ],
+          "dafny_avg": 1.0938510419800878,
+          "dafny_min": 1.0938510419800878,
+          "dafny_max": 1.0938510419800878,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.701839125016704
+          ],
+          "lean_avg": 2.701839125016704,
+          "lean_min": 2.701839125016704,
+          "lean_max": 2.701839125016704,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_5_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_5_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_5_impl.lean",
+          "dafny_times": [
+            0.9747662919107825
+          ],
+          "dafny_avg": 0.9747662919107825,
+          "dafny_min": 0.9747662919107825,
+          "dafny_max": 0.9747662919107825,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.78914300003089
+          ],
+          "lean_avg": 2.78914300003089,
+          "lean_min": 2.78914300003089,
+          "lean_max": 2.78914300003089,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_6_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_6_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_6_impl.lean",
+          "dafny_times": [
+            0.9910006672143936
+          ],
+          "dafny_avg": 0.9910006672143936,
+          "dafny_min": 0.9910006672143936,
+          "dafny_max": 0.9910006672143936,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.8623895419295877
+          ],
+          "lean_avg": 2.8623895419295877,
+          "lean_min": 2.8623895419295877,
+          "lean_max": 2.8623895419295877,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_7_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_7_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_7_impl.lean",
+          "dafny_times": [
+            1.0754943329375237
+          ],
+          "dafny_avg": 1.0754943329375237,
+          "dafny_min": 1.0754943329375237,
+          "dafny_max": 1.0754943329375237,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.7123800420667976
+          ],
+          "lean_avg": 2.7123800420667976,
+          "lean_min": 2.7123800420667976,
+          "lean_max": 2.7123800420667976,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_8_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_8_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/both_easy/verina_basic_8_impl.lean",
+          "dafny_times": [
+            0.9903401250485331
+          ],
+          "dafny_avg": 0.9903401250485331,
+          "dafny_min": 0.9903401250485331,
+          "dafny_max": 0.9903401250485331,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            2.752596582984552
+          ],
+          "lean_avg": 2.752596582984552,
+          "lean_min": 2.752596582984552,
+          "lean_max": 2.752596582984552,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        }
+      ],
+      "total_dafny_time": 20.39864504057914,
+      "total_lean_time": 65.18896395666525
+    },
+    "lean_is_harder": {
+      "folder_name": "lean_is_harder",
+      "folder_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder",
+      "results": [
+        {
+          "program_name": "verina_basic_14_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_14_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_14_impl.lean",
+          "dafny_times": [
+            1.0933061251416802
+          ],
+          "dafny_avg": 1.0933061251416802,
+          "dafny_min": 1.0933061251416802,
+          "dafny_max": 1.0933061251416802,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.7854838750790805
+          ],
+          "lean_avg": 3.7854838750790805,
+          "lean_min": 3.7854838750790805,
+          "lean_max": 3.7854838750790805,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_16_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_16_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_16_impl.lean",
+          "dafny_times": [
+            1.1242967499420047
+          ],
+          "dafny_avg": 1.1242967499420047,
+          "dafny_min": 1.1242967499420047,
+          "dafny_max": 1.1242967499420047,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.76746749994345
+          ],
+          "lean_avg": 3.76746749994345,
+          "lean_min": 3.76746749994345,
+          "lean_max": 3.76746749994345,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_17_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_17_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_17_impl.lean",
+          "dafny_times": [
+            1.1427188338711858
+          ],
+          "dafny_avg": 1.1427188338711858,
+          "dafny_min": 1.1427188338711858,
+          "dafny_max": 1.1427188338711858,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.504387249937281
+          ],
+          "lean_avg": 4.504387249937281,
+          "lean_min": 4.504387249937281,
+          "lean_max": 4.504387249937281,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_18_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_18_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_18_impl.lean",
+          "dafny_times": [
+            1.070581833133474
+          ],
+          "dafny_avg": 1.070581833133474,
+          "dafny_min": 1.070581833133474,
+          "dafny_max": 1.070581833133474,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.135504874866456
+          ],
+          "lean_avg": 4.135504874866456,
+          "lean_min": 4.135504874866456,
+          "lean_max": 4.135504874866456,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_24_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_24_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_24_impl.lean",
+          "dafny_times": [
+            1.2235023339744657
+          ],
+          "dafny_avg": 1.2235023339744657,
+          "dafny_min": 1.2235023339744657,
+          "dafny_max": 1.2235023339744657,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            6.5048355830367655
+          ],
+          "lean_avg": 6.5048355830367655,
+          "lean_min": 6.5048355830367655,
+          "lean_max": 6.5048355830367655,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_28_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_28_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_28_impl.lean",
+          "dafny_times": [
+            1.0946080419234931
+          ],
+          "dafny_avg": 1.0946080419234931,
+          "dafny_min": 1.0946080419234931,
+          "dafny_max": 1.0946080419234931,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.715424790978432
+          ],
+          "lean_avg": 4.715424790978432,
+          "lean_min": 4.715424790978432,
+          "lean_max": 4.715424790978432,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_31_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_31_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/lean_is_harder/verina_basic_31_impl.lean",
+          "dafny_times": [
+            1.1428252500481904
+          ],
+          "dafny_avg": 1.1428252500481904,
+          "dafny_min": 1.1428252500481904,
+          "dafny_max": 1.1428252500481904,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.79489333415404
+          ],
+          "lean_avg": 4.79489333415404,
+          "lean_min": 4.79489333415404,
+          "lean_max": 4.79489333415404,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        }
+      ],
+      "total_dafny_time": 7.891839168034494,
+      "total_lean_time": 32.207997207995504
+    },
+    "trans_proof_in_dafny": {
+      "folder_name": "trans_proof_in_dafny",
+      "folder_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny",
+      "results": [
+        {
+          "program_name": "merge",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/merge.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/merge.lean",
+          "dafny_times": [
+            1.3686306250747293
+          ],
+          "dafny_avg": 1.3686306250747293,
+          "dafny_min": 1.3686306250747293,
+          "dafny_max": 1.3686306250747293,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            16.809638584032655
+          ],
+          "lean_avg": 16.809638584032655,
+          "lean_min": 16.809638584032655,
+          "lean_max": 16.809638584032655,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_advanced_11_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_11_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_11_impl.lean",
+          "dafny_times": [
+            1.4300820829812437
+          ],
+          "dafny_avg": 1.4300820829812437,
+          "dafny_min": 1.4300820829812437,
+          "dafny_max": 1.4300820829812437,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            8.863535458920524
+          ],
+          "lean_avg": 8.863535458920524,
+          "lean_min": 8.863535458920524,
+          "lean_max": 8.863535458920524,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_advanced_12_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_12_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_12_impl.lean",
+          "dafny_times": [],
+          "dafny_avg": 0.0,
+          "dafny_min": 0.0,
+          "dafny_max": 0.0,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 0.0,
+          "dafny_errors": [
+            ""
+          ],
+          "lean_times": [
+            4.814617415890098
+          ],
+          "lean_avg": 4.814617415890098,
+          "lean_min": 4.814617415890098,
+          "lean_max": 4.814617415890098,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_advanced_14_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_14_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_14_impl.lean",
+          "dafny_times": [
+            1.2806430419441313
+          ],
+          "dafny_avg": 1.2806430419441313,
+          "dafny_min": 1.2806430419441313,
+          "dafny_max": 1.2806430419441313,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.151250166120008
+          ],
+          "lean_avg": 4.151250166120008,
+          "lean_min": 4.151250166120008,
+          "lean_max": 4.151250166120008,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_advanced_9_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_9_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_advanced_9_impl.lean",
+          "dafny_times": [
+            1.2156739998608828
+          ],
+          "dafny_avg": 1.2156739998608828,
+          "dafny_min": 1.2156739998608828,
+          "dafny_max": 1.2156739998608828,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.2396402079612017
+          ],
+          "lean_avg": 3.2396402079612017,
+          "lean_min": 3.2396402079612017,
+          "lean_max": 3.2396402079612017,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_19_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_19_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_19_impl.lean",
+          "dafny_times": [
+            1.2210127918515354
+          ],
+          "dafny_avg": 1.2210127918515354,
+          "dafny_min": 1.2210127918515354,
+          "dafny_max": 1.2210127918515354,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            3.7001987921539694
+          ],
+          "lean_avg": 3.7001987921539694,
+          "lean_min": 3.7001987921539694,
+          "lean_max": 3.7001987921539694,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_21_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_21_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_21_impl.lean",
+          "dafny_times": [
+            1.270442542154342
+          ],
+          "dafny_avg": 1.270442542154342,
+          "dafny_min": 1.270442542154342,
+          "dafny_max": 1.270442542154342,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.416477916995063
+          ],
+          "lean_avg": 4.416477916995063,
+          "lean_min": 4.416477916995063,
+          "lean_max": 4.416477916995063,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_34_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_34_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_34_impl.lean",
+          "dafny_times": [
+            1.4203467080369592
+          ],
+          "dafny_avg": 1.4203467080369592,
+          "dafny_min": 1.4203467080369592,
+          "dafny_max": 1.4203467080369592,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            65.53157012490556
+          ],
+          "lean_avg": 65.53157012490556,
+          "lean_min": 65.53157012490556,
+          "lean_max": 65.53157012490556,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        },
+        {
+          "program_name": "verina_basic_9_impl",
+          "dfy_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_9_impl.dfy",
+          "lean_path": "/Users/volodeyka/Desktop/NUS/Lean/Loom/Code/CaseStudies/Velvet/dafny_velvet/trans_proof_in_dafny/verina_basic_9_impl.lean",
+          "dafny_times": [
+            1.2511789160780609
+          ],
+          "dafny_avg": 1.2511789160780609,
+          "dafny_min": 1.2511789160780609,
+          "dafny_max": 1.2511789160780609,
+          "dafny_std": 0.0,
+          "dafny_success_rate": 1.0,
+          "dafny_errors": [],
+          "lean_times": [
+            4.577447707997635
+          ],
+          "lean_avg": 4.577447707997635,
+          "lean_min": 4.577447707997635,
+          "lean_max": 4.577447707997635,
+          "lean_std": 0.0,
+          "lean_success_rate": 1.0,
+          "lean_errors": []
+        }
+      ],
+      "total_dafny_time": 10.458010707981884,
+      "total_lean_time": 116.10437637497671
+    }
+  }
+}
