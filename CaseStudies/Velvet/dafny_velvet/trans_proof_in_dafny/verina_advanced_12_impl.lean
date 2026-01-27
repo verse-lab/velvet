@@ -3,7 +3,6 @@ import CaseStudies.TestingUtil
 import CaseStudies.Velvet.SpecDSL
 import CaseStudies.Velvet.Utils
 import CaseStudies.Velvet.UtilsLemmas
-import Mathlib.Tactic
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
@@ -90,58 +89,8 @@ method firstDuplicate (lst: List Int)
 end Impl
 
 section Proof
-set_option maxHeartbeats 10000000
-
-
--- prove_correct firstDuplicate by
-  -- loom_solve <;> (try simp at *; expose_names)
-
-theorem goal_0
-    (lst : List ℤ)
-    (require_1 : precondition lst)
-    (found : Option ℤ)
-    (i : ℕ)
-    (a_1 : i ≤ lst.length)
-    (done_1 : i = lst.length ∨ ¬found = none)
-    (i_1 : Option ℤ)
-    (i_2 : ℕ)
-    (a : True)
-    (invariant_no_dup_prefix : found = none → ∀ k < i, lst[k]?.getD 0 ∉ List.take k lst)
-    (invariant_found_valid : ∀ (x : ℤ), found = some x → ∃ j < lst.length, j ≤ i ∧ lst[j]?.getD 0 = x ∧ x ∈ List.take j lst ∧ ∀ k < j, lst[k]?.getD 0 ∉ List.take k lst)
-    (i_3 : found = i_1 ∧ i = i_2)
-    : postcondition lst i_1 := by
-    unfold postcondition
-    obtain ⟨h_found_eq, h_i_eq⟩ := i_3
-    subst h_found_eq
-    cases hf : found with
-    | none =>
-      intro j hj
-      simp only [List.contains_iff_mem, not_true_eq_false, Bool.not_eq_true, Bool.eq_false_iff]
-      -- In the none case, we need to show no duplicates for all j < lst.length
-      have h_i_len : i = lst.length := by
-        cases done_1 with
-        | inl h => exact h
-        | inr h => simp [hf] at h
-      have h_inv := invariant_no_dup_prefix hf
-      specialize h_inv j (by omega)
-      simp only [List.getElem!_eq_getElem?_getD]
-      exact h_inv
-    | some x =>
-      -- In the some case, we use invariant_found_valid
-      have h_valid := invariant_found_valid x hf
-      obtain ⟨j, hj_lt, hj_le_i, hj_eq, hj_mem, hj_min⟩ := h_valid
-      refine ⟨j, hj_lt, ?_, ?_, ?_⟩
-      · simp only [List.getElem!_eq_getElem?_getD]
-        exact hj_eq
-      · simp only [List.contains_iff_mem]
-        exact hj_mem
-      · intro k hk
-        simp only [List.contains_iff_mem, not_true_eq_false, Bool.not_eq_true, Bool.eq_false_iff]
-        simp only [List.getElem!_eq_getElem?_getD]
-        exact hj_min k hk
-
 
 prove_correct firstDuplicate by
-  loom_solve <;> (try simp at *; expose_names)
-  exact (goal_0 lst require_1 found i a_1 done_1 i_1 i_2 a invariant_no_dup_prefix invariant_found_valid i_3)
+  loom_solve 
+  unfold postcondition; simp at *; grind
 end Proof

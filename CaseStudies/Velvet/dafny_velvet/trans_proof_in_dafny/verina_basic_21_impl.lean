@@ -165,6 +165,8 @@ theorem goal_3
         simpa [List.append_assoc] using ht.symm
       simpa [this]
 
+attribute [grind] List.singleton_append List.append_assoc
+
 theorem goal_4
     (sub : List ℤ)
     (main : List ℤ)

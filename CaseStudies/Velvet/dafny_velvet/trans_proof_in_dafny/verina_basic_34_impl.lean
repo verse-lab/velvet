@@ -10,13 +10,11 @@ set_option loom.semantics.choice "demonic"
     findEvenNumbers: Extract even numbers from an array of integers, preserving order.
 -/
 
-section Specs
-def isEvenInt (x : Int) : Bool :=
-  decide (x % 2 = 0)
+abbrev isEvenInt (x : Int) :=
+  x % 2 = 0
 
-def precondition (_ : Array Int) : Prop :=
-  True
 
+@[grind]
 def postcondition (arr : Array Int) (result : Array Int) : Prop :=
   let l := arr.toList
   let r := result.toList
@@ -25,12 +23,10 @@ def postcondition (arr : Array Int) (result : Array Int) : Prop :=
   (∀ x,
       (isEvenInt x = true → r.count x = l.count x) ∧
       (isEvenInt x = false → r.count x = 0))
-end Specs
 
 section Impl
 method findEvenNumbers (arr : Array Int)
   return (result : Array Int)
-  require precondition arr
   ensures postcondition arr result
   do
   let mut result : Array Int := (#[] : Array Int)
@@ -76,9 +72,8 @@ prove_correct findEvenNumbers by
       have h_take : List.take (i + 1) arr.toList = List.take i arr.toList ++ [arr[i]!] := by
         simp at h_len; simp [h_len]
         simpa using List.take_succ_eq_append_getElem (l := arr.toList) (i := i) h_len
-      have h_ne : x ≠ arr[i]! := by intro heq; rw [heq] at hx; simp [hx] at if_neg
-      simp [h_take, List.count_append, invariant_inv_count_evens_prefix x hx, List.count_singleton,
-        h_ne]
+      have h_ne : x ≠ arr[i]! := by intro heq; rw [heq] at hx; omega
+      simp [h_take, List.count_append, invariant_inv_count_evens_prefix x hx, List.count_singleton]
       intro h_eq; rw [h_eq] at h_ne; contradiction
     · -- Final postcondition
       rcases i_2 with ⟨hi, hres⟩
@@ -92,8 +87,10 @@ prove_correct findEvenNumbers by
       · intro x
         constructor
         · intro hxEven
-          simpa [hres, htake] using invariant_inv_count_evens_prefix x hxEven
+          have h : 2 ∣ x := by simpa [isEvenInt] using hxEven
+          simpa [hres, htake] using invariant_inv_count_evens_prefix x h
         · intro hxOdd
-          simpa [hres] using invariant_inv_count_odds_zero x hxOdd)
+          have h : x % 2 = 1 := by simp [isEvenInt] at hxOdd; omega
+          simpa [hres] using invariant_inv_count_odds_zero x h)
 
 end Proof

@@ -67,15 +67,10 @@ lemma PowerOfFourDivision(current: nat)
   ghost var x :| power(4, x) == current;
 
   if x == 0 {
-    assert power(4, 0) == 1;
-    assert current == 1;
     assert false; // contradiction with current > 1
   }
 
-  assert x > 0;
   var x1 := x - 1;
-  assert x1 >= 0;
-  assert power(4, x) == 4 * power(4, x1);
   assert current == 4 * power(4, x1);
   assert current / 4 == power(4, x1);
   assert isPowerOfFour(current / 4);
@@ -90,7 +85,6 @@ lemma PowerOfFourMultiplication(current: nat)
 {
   ghost var x: nat :| power(4, x) == current / 4;
   assert current == 4 * (current / 4);
-  assert current == 4 * power(4, x);
   assert current == power(4, x + 1);
   assert isPowerOfFour(current);
 }
@@ -126,16 +120,7 @@ lemma NotOneNotDivisibleNotPower(n: nat)
     }
 
     if isPowerOfFour(n) {
-      ghost var x :| power(4, x) == n;
-      if x == 0 {
-        assert power(4, 0) == 1;
-        assert n == 1;
-        assert false; // contradiction with n != 1
-      } else {
-        assert power(4, x) % 4 == 0;
-        assert n % 4 == 0;
-        assert false; // contradiction
-      }
+      assert false; // contradiction with n != 1
     }
   }
 }
