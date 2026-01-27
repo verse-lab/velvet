@@ -127,8 +127,8 @@ method firstDuplicate(lst: seq<int>) returns (result: int)
     // This matches the postcondition for found == -1
   } else {
     // found != -1, from invariant 3 we have the witness
-    assert exists j :: 0 <= j < |lst| && j <= i && lst[j] == found && contains(lst[..j], found) &&
-      (forall k :: 0 <= k < j ==> !contains(lst[..k], lst[k]));
+    assert exists j :: (0 <= j < |lst| && j <= i && lst[j] == found && contains(lst[..j], found) &&
+                        (forall k :: 0 <= k < j ==> !contains(lst[..k], lst[k])));
 
     // This matches the postcondition for found != -1
   }
