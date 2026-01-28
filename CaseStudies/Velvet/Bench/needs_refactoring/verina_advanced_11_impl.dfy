@@ -42,47 +42,15 @@ function countPrefix(lst: seq<int>, x: int, j: nat): nat
 }
 
 // Helper predicate to check if an element is a majority element
-ghost predicate isMajorityElement(lst: seq<int>, x: int)
+predicate isMajorityElement(lst: seq<int>, x: int)
 {
   count(lst, x) > |lst| / 2
 }
 
 // Helper predicate to check if a majority element exists
-ghost predicate hasMajorityElement(lst: seq<int>)
+predicate hasMajorityElement(lst: seq<int>)
 {
   exists x :: x in lst && isMajorityElement(lst, x)
-}
-
-// Precondition: no restrictions on input
-ghost predicate precondition(lst: seq<int>)
-{
-  true
-}
-
-// Postcondition: result is either the majority element or -1
-ghost predicate postcondition(lst: seq<int>, result: int)
-{
-  (hasMajorityElement(lst) ==> (result in lst && isMajorityElement(lst, result))) &&
-  (!hasMajorityElement(lst) ==> result == -1)
-}
-
-// Lemma: If we've checked all elements and found none with count > threshold, no majority exists
-lemma NoMajorityIfNoneFound(lst: seq<int>, i: nat)
-  requires i <= |lst|
-  requires forall k :: 0 <= k < i ==> !isMajorityElement(lst, lst[k])
-  ensures i == |lst| ==> !hasMajorityElement(lst)
-{
-  if i == |lst| && hasMajorityElement(lst) {
-    // There exists a majority element x
-    var x :| x in lst && isMajorityElement(lst, x);
-    // x must appear at some index
-    var idx :| 0 <= idx < |lst| && lst[idx] == x;
-    // We've checked all indices, so idx < i = |lst|
-    assert !isMajorityElement(lst, lst[idx]);
-    assert lst[idx] == x;
-    assert isMajorityElement(lst, x);
-    assert false;
-  }
 }
 
 // Lemma: count in prefix increases by 1 when element matches
@@ -93,7 +61,6 @@ lemma CountPrefixIncrement(lst: seq<int>, x: int, j: nat)
 {
   assert lst[..j+1] == lst[..j] + [lst[j]];
   CountConcat(lst[..j], [lst[j]], x);
-  assert count([lst[j]], x) == 1;
 }
 
 // Lemma: count in prefix stays same when element doesn't match
@@ -104,7 +71,6 @@ lemma CountPrefixSame(lst: seq<int>, x: int, j: nat)
 {
   assert lst[..j+1] == lst[..j] + [lst[j]];
   CountConcat(lst[..j], [lst[j]], x);
-  assert count([lst[j]], x) == 0;
 }
 
 // Lemma: full prefix equals the whole list
@@ -116,8 +82,8 @@ lemma CountPrefixFull(lst: seq<int>, x: int)
 
 // Main method
 method findMajorityElement(lst: seq<int>) returns (result: int)
-  requires precondition(lst)
-  ensures postcondition(lst, result)
+  ensures hasMajorityElement(lst) ==> (result in lst && isMajorityElement(lst, result))
+  ensures !hasMajorityElement(lst) ==> result == -1
 {
   var n := |lst|;
   var threshold := n / 2;
@@ -162,13 +128,11 @@ method findMajorityElement(lst: seq<int>) returns (result: int)
 
     // After inner loop, cnt == count(lst, elem)
     CountPrefixFull(lst, elem);
-    assert cnt == count(lst, elem);
 
     // Check if this element is a majority
     if cnt > threshold {
       found := true;
       candidate := elem;
-      assert isMajorityElement(lst, elem);
     }
 
     i := i + 1;
@@ -177,8 +141,6 @@ method findMajorityElement(lst: seq<int>) returns (result: int)
   if found {
     result := candidate;
   } else {
-    NoMajorityIfNoneFound(lst, i);
-    assert !hasMajorityElement(lst);
     result := -1;
   }
 }
