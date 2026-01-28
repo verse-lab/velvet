@@ -79,15 +79,6 @@ lemma infixShiftLemma(sub: seq<int>, rest: seq<int>, main: seq<int>)
   }
 }
 
-// Lemma: if sub is an infix of rest and |sub| > |rest|, contradiction
-lemma infixLengthBound(sub: seq<int>, rest: seq<int>)
-  requires isContiguousSublist(sub, rest)
-  ensures |sub| <= |rest|
-{
-  var pre, suf :| rest == pre + sub + suf;
-  assert |rest| == |pre| + |sub| + |suf|;
-}
-
 method isSublist(sub: seq<int>, main: seq<int>) returns (result: bool)
   ensures result == true <==> isContiguousSublist(sub, main)
 {
@@ -131,13 +122,6 @@ method isSublist(sub: seq<int>, main: seq<int>) returns (result: bool)
           rest := rest[1..];
         }
       } else {
-        // |sub| > |rest|, so sub cannot be an infix of rest
-        // If sub <:+: main and sub <:+: rest, then |sub| <= |rest| by infixLengthBound
-        // So if |sub| > |rest|, sub is not an infix of rest, meaning found must be true
-        // or sub is not an infix of main
-        if isContiguousSublist(sub, main) && !found {
-          infixLengthBound(sub, rest);
-        }
         tailPreservesInfix(rest, main);
         rest := rest[1..];
       }

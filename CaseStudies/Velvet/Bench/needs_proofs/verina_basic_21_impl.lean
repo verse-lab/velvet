@@ -69,13 +69,8 @@ set_option maxHeartbeats 10000000
 attribute [grind] List.singleton_append List.append_assoc List.take_prefix List.IsPrefix.isInfix List.take_left
 
 prove_correct isSublist by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve; (try simp at *; expose_names)
   intro hmain
-  have hnm : found = true ∨ sub <:+: rest := invariant_not_missed hmain
-  cases hnm with
-  | inl hfound =>
-      exact Or.inl hfound
-  | inr hinfix_rest =>
-      rcases hinfix_rest with ⟨pre, suf, hpre⟩
-      have hpre_ne_nil : pre ≠ [] := by grind
-      grind
+  rcases invariant_not_missed hmain with (_|⟨pre, suf, hpre⟩) <;> try grind
+  have hpre_ne_nil : pre ≠ [] := by grind
+  grind
