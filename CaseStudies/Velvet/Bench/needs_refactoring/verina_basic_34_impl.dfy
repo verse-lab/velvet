@@ -44,19 +44,8 @@ lemma CountAppend(s: seq<int>, x: int, y: int)
   ensures count(s + [y], x) == count(s, x) + (if y == x then 1 else 0)
 {
   if |s| == 0 {
-    // base case: [] + [y] == [y]
   } else {
-    // inductive case
-    assert (s + [y])[0] == s[0];
     assert (s + [y])[1..] == s[1..] + [y];
-    CountAppend(s[1..], x, y);
-    calc {
-      count(s + [y], x);
-      == (if s[0] == x then 1 else 0) + count((s + [y])[1..], x);
-      == (if s[0] == x then 1 else 0) + count(s[1..] + [y], x);
-      == (if s[0] == x then 1 else 0) + count(s[1..], x) + (if y == x then 1 else 0);
-      == count(s, x) + (if y == x then 1 else 0);
-    }
   }
 }
 
@@ -69,22 +58,6 @@ lemma CountPrefixExtend(s: seq<int>, x: int, i: nat)
   var extended := s[..i+1];
   assert extended == prefix + [s[i]];
   CountAppend(prefix, x, s[i]);
-  assert count(extended, x) == count(prefix, x) + (if s[i] == x then 1 else 0);
-}
-
-// Lemma: count of odd number in even-only sequence is 0
-lemma {:induction true} CountOddInEvenSeq(s: seq<int>, x: int)
-  requires forall j :: 0 <= j < |s| ==> isEvenInt(s[j])
-  requires !isEvenInt(x)
-  ensures count(s, x) == 0
-{
-  if |s| == 0 {
-  } else {
-    assert isEvenInt(s[0]);
-    assert !isEvenInt(x);
-    assert s[0] != x;
-    CountOddInEvenSeq(s[1..], x);
-  }
 }
 
 // Helper: check if result is a subsequence of arr (preserving order)
@@ -181,14 +154,7 @@ method findEvenNumbers(arr: seq<int>) returns (result: seq<int>)
     i := i + 1;
   }
 
-  // After loop, i == |arr|, so arr[..i] == arr
   assert i == |arr|;
   assert arr[..i] == arr;
 
-  // Establish subsequence property for postcondition
-  assert |indices| == |result|;
-  assert forall k :: 0 <= k < |indices| ==> indices[k] < |arr|;
-  assert forall k :: 0 <= k < |indices| ==> result[k] == arr[indices[k]];
-  assert forall k, j :: 0 <= k < j < |indices| ==> indices[k] < indices[j];
-  assert IsSubsequence(result, arr);
 }

@@ -1,7 +1,7 @@
 import CaseStudies.Velvet.Std
-import CaseStudies.Velvet.Utils
-import CaseStudies.Velvet.UtilsLemmas
-import Mathlib.Tactic
+-- import CaseStudies.Velvet.Utils
+-- import CaseStudies.Velvet.UtilsLemmas
+-- import Mathlib.Tactic
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
@@ -10,87 +10,63 @@ set_option loom.semantics.choice "demonic"
     findEvenNumbers: Extract even numbers from an array of integers, preserving order.
 -/
 
-abbrev isEvenInt (x : Int) :=
+@[grind]
+def isEvenInt (x : Int) : Bool :=
   x % 2 = 0
 
-
 @[grind]
-def postcondition (arr : Array Int) (result : Array Int) : Prop :=
-  let l := arr.toList
-  let r := result.toList
-  r.Sublist l ∧
-  (∀ x, x ∈ r → isEvenInt x = true) ∧
-  (∀ x,
-      (isEvenInt x = true → r.count x = l.count x) ∧
-      (isEvenInt x = false → r.count x = 0))
-
-section Impl
+def Array.Sublist (arr : Array Int) (sub : Array Int) : Prop :=
+  ∃ indices : Array Nat,
+    indices.size = sub.size ∧
+    (∀ i, i < indices.size → indices[i]! < arr.size) ∧
+    (∀ i, i < indices.size → sub[i]! = arr[indices[i]!]!) ∧
+    (∀ i j, i < j → j < indices.size → indices[i]! < indices[j]!)
+-- section Impl
 method findEvenNumbers (arr : Array Int)
   return (result : Array Int)
-  ensures postcondition arr result
+  ensures arr.Sublist result
+  ensures ∀ x, x ∈ result → isEvenInt x = true
+  ensures ∀ x, isEvenInt x = true → result.count x = arr.count x
+  ensures ∀ x, isEvenInt x = false → result.count x = 0
   do
-  let mut result : Array Int := (#[] : Array Int)
+  let mut result : Array Int := #[]
+  let mut indices : Array Nat := #[]
   let mut i : Nat := 0
   while i < arr.size
     invariant "inv_i_bounds" (i ≤ arr.size)
-    invariant "inv_sublist_prefix" (result.toList.Sublist (List.take i arr.toList))
-    invariant "inv_all_even" (∀ x, x ∈ result.toList → isEvenInt x = true)
-    invariant "inv_count_odds_zero" (∀ x, isEvenInt x = false → result.toList.count x = 0)
-    invariant "inv_count_evens_prefix" (∀ x, isEvenInt x = true → result.toList.count x = (List.take i arr.toList).count x)
+    invariant "inv_all_even" (∀ x, x ∈ result → isEvenInt x = true)
+    invariant "inv_count_odds_zero" (∀ x, isEvenInt x = false → result.count x = 0)
+    invariant "inv_count_evens_prefix" (∀ x, isEvenInt x = true → result.count x = (arr.take i).count x)
+    invariant "inv_indices_size" (indices.size = result.size)
+    invariant "inv_indices_index" (∀ k, k < indices.size → indices[k]! < i)
+    invariant "inv_indices_arr_bounds" (∀ k, k < indices.size → indices[k]! < arr.size)
+    invariant "inv_indices_result_bounds" (∀ k, k < indices.size → result[k]! = arr[indices[k]!]!)
+    invariant "inv_indices_order" (∀ k j, k < j → j < indices.size → indices[k]! < indices[j]!)
     done_with i = arr.size
   do
     let x := arr[i]!
     if isEvenInt x = true then
       result := result.push x
+      indices := indices.push i
     i := i + 1
   return result
-end Impl
+-- end Impl
 
 section Proof
 set_option maxHeartbeats 10000000
 
+@[grind]
+theorem count_take [DecidableEq α] [Inhabited α] {a : α} {xs : Array α} :
+  n < xs.size →
+  (xs.take (n + 1)).count a = if xs[n]! = a then (xs.take n).count a + 1 else (xs.take n).count a := by
+  intro; grind [Array.extract_succ_right]
+
+set_option trace.profiler true
+
+attribute [grind] Array.take_size
+
 prove_correct findEvenNumbers by
-  ( loom_solve <;> (try simp at *; expose_names)
-    · -- Sublist after push
-      have h_len : i < arr.toList.length := if_pos
-      have h_take : List.take (i + 1) arr.toList = List.take i arr.toList ++ [arr[i]!] :=
-        by
-        simp at h_len; simp [h_len]
-        simpa using List.take_succ_eq_append_getElem (l := arr.toList) (i := i) h_len
-      rw [h_take]
-      exact List.Sublist.append invariant_inv_sublist_prefix (List.Sublist.refl _)
-    · -- Count evens after push
-      intro x hx
-      have h_len : i < arr.toList.length := if_pos
-      have h_take : List.take (i + 1) arr.toList = List.take i arr.toList ++ [arr[i]!] := by
-        simp at h_len; simp [h_len]
-        simpa using List.take_succ_eq_append_getElem (l := arr.toList) (i := i) h_len
-      simp [h_take, List.count_append, invariant_inv_count_evens_prefix x hx]
-    · -- Count evens when skipping odd
-      intro x hx
-      have h_len : i < arr.toList.length := if_pos
-      have h_take : List.take (i + 1) arr.toList = List.take i arr.toList ++ [arr[i]!] := by
-        simp at h_len; simp [h_len]
-        simpa using List.take_succ_eq_append_getElem (l := arr.toList) (i := i) h_len
-      have h_ne : x ≠ arr[i]! := by intro heq; rw [heq] at hx; omega
-      simp [h_take, List.count_append, invariant_inv_count_evens_prefix x hx, List.count_singleton]
-      intro h_eq; rw [h_eq] at h_ne; contradiction
-    · -- Final postcondition
-      rcases i_2 with ⟨hi, hres⟩
-      have htake : List.take i arr.toList = arr.toList := by simp [done_1]
-      constructor
-      · simpa [hres, htake] using invariant_inv_sublist_prefix
-      constructor
-      · intro x hx
-        have : x ∈ result := by simp at hx; simp [hres, hx]
-        simpa [hres] using invariant_inv_all_even x this
-      · intro x
-        constructor
-        · intro hxEven
-          have h : 2 ∣ x := by simpa [isEvenInt] using hxEven
-          simpa [hres, htake] using invariant_inv_count_evens_prefix x h
-        · intro hxOdd
-          have h : x % 2 = 1 := by simp [isEvenInt] at hxOdd; omega
-          simpa [hres] using invariant_inv_count_odds_zero x h)
+  loom_solve
+
 
 end Proof
