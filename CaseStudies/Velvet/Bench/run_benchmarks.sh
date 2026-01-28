@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Run hyperfine benchmarks for all Dafny/Lean/Lean-async file triplets.
 #
-# Usage: ./run_benchmarks.sh [--runs N] [--warmup W]
+# Usage: ./run_benchmarks.sh [--runs N] [--warmup W] [--prefix P]
 #   --runs    Number of timed runs (default: 10)
 #   --warmup  Number of warmup runs (default: 1)
+#   --prefix  Only run benchmarks whose name starts with P (default: all)
 #
 # Must be run from anywhere; it resolves paths relative to the script location.
 
@@ -16,12 +17,14 @@ FOLDERS=("both_easy" "needs_proofs" "needs_refactoring")
 
 RUNS=10
 WARMUP=1
+PREFIX=""
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --runs)  RUNS="$2"; shift 2 ;;
+        --runs)   RUNS="$2"; shift 2 ;;
         --warmup) WARMUP="$2"; shift 2 ;;
+        --prefix) PREFIX="$2"; shift 2 ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
 done
@@ -35,6 +38,7 @@ echo "Benchmark configuration:"
 echo "  Project root: $PROJECT_ROOT"
 echo "  Runs: $RUNS"
 echo "  Warmup: $WARMUP"
+echo "  Prefix: ${PREFIX:-<all>}"
 echo ""
 
 for folder in "${FOLDERS[@]}"; do
@@ -50,6 +54,12 @@ for folder in "${FOLDERS[@]}"; do
         [ -f "$dfy_file" ] || continue
 
         base="$(basename "$dfy_file" .dfy)"
+
+        # Skip if prefix is set and doesn't match
+        if [[ -n "$PREFIX" && "$base" != "$PREFIX"* ]]; then
+            continue
+        fi
+
         lean_file="$dir/${base}.lean"
         async_file="$dir/${base}_async.lean"
 
