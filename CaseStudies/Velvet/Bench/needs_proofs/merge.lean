@@ -1,9 +1,4 @@
 import CaseStudies.Velvet.Std
-import CaseStudies.TestingUtil
-import CaseStudies.Velvet.SpecDSL
-import CaseStudies.Velvet.Utils
-import CaseStudies.Velvet.UtilsLemmas
-import Mathlib.Tactic
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
