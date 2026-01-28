@@ -1,5 +1,4 @@
 import CaseStudies.Velvet.Std
-import Mathlib.Tactic
 import Batteries.Lean.Float
 
 set_option loom.semantics.termination "partial"
@@ -41,5 +40,5 @@ section Proof
 set_option maxHeartbeats 10000000
 
 prove_correct sumAndAverage by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve
 end Proof

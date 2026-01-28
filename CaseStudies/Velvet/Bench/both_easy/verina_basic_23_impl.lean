@@ -1,6 +1,4 @@
 import CaseStudies.Velvet.Std
-import Mathlib.Tactic
--- Never add new imports here
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"

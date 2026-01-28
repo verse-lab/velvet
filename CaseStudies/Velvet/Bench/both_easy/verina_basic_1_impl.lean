@@ -36,6 +36,6 @@ end Impl
 section Proof
 
 prove_correct hasOppositeSign by
-  loom_solve <;> (simp at *; expose_names)
+  loom_solve
 
 end Proof

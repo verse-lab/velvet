@@ -27,5 +27,5 @@ set_option maxHeartbeats 10000000
   -- loom_solve <;> (try simp at *; expose_names)
 
 prove_correct lastDigit by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve
 end Proof

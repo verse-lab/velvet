@@ -1,5 +1,4 @@
 import CaseStudies.Velvet.Std
-import Batteries.Data.Array.Basic
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
@@ -70,6 +69,6 @@ end Impl
 section Proof
 
 prove_correct findSmallest by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve
 
 end Proof

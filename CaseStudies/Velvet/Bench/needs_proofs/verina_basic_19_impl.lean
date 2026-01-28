@@ -45,5 +45,4 @@ lemma adjacent_implies_global (a : Array Int) (hadj : AdjacentSorted a) : Global
 
 prove_correct isSorted by
   loom_solve
-
 end Proof

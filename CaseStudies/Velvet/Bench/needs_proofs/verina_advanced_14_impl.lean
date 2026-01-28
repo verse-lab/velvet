@@ -1,8 +1,4 @@
 import CaseStudies.Velvet.Std
-import CaseStudies.TestingUtil
-import CaseStudies.Velvet.SpecDSL
-import CaseStudies.Velvet.Utils
-import CaseStudies.Velvet.UtilsLemmas
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
@@ -54,7 +50,7 @@ section Proof
 set_option maxHeartbeats 10000000
 
 prove_correct ifPowerOfFour by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve <;> simp at *
   · intro ⟨x, hx⟩; induction x <;> grind
   · constructor
     · intro h

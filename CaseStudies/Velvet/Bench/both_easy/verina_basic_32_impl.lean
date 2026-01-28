@@ -1,8 +1,4 @@
 import CaseStudies.Velvet.Std
-import CaseStudies.Velvet.Utils
-import CaseStudies.Velvet.UtilsLemmas
-import Mathlib.Tactic
--- Never add new imports here
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
@@ -54,5 +50,5 @@ set_option maxHeartbeats 10000000
   -- loom_solve <;> (try simp at *; expose_names)
 
 prove_correct swapFirstAndLast by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve
 end Proof

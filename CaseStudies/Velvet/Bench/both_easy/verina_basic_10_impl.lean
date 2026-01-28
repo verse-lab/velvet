@@ -41,5 +41,5 @@ section Proof
 set_option maxHeartbeats 10000000
 
 prove_correct isGreater by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve
 end Proof

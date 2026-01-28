@@ -37,6 +37,6 @@ end Impl
 section Proof
 
 prove_correct isDivisibleBy11 by
-  loom_solve <;> (try simp at *; expose_names)
+  loom_solve
 
 end Proof
