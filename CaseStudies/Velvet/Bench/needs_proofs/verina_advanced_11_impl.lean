@@ -49,7 +49,7 @@ method findMajorityElement (lst : List Int)
     -- found implies candidate is a majority element in the list
     invariant "found_implies_majority" found = true → (candidate ∈ lst ∧ isMajorityElement lst candidate)
     -- not found implies no majority element among first i elements
-    invariant "not_found_checked" found = false → (∀ k : Nat, k < i → ¬isMajorityElement lst (lst.get! k))
+    invariant "not_found_checked" found = false → (∀ k : Nat, k < i → ¬isMajorityElement lst lst[k]!)
     done_with i >= n
   do
     let elem := lst[i]!
@@ -66,7 +66,7 @@ method findMajorityElement (lst : List Int)
       invariant "found_preserved" found = true → (candidate ∈ lst ∧ isMajorityElement lst candidate)
       invariant "i_preserved" 0 ≤ i ∧ i < n
       invariant "elem_in_list" i < lst.length → elem = lst[i]!
-      invariant "not_found_checked_inner" found = false → (∀ k : Nat, k < i → ¬isMajorityElement lst (lst.get! k))
+      invariant "not_found_checked_inner" found = false → (∀ k : Nat, k < i → ¬isMajorityElement lst lst[k]!)
       done_with j >= n
     do
       if lst[j]! = elem then
@@ -89,8 +89,8 @@ end Impl
 section Proof
 set_option maxHeartbeats 10000000
 
-attribute [grind] List.getElem?_eq_getElem List.take_succ_eq_append_getElem
+attribute [grind] List.take_succ_eq_append_getElem
 
 prove_correct findMajorityElement by
-  loom_solve <;> (try simp at *; expose_names) <;> grind
+  loom_solve
 end Proof
