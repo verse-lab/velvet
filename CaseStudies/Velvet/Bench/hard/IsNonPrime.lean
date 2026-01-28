@@ -1,15 +1,5 @@
-import Mathlib.Tactic
-
-import Loom.MonadAlgebras.NonDetT.Extract
-import Loom.MonadAlgebras.WP.Tactic
-import Loom.MonadAlgebras.WP.DoNames'
-
 import CaseStudies.Velvet.Std
-import CaseStudies.TestingUtil
-
-import Mathlib.Data.Num.ZNum
-
-open PartialCorrectness DemonicChoice Lean.Elab.Term.DoNames
+import Mathlib.Data.Nat.Prime.Defs
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
