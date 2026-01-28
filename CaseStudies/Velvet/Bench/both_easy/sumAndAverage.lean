@@ -1,5 +1,4 @@
 import CaseStudies.Velvet.Std
-import Batteries.Lean.Float
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"

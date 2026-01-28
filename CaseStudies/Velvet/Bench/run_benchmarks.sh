@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+PROJECT_ROOT="$SCRIPT_DIR/../../.."
 RESULTS_DIR="$SCRIPT_DIR/results"
 FOLDERS=("both_easy" "needs_proofs" "needs_refactoring")
 
@@ -36,15 +36,6 @@ echo "  Project root: $PROJECT_ROOT"
 echo "  Runs: $RUNS"
 echo "  Warmup: $WARMUP"
 echo ""
-
-# Helper: convert file path to Lean module name (relative to project root)
-# e.g., CaseStudies/Velvet/Bench/both_easy/foo.lean -> CaseStudies.Velvet.Bench.both_easy.foo
-file_to_module() {
-    local file="$1"
-    local rel
-    rel="$(realpath --relative-to="$PROJECT_ROOT" "$file")"
-    echo "${rel%.lean}" | tr '/' '.'
-}
 
 for folder in "${FOLDERS[@]}"; do
     dir="$SCRIPT_DIR/$folder"
@@ -72,8 +63,6 @@ for folder in "${FOLDERS[@]}"; do
             continue
         fi
 
-        lean_module="$(file_to_module "$lean_file")"
-        async_module="$(file_to_module "$async_file")"
         json_out="$out_dir/${base}.json"
 
         echo "  Benchmarking: $base"
@@ -82,11 +71,9 @@ for folder in "${FOLDERS[@]}"; do
             --runs "$RUNS" \
             --warmup "$WARMUP" \
             --export-json "$json_out" \
-            --prepare "touch '$lean_file'" \
-            --prepare "touch '$async_file'" \
-            --command-name "dafny"      "dafny verify '$dfy_file'" \
-            --command-name "lean"       "lake build '$lean_module'" \
-            --command-name "lean_async" "lake build '$async_module'" \
+            --command-name "dafny"      "dafny verify ${dfy_file}" \
+            --command-name "lean"       "cd ${PROJECT_ROOT} && lake env lean ${lean_file}" \
+            --command-name "lean_async" "cd ${PROJECT_ROOT} && lake env lean ${async_file}" \
             2>&1 | sed 's/^/    /'
 
         echo ""
