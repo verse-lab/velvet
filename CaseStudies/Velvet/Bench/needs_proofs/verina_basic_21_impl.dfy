@@ -18,20 +18,6 @@ ghost predicate isContiguousSublist(sub: seq<int>, main: seq<int>)
   exists pre: seq<int>, suf: seq<int> :: main == pre + sub + suf
 }
 
-// Lemma: empty sequence is an infix of any sequence
-lemma emptyIsInfix(main: seq<int>)
-  ensures isContiguousSublist([], main)
-{
-  assert main == [] + [] + main;
-}
-
-// Lemma: any sequence is an infix of itself
-lemma selfIsInfix(s: seq<int>)
-  ensures isContiguousSublist(s, s)
-{
-  assert s == [] + s + [];
-}
-
 // Lemma: if rest is an infix of main, then rest[1..] is also an infix of main
 lemma tailPreservesInfix(rest: seq<int>, main: seq<int>)
   requires |rest| > 0
@@ -50,7 +36,6 @@ lemma prefixOfInfixIsInfix(sub: seq<int>, rest: seq<int>, main: seq<int>)
   ensures isContiguousSublist(sub, main)
 {
   var pre, suf :| main == pre + rest + suf;
-  assert rest == sub + rest[|sub|..];
   assert main == pre + sub + (rest[|sub|..] + suf);
 }
 
@@ -66,15 +51,7 @@ lemma infixShiftLemma(sub: seq<int>, rest: seq<int>, main: seq<int>)
   ensures isContiguousSublist(sub, rest[1..])
 {
   var pre, suf :| rest == pre + sub + suf;
-  if pre == [] {
-    // sub is a prefix of rest, contradicts sub != rest[..|sub|]
-    assert rest == sub + suf;
-    assert rest[..|sub|] == sub;
-    assert |sub| <= |rest|;
-    assert false;
-  } else {
-    // pre is non-empty, so sub appears after first element
-    assert rest == [pre[0]] + (pre[1..] + sub + suf);
+  if pre != [] {
     assert rest[1..] == pre[1..] + sub + suf;
   }
 }
@@ -84,13 +61,13 @@ method isSublist(sub: seq<int>, main: seq<int>) returns (result: bool)
 {
   // Empty list is an infix of any list.
   if sub == [] {
-    emptyIsInfix(main);
+    assert main == [] + [] + main;
     return true;
   } else {
     var rest := main;
     var found := false;
 
-    selfIsInfix(main);
+    assert main == [] + main + [];
 
     while rest != [] && found == false
       // Invariant 1: `rest` is always an infix of the original `main`.
