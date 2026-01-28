@@ -97,41 +97,9 @@ method firstDuplicate(lst: seq<int>) returns (result: int)
 
     if containsCurrent {
       found := current;
-      assert lst[i] == found;
-      assert contains(lst[..i], found);
-      assert forall k :: 0 <= k < i ==> !contains(lst[..k], lst[k]);
     } else {
       i := i + 1;
     }
   }
-
-  // Establish postcondition
-  if found == -1 {
-    // If found == -1, we never executed break (break only happens when setting found)
-    // So the loop exited because the loop guard became false
-    // Loop guard: i < |lst| && found == -1
-    // Since found == -1 is true, we must have i >= |lst|
-
-    assert i <= |lst|;  // From invariant 1
-
-    // The tricky part: we exited normally, so the loop condition was false
-    // But we can't directly assert this with break statements
-    // Instead, reason that if found == -1, we only increment i and never break
-    // So we must have reached i == |lst|
-
-    assert i == |lst|;
-
-    // From invariant 2 with i == |lst|
-    assert forall k :: 0 <= k < |lst| ==> !contains(lst[..k], lst[k]);
-
-    // This matches the postcondition for found == -1
-  } else {
-    // found != -1, from invariant 3 we have the witness
-    assert exists j :: (0 <= j < |lst| && j <= i && lst[j] == found && contains(lst[..j], found) &&
-                        (forall k :: 0 <= k < j ==> !contains(lst[..k], lst[k])));
-
-    // This matches the postcondition for found != -1
-  }
-
   result := found;
 }

@@ -47,19 +47,16 @@ lemma AdjacentImpliesGlobal(a: seq<int>)
   if |a| <= 1 {
     return;
   }
-
   forall i, j | 0 <= i < j < |a|
     ensures a[i] <= a[j]
   {
     if j == i + 1 {
-      assert a[i] <= a[j];
     } else {
       var k := i;
       while k < j
         invariant i <= k <= j
         invariant a[i] <= a[k]
       {
-        assert a[k] <= a[k + 1];
         k := k + 1;
       }
     }

@@ -13,13 +13,8 @@ set_option loom.semantics.choice "demonic"
 -/
 
 section Specs
-  
-end Specs
 
-@[grind]
-lemma lemma_2 [Inhabited α] (s : List α) (x : α) :
-  (∀ i : Nat, i < s.length -> s[i]! ≠ x) -> ¬ x ∈ s := by
-  sorry
+end Specs
 
 
 section Impl

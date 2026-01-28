@@ -24,22 +24,10 @@ set_option loom.semantics.choice "demonic"
     8. Key insight: We're looking for the first index j where (List.take j lst).contains lst[j]!
 -/
 
-section Specs
--- Helper: Check if element at index j appeared in the prefix lst[0..j-1]
--- Using List.take and List.contains as suggested by LeanExplore
-
--- Postcondition: Characterize the first duplicate
--- When result is some x:
---   - There exists an index j where lst[j]! = x and x appears in lst[0..j-1]
---   - j is the smallest such index (no earlier index has this property)
--- When result is none:
---   - No element appears twice (no index j has lst[j]! in its prefix)
-
-def precondition (lst : List Int) :=
-  True  -- no preconditions
-
-def postcondition (lst : List Int) (result : Option Int) :=
-  match result with
+section Impl
+method firstDuplicate (lst: List Int)
+  return (result: Option Int)
+  ensures match result with
   | none =>
       -- No element appears in its prefix (no duplicates)
       ∀ j : Nat, j < lst.length → ¬((lst.take j).contains lst[j]!)
@@ -52,13 +40,6 @@ def postcondition (lst : List Int) (result : Option Int) :=
                  lst[j]! = x ∧
                  (lst.take j).contains x ∧
                  (∀ k : Nat, k < j → ¬((lst.take k).contains lst[k]!))
-end Specs
-
-section Impl
-method firstDuplicate (lst: List Int)
-  return (result: Option Int)
-  require precondition lst
-  ensures postcondition lst result
   do
   let mut i := 0
   let mut found : Option Int := none
@@ -91,6 +72,5 @@ end Impl
 section Proof
 
 prove_correct firstDuplicate by
-  loom_solve 
-  unfold postcondition; simp at *; grind
+  loom_solve
 end Proof
