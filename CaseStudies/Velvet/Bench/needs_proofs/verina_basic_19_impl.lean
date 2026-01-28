@@ -6,18 +6,15 @@ set_option loom.semantics.choice "demonic"
     isSorted: check whether an array of integers is sorted in non-decreasing order.
 -/
 
-@[grind]
 def AdjacentSorted (a : Array Int) : Prop :=
-  ∀ (i : Nat), i + 1 < a.size → a[i]! ≤ a[i + 1]!
-@[grind]
+  ∀ i, 0 ≤ i → i < a.size - 1 → a[i]! ≤ a[i + 1]!
+
 def GloballySorted (a : Array Int) : Prop :=
   ∀ (i : Nat) (j : Nat), i < j → j < a.size → a[i]! ≤ a[j]!
 
 section Impl
 method isSorted (a : Array Int) return (result : Bool)
-  ensures result = true ↔ AdjacentSorted a
-  ensures result = true → GloballySorted a
-  ensures result = false ↔ ¬ AdjacentSorted a
+  ensures result = true ↔ GloballySorted a
   do
     let mut sorted := true
     let mut i : Nat := 0
@@ -37,13 +34,37 @@ section Proof
 set_option maxHeartbeats 10000000
 
 -- Compact helper: chaining adjacent sortedness gives global sortedness
-@[grind]
-lemma adjacent_implies_global (a : Array Int) (hadj : AdjacentSorted a) : GloballySorted a := by
-  intro p q hpq
+lemma adjacent_implies_global (a : Array Int) (hadj : AdjacentSorted a)
+  : GloballySorted a := by
+  intro p q hpq hq
   obtain ⟨d, rfl⟩ := Nat.exists_eq_add_of_lt hpq
-  induction d <;> grind
+  have : ∀ d : Nat, p + d.succ < a.size → a[p]! ≤ a[p + d.succ]! := by
+    intro d
+    induction d with
+    | zero => grind [AdjacentSorted]
+    | succ _ _ => grind [AdjacentSorted]
+  exact this d (by simpa using hq)
 
 prove_correct isSorted by
   loom_solve <;> (try simp at *; expose_names)
+  -- Main proof goal
+  rcases i_2 with ⟨hi, hres⟩
+  cases done_1 with
+  | inl h_size_le =>
+    -- Case: loop exited because i+1 >= a.size
+    constructor
+    · -- sorted = true ↔ AdjacentSorted a
+      have h_adj_of_true : sorted = true → AdjacentSorted a := by
+        intro hst k hk1 hk2
+        exact invariant_inv_checked_prefix hst k (by omega)
+      grind [adjacent_implies_global]
+    · -- sorted = false ↔ ¬AdjacentSorted a
+      intro hsort
+      by_cases hst : sorted = true
+      · grind
+      · rcases (invariant_inv_witness_if_false (by grind)) with ⟨ k, hk ⟩
+        specialize hsort k (k + 1)
+        grind
+  | inr h_sorted_false => aesop; specialize a_1 w (w + 1); grind
 
 end Proof

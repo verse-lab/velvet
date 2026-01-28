@@ -8,21 +8,9 @@
     5. Empty arrays are rejected (see reject input).
 */
 
-// Precondition: reject empty arrays
-predicate precondition(n: int, a: seq<int>)
-{
-  |a| > 0
-}
-
-// Postcondition: Boolean meaning of being strictly greater than every element
-predicate postcondition(n: int, a: seq<int>, result: bool)
-{
-  result == true <==> (forall i :: 0 <= i < |a| ==> a[i] < n)
-}
-
 method isGreater(n: int, a: seq<int>) returns (result: bool)
-  requires precondition(n, a)
-  ensures postcondition(n, a, result)
+  requires |a| > 0
+  ensures result == true <==> (forall i :: 0 <= i < |a| ==> a[i] < n)
 {
   var ok := true;
   var i: nat := 0;

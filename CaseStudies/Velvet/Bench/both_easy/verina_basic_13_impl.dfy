@@ -14,21 +14,9 @@ function intCube(x: int): int
   x * x * x
 }
 
-// Precondition: no requirements
-predicate precondition(a: seq<int>)
-{
-  true
-}
-
-// Postcondition: size preserved and pointwise cube relation
-predicate postcondition(a: seq<int>, result: seq<int>)
-{
-  |result| == |a| && (forall i :: 0 <= i < |a| ==> result[i] == intCube(a[i]))
-}
-
 method cubeElements(a: seq<int>) returns (result: seq<int>)
-  requires precondition(a)
-  ensures postcondition(a, result)
+  ensures |result| == |a|
+  ensures forall i :: 0 <= i < |a| ==> result[i] == intCube(a[i])
 {
   result := [];
   var i: nat := 0;

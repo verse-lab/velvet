@@ -14,20 +14,8 @@ predicate IntIsEven(n: int)
   n % 2 == 0
 }
 
-predicate precondition(n: int)
-{
-  true
-}
-
-predicate postcondition(n: int, result: bool)
-{
-  (result == true <==> IntIsEven(n)) &&
-  (result == false <==> !IntIsEven(n))
-}
-
 method isEven(n: int) returns (result: bool)
-  requires precondition(n)
-  ensures postcondition(n, result)
+  ensures result == true <==> IntIsEven(n)
 {
   if n % 2 == 0 {
     result := true;

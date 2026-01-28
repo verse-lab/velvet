@@ -22,29 +22,16 @@ set_option loom.semantics.choice "demonic"
        - Array with duplicates of minimum: return the minimum value
 -/
 
-section Specs
+section Impl
 
--- Precondition: no requirements on input array
-abbrev precondition (s : Array Nat) :=
-  True
-
--- Postcondition: characterize the result based on array emptiness
-abbrev postcondition (s : Array Nat) (result : Option Nat) :=
-  match result with
+method findSmallest (s: Array Nat)
+  return (result: Option Nat)
+  ensures match result with
   | none => s.size = 0
   | some min =>
       s.size > 0 ∧
       (∃ i, i < s.size ∧ s[i]! = min) ∧
       (∀ j, j < s.size → min ≤ s[j]!)
-
-end Specs
-
-section Impl
-
-method findSmallest (s: Array Nat)
-  return (result: Option Nat)
-  require precondition s
-  ensures postcondition s result
   do
   if s.size = 0 then
     return none

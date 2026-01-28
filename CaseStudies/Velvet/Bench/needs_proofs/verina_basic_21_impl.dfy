@@ -18,18 +18,6 @@ ghost predicate isContiguousSublist(sub: seq<int>, main: seq<int>)
   exists pre: seq<int>, suf: seq<int> :: main == pre + sub + suf
 }
 
-// No preconditions.
-ghost predicate precondition(sub: seq<int>, main: seq<int>)
-{
-  true
-}
-
-// The Boolean result agrees with the infix predicate.
-ghost predicate postcondition(sub: seq<int>, main: seq<int>, result: bool)
-{
-  result == true <==> isContiguousSublist(sub, main)
-}
-
 // Lemma: empty sequence is an infix of any sequence
 lemma emptyIsInfix(main: seq<int>)
   ensures isContiguousSublist([], main)
@@ -101,8 +89,7 @@ lemma infixLengthBound(sub: seq<int>, rest: seq<int>)
 }
 
 method isSublist(sub: seq<int>, main: seq<int>) returns (result: bool)
-  requires precondition(sub, main)
-  ensures postcondition(sub, main, result)
+  ensures result == true <==> isContiguousSublist(sub, main)
 {
   // Empty list is an infix of any list.
   if sub == [] {
@@ -138,7 +125,6 @@ method isSublist(sub: seq<int>, main: seq<int>) returns (result: bool)
           // Need to prove: sub is still an infix of rest[1..] if it was an infix of rest
           ghost var oldRest := rest;
           if isContiguousSublist(sub, main) && !found {
-            assert isContiguousSublist(sub, rest);
             infixShiftLemma(sub, rest, main);
           }
           tailPreservesInfix(rest, main);
@@ -150,9 +136,7 @@ method isSublist(sub: seq<int>, main: seq<int>) returns (result: bool)
         // So if |sub| > |rest|, sub is not an infix of rest, meaning found must be true
         // or sub is not an infix of main
         if isContiguousSublist(sub, main) && !found {
-          assert isContiguousSublist(sub, rest);
           infixLengthBound(sub, rest);
-          assert false; // contradiction
         }
         tailPreservesInfix(rest, main);
         rest := rest[1..];

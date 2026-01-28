@@ -18,26 +18,13 @@
 
 datatype Option<T> = None | Some(value: T)
 
-// Precondition: no requirements on input array
-predicate precondition(s: seq<nat>)
-{
-  true
-}
-
-// Postcondition: characterize the result based on array emptiness
-predicate postcondition(s: seq<nat>, result: Option<nat>)
-{
-  match result
+method findSmallest(s: seq<nat>) returns (result: Option<nat>)
+  ensures match result
     case None => |s| == 0
     case Some(min) =>
       |s| > 0 &&
       (exists i :: 0 <= i < |s| && s[i] == min) &&
       (forall j :: 0 <= j < |s| ==> min <= s[j])
-}
-
-method findSmallest(s: seq<nat>) returns (result: Option<nat>)
-  requires precondition(s)
-  ensures postcondition(s, result)
 {
   if |s| == 0 {
     result := None;

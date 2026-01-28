@@ -18,32 +18,14 @@ set_option loom.semantics.choice "demonic"
     8. For n > 0, the average is defined using Float division of the converted sum by Float.ofNat n.
 -/
 
-section Specs
--- Helper: closed-form Gauss sum as a Nat (this is specification-level, non-recursive).
--- We use Nat arithmetic; for n=0 this yields 0.
-abbrev gaussSumNat (n : Nat) : Nat :=
+def gaussSumNat (n : Nat) : Nat :=
   n * (n + 1) / 2
-
--- Precondition: allow all n to match provided tests (including n = 0).
-abbrev precondition (n : Nat) : Prop :=
-  True
-
--- Postcondition:
--- 1) result.1 is exactly the Gauss sum (as an Int).
--- 2) result.2 is the average:
---    - if n = 0, it is 0.0 (per tests)
---    - if n > 0, it is Float.ofInt result.1 / Float.ofNat n
--- This fully determines the output for every n.
-abbrev postcondition (n : Nat) (result : Int × Float) : Prop :=
-  result.1 = Int.ofNat (gaussSumNat n) ∧
-  (n = 0 → result.2 = 0.0) ∧
-  (n > 0 → result.2 = (Float.ofInt result.1) / (Float.ofNat n))
-end Specs
 
 section Impl
 method sumAndAverage (n: Nat) return (result: Int × Float)
-  require precondition n
-  ensures postcondition n result
+  ensures result.1 = Int.ofNat (gaussSumNat n)
+  ensures n = 0 → result.2 = 0.0
+  ensures n > 0 → result.2 = (Float.ofInt result.1) / (Float.ofNat n)
   do
     let sumNat : Nat := gaussSumNat n
     let sumInt : Int := Int.ofNat sumNat

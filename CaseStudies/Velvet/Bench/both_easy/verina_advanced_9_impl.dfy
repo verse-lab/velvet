@@ -33,51 +33,10 @@ function countDivisibleInRange(k: nat, d: nat): nat
   else countDivisibleInRange(k-1, d)
 }
 
-// Lemma: Adding an element that satisfies the condition increases count by 1
-lemma CountIncrementWhenDivisible(k: nat, d: nat)
-  requires d > 0
-  requires k >= 0
-  requires digitSum(k) % d == 0
-  ensures countDivisibleInRange(k+1, d) == countDivisibleInRange(k, d) + 1
-{
-  // By definition of countDivisibleInRange
-  assert countDivisibleInRange(k+1, d) ==
-    (if digitSum(k) % d == 0 then countDivisibleInRange(k, d) + 1
-     else countDivisibleInRange(k, d));
-}
-
-// Lemma: Adding an element that doesn't satisfy the condition doesn't change count
-lemma CountSameWhenNotDivisible(k: nat, d: nat)
-  requires d > 0
-  requires k >= 0
-  requires digitSum(k) % d != 0
-  ensures countDivisibleInRange(k+1, d) == countDivisibleInRange(k, d)
-{
-  // By definition of countDivisibleInRange
-  assert countDivisibleInRange(k+1, d) ==
-    (if digitSum(k) % d == 0 then countDivisibleInRange(k, d) + 1
-     else countDivisibleInRange(k, d));
-}
-
-// Precondition: d must be positive
-ghost predicate precondition(n: nat, d: nat)
-{
-  d > 0
-}
-
-// Postcondition: result equals the cardinality of the set of numbers in [0, n)
-// whose digit sum is divisible by d
-// Using countDivisibleInRange for a property-based specification
-ghost predicate postcondition(n: nat, d: nat, result: nat)
-  requires d > 0
-{
-  result == countDivisibleInRange(n, d)
-}
-
 // Main method
 method countSumDivisibleBy(n: nat, d: nat) returns (result: nat)
-  requires precondition(n, d)
-  ensures postcondition(n, d, result)
+  requires d > 0
+  ensures result == countDivisibleInRange(n, d)
 {
   var count := 0;
   var k := 0;
@@ -96,13 +55,9 @@ method countSumDivisibleBy(n: nat, d: nat) returns (result: nat)
   {
     var sum := digitSum(k);
     if sum % d == 0 {
-      CountIncrementWhenDivisible(k, d);
       count := count + 1;
-    } else {
-      CountSameWhenNotDivisible(k, d);
     }
     k := k + 1;
   }
-
   result := count;
 }

@@ -19,32 +19,18 @@ set_option loom.semantics.choice "demonic"
     7. "Non-null" arrays are implicit in Lean: an Array value always exists, so there is no null case.
 -/
 
-section Specs
 -- Helper predicate: all entries of an Int array are non-zero.
 -- We phrase it pointwise with safe access `b[i]!` guarded by `i < b.size`.
-abbrev allNonzero (b : Array Int) : Prop :=
+def allNonzero (b : Array Int) : Prop :=
   ∀ (i : Nat), i < b.size → b[i]! ≠ 0
-
--- Preconditions:
--- 1) Same length
--- 2) No zero divisor in b
--- Note: "non-null" is not meaningful in Lean; arrays are always defined values.
-abbrev precondition (a : Array Int) (b : Array Int) : Prop :=
-  a.size = b.size ∧ allNonzero b
-
--- Postconditions:
--- 1) Result length equals input length.
--- 2) Pointwise remainder property.
-abbrev postcondition (a : Array Int) (b : Array Int) (result : Array Int) : Prop :=
-  result.size = a.size ∧
-    (∀ (i : Nat), i < a.size → result[i]! = a[i]! % b[i]!)
-end Specs
 
 section Impl
 method elementWiseModulo (a : Array Int) (b : Array Int)
   return (result : Array Int)
-  require precondition a b
-  ensures postcondition a b result
+  require a.size = b.size
+  require allNonzero b
+  ensures result.size = a.size
+  ensures ∀ (i : Nat), i < a.size → result[i]! = a[i]! % b[i]!
   do
   let mut result := Array.replicate a.size 0
   let mut i : Nat := 0

@@ -18,24 +18,13 @@ set_option loom.semantics.choice "demonic"
     6. There are no preconditions: the function is defined for all integers.
 -/
 
-section Specs
--- Helper definition: evenness via Int modulo.
--- We use the standard `%` on `Int` (implemented via `Int.fmod`).
-abbrev IntIsEven (n : Int) : Prop := n % 2 = 0
-
-abbrev precondition (n : Int) : Prop :=
-  True
-
-abbrev postcondition (n : Int) (result : Bool) : Prop :=
-  (result = true ↔ IntIsEven n) ∧
-  (result = false ↔ ¬ IntIsEven n)
-end Specs
+@[grind]
+def IntIsEven (n : Int) : Prop := n % 2 = 0
 
 section Impl
 method isEven (n : Int)
   return (result : Bool)
-  require precondition n
-  ensures postcondition n result
+  ensures result = true ↔ IntIsEven n
   do
   if n % 2 = 0 then
     return true

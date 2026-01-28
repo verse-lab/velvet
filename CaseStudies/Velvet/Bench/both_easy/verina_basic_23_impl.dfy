@@ -26,24 +26,12 @@ predicate IsMaxOfArray(a: seq<int>, mx: int)
   InArray(a, mx) && (forall i :: 0 <= i < |a| ==> a[i] <= mx)
 }
 
-// Precondition: array is nonempty
-predicate precondition(a: seq<int>)
-{
-  |a| != 0
-}
-
-// Postcondition: result equals (max - min) for some achieved max/min bounds.
-ghost predicate postcondition(a: seq<int>, result: int)
-{
-  exists mn: int, mx: int ::
-    IsMinOfArray(a, mn) &&
-    IsMaxOfArray(a, mx) &&
-    result == mx - mn
-}
-
 method differenceMinMax(a: seq<int>) returns (result: int)
-  requires precondition(a)
-  ensures postcondition(a, result)
+  requires |a| != 0
+  ensures exists mn: int, mx: int ::
+            IsMinOfArray(a, mn) &&
+            IsMaxOfArray(a, mx) &&
+            result == mx - mn
 {
   var mn := a[0];
   var mx := a[0];
@@ -68,11 +56,6 @@ method differenceMinMax(a: seq<int>) returns (result: int)
     }
     i := i + 1;
   }
-
-  // After loop: i == |a|, so mn and mx are min/max of entire array
-  assert i == |a|;
-  assert (exists j :: 0 <= j < i && a[j] == mn) && (forall j :: 0 <= j < i ==> mn <= a[j]);
-  assert (exists j :: 0 <= j < i && a[j] == mx) && (forall j :: 0 <= j < i ==> a[j] <= mx);
 
   // This means mn is the global minimum and mx is the global maximum
   assert IsMinOfArray(a, mn);

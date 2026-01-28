@@ -12,26 +12,16 @@ set_option loom.semantics.choice "demonic"
     5. There are no additional preconditions; the function must work for any array.
 -/
 
-section Specs
 -- Helper: integer cube
 -- We use direct multiplication to avoid needing extra exponentiation imports.
-abbrev intCube (x : Int) : Int := x * x * x
+def intCube (x : Int) : Int := x * x * x
 
-abbrev precondition (a : Array Int) : Prop :=
-  True
-
--- Postcondition: size preserved and pointwise cube relation.
--- Using Nat indices with a[i]! as recommended.
-abbrev postcondition (a : Array Int) (result : Array Int) : Prop :=
-  result.size = a.size ∧
-    (∀ (i : Nat), i < a.size → result[i]! = intCube (a[i]!))
-end Specs
 
 section Impl
 method cubeElements (a : Array Int)
   return (result : Array Int)
-  require precondition a
-  ensures postcondition a result
+  ensures result.size = a.size
+  ensures ∀ (i : Nat), i < a.size → result[i]! = intCube (a[i]!)
   do
   let mut result := Array.replicate a.size (0 : Int)
   let mut i : Nat := 0

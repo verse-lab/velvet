@@ -98,6 +98,7 @@ end Impl
 section Proof
 set_option maxHeartbeats 10000000
 
+attribute [grind] List.take_succ_eq_append_getElem List.getElem?_eq_getElem
 
 -- prove_correct findMajorityElement by
   -- loom_solve <;> (try simp at *; expose_names)
@@ -345,10 +346,4 @@ theorem goal_5
 
 prove_correct findMajorityElement by
   loom_solve <;> (try simp at *; expose_names)
-  exact (goal_0 lst require_1 candidate found i a_1 invariant_found_implies_majority if_pos count j a_3 invariant_found_preserved a_5 if_pos_1 a invariant_not_found_checked a_2 invariant_count_correct a_4 invariant_not_found_checked_inner if_pos_2)
-  exact (goal_1 lst require_1 candidate found i a_1 invariant_found_implies_majority if_pos count j a_3 invariant_found_preserved a_5 if_pos_1 a invariant_not_found_checked a_2 invariant_count_correct a_4 invariant_not_found_checked_inner if_neg)
-  exact (goal_2 lst require_1 candidate found i a_1 invariant_found_implies_majority if_pos count j a_3 invariant_found_preserved a_5 i_1 j_1 a invariant_not_found_checked a_2 invariant_count_correct a_4 invariant_not_found_checked_inner done_2 i_2 if_pos_1)
-  exact (goal_3 lst require_1 candidate found i a_1 invariant_found_implies_majority if_pos count j a_3 invariant_found_preserved a_5 i_1 j_1 a invariant_not_found_checked a_2 invariant_count_correct a_4 invariant_not_found_checked_inner done_2 i_2 if_neg)
-  exact (goal_4 lst require_1 candidate found i a_1 invariant_found_implies_majority i_1 i_2 i_3 if_pos a invariant_not_found_checked done_1 i_4)
-  exact (goal_5 lst require_1 candidate found i a_1 invariant_found_implies_majority i_1 i_2 i_3 a invariant_not_found_checked done_1 i_4 if_neg)
 end Proof

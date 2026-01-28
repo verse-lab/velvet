@@ -8,21 +8,11 @@
 //   5. Elements after index k are shifted left by one position.
 //   6. The output array has size exactly s.size - 1.
 
-predicate precondition(s: seq<int>, k: nat)
-{
-  k < |s|
-}
-
-predicate postcondition(s: seq<int>, k: nat, result: seq<int>)
-{
-  |result| + 1 == |s| &&
-  (forall i :: 0 <= i < |result| ==>
-    (if i < k then result[i] == s[i] else result[i] == s[i + 1]))
-}
-
 method removeElement(s: seq<int>, k: nat) returns (result: seq<int>)
-  requires precondition(s, k)
-  ensures postcondition(s, k, result)
+  requires k < |s|
+  ensures |result| + 1 == |s|
+  ensures (forall i :: 0 <= i < |result| ==>
+            (if i < k then result[i] == s[i] else result[i] == s[i + 1]))
 {
   result := s[..k] + s[k+1..];
 }

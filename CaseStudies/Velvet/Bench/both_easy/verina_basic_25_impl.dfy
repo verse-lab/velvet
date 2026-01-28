@@ -17,28 +17,10 @@ function gaussSumNat(n: nat): nat
   n * (n + 1) / 2
 }
 
-// Precondition: allow all n to match provided tests (including n = 0).
-predicate precondition(n: nat)
-{
-  true
-}
-
-// Postcondition:
-// 1) result.0 is exactly the Gauss sum (as an int).
-// 2) result.1 is the average:
-//    - if n = 0, it is 0.0 (per tests)
-//    - if n > 0, it is real(result.0) / real(n)
-// This fully determines the output for every n.
-predicate postcondition(n: nat, result: (int, real))
-{
-  result.0 == gaussSumNat(n) &&
-  (n == 0 ==> result.1 == 0.0) &&
-  (n > 0 ==> result.1 == (result.0 as real) / (n as real))
-}
-
 method sumAndAverage(n: nat) returns (result: (int, real))
-  requires precondition(n)
-  ensures postcondition(n, result)
+  ensures result.0 == gaussSumNat(n)
+  ensures n == 0 ==> result.1 == 0.0
+  ensures n > 0 ==> result.1 == (result.0 as real) / (n as real)
 {
   var sumNat: nat := gaussSumNat(n);
   var sumInt: int := sumNat;

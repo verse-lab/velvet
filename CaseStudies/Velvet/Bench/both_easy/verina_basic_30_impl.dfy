@@ -14,28 +14,11 @@ predicate allNonzero(b: seq<int>)
   forall i :: 0 <= i < |b| ==> b[i] != 0
 }
 
-// Preconditions:
-// 1) Same length
-// 2) No zero divisor in b
-predicate precondition(a: seq<int>, b: seq<int>)
-{
-  |a| == |b| && allNonzero(b)
-}
-
-// Postconditions:
-// 1) Result length equals input length.
-// 2) Pointwise remainder property.
-predicate postcondition(a: seq<int>, b: seq<int>, result: seq<int>)
+method elementWiseModulo(a: seq<int>, b: seq<int>) returns (result: seq<int>)
   requires |a| == |b|
   requires allNonzero(b)
-{
-  |result| == |a| &&
-  (forall i :: 0 <= i < |a| ==> result[i] == a[i] % b[i])
-}
-
-method elementWiseModulo(a: seq<int>, b: seq<int>) returns (result: seq<int>)
-  requires precondition(a, b)
-  ensures postcondition(a, b, result)
+  ensures |result| == |a|
+  ensures forall i :: 0 <= i < |a| ==> result[i] == a[i] % b[i]
 {
   result := [];
   var i: nat := 0;
@@ -50,8 +33,6 @@ method elementWiseModulo(a: seq<int>, b: seq<int>) returns (result: seq<int>)
   {
     // Safe since i < |a| and |a| == |b| from precondition
     // Also b[i] != 0 from allNonzero(b)
-    assert i < |b|;
-    assert b[i] != 0;
     result := result + [a[i] % b[i]];
     i := i + 1;
   }

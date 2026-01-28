@@ -14,21 +14,8 @@ predicate HasConsecutivePair(a: seq<int>)
   exists i :: 0 <= i < |a| - 1 && a[i] + 1 == a[i + 1]
 }
 
-// Precondition: no requirements
-predicate precondition(a: seq<int>)
-{
-  true
-}
-
-// Postcondition: result is true exactly when the array has a consecutive pair
-predicate postcondition(a: seq<int>, result: bool)
-{
-  result == HasConsecutivePair(a)
-}
-
 method containsConsecutiveNumbers(a: seq<int>) returns (result: bool)
-  requires precondition(a)
-  ensures postcondition(a, result)
+  ensures result == HasConsecutivePair(a)
 {
   if |a| < 2 {
     result := false;

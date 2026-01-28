@@ -18,26 +18,13 @@ set_option loom.semantics.choice "demonic"
     6. The output array has size exactly s.size - 1.
 -/
 
-section Specs
--- Helper: describe the element-wise relationship between input and output after removing index k.
--- For output index i:
--- * if i < k, output[i] = s[i]
--- * if i ≥ k, output[i] = s[i+1]
-
-abbrev precondition (s : Array Int) (k : Nat) : Prop :=
-  k < s.size
-
-abbrev postcondition (s : Array Int) (k : Nat) (result : Array Int) : Prop :=
-  result.size + 1 = s.size ∧
-  (∀ (i : Nat), i < result.size →
-      (if i < k then result[i]! = s[i]! else result[i]! = s[i + 1]!))
-end Specs
-
 section Impl
 method removeElement (s : Array Int) (k : Nat)
   return (result : Array Int)
-  require precondition s k
-  ensures postcondition s k result
+  require k < s.size
+  ensures result.size + 1 = s.size
+  ensures (∀ (i : Nat), i < result.size →
+            (if i < k then result[i]! = s[i]! else result[i]! = s[i + 1]!))
   do
   let mut result := Array.replicate (s.size - 1) (0:Int)
   let mut i : Nat := 0

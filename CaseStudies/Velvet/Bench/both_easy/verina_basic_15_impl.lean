@@ -12,26 +12,16 @@ set_option loom.semantics.choice "demonic"
     5. There are no preconditions.
 -/
 
-section Specs
 -- Helper predicate: there exists an adjacent index with successor-by-1 relation.
 -- Using Nat indices with bounds and `a[i]!` access as required by the guidelines.
-abbrev HasConsecutivePair (a : Array Int) : Prop :=
+@[grind]
+def HasConsecutivePair (a : Array Int) : Prop :=
   ∃ i : Nat, i + 1 < a.size ∧ a[i]! + 1 = a[i + 1]!
-
--- No preconditions.
-abbrev precondition (a : Array Int) : Prop :=
-  True
-
--- Postcondition: result is true exactly when the array has a consecutive pair.
-abbrev postcondition (a : Array Int) (result : Bool) : Prop :=
-  (result = true ↔ HasConsecutivePair a)
-end Specs
 
 section Impl
 method containsConsecutiveNumbers (a : Array Int)
   return (result : Bool)
-  require precondition a
-  ensures postcondition a result
+  ensures result = true ↔ HasConsecutivePair a
   do
     if a.size < 2 then
       return false

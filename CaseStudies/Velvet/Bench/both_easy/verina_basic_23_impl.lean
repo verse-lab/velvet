@@ -16,39 +16,26 @@ set_option loom.semantics.choice "demonic"
     6. The specification should describe `mn` and `mx` as bounds achieved by some array elements.
 -/
 
-section Specs
 -- Helper predicate: value occurs in array
-abbrev InArray (a : Array Int) (v : Int) : Prop :=
+def InArray (a : Array Int) (v : Int) : Prop :=
   ∃ (i : Nat), i < a.size ∧ a[i]! = v
 
 -- Helper predicate: `mn` is a minimum value achieved in the array
-abbrev IsMinOfArray (a : Array Int) (mn : Int) : Prop :=
+def IsMinOfArray (a : Array Int) (mn : Int) : Prop :=
   InArray a mn ∧ (∀ (i : Nat), i < a.size → mn ≤ a[i]!)
 
 -- Helper predicate: `mx` is a maximum value achieved in the array
-abbrev IsMaxOfArray (a : Array Int) (mx : Int) : Prop :=
+def IsMaxOfArray (a : Array Int) (mx : Int) : Prop :=
   InArray a mx ∧ (∀ (i : Nat), i < a.size → a[i]! ≤ mx)
-
--- Precondition: array is nonempty
--- We use `a.size ≠ 0` which is equivalent to `a ≠ #[]` via `Array.size_eq_zero_iff`.
-abbrev precondition (a : Array Int) : Prop :=
-  a.size ≠ 0
-
--- Postcondition: result equals (max - min) for some achieved max/min bounds.
--- We avoid specifying an algorithm; instead we characterize the unique value via existence of
--- extremal witnesses and defining equation.
-abbrev postcondition (a : Array Int) (result : Int) : Prop :=
-  ∃ (mn : Int) (mx : Int),
-    IsMinOfArray a mn ∧
-    IsMaxOfArray a mx ∧
-    result = mx - mn
-end Specs
 
 section Impl
 method differenceMinMax (a : Array Int)
   return (result : Int)
-  require precondition a
-  ensures postcondition a result
+  require a.size ≠ 0
+  ensures ∃ (mn : Int) (mx : Int),
+          IsMinOfArray a mn ∧
+          IsMaxOfArray a mx ∧
+          result = mx - mn
   do
     let mut mn := a[0]!
     let mut mx := a[0]!
@@ -82,5 +69,6 @@ section Proof
 set_option maxHeartbeats 10000000
 
 prove_correct differenceMinMax by
-  loom_solve <;> (try simp at *; expose_names)
+  unfold IsMinOfArray IsMaxOfArray InArray at *
+  loom_solve
 end Proof

@@ -12,22 +12,11 @@ set_option loom.semantics.choice "demonic"
     5. Empty arrays are rejected (see reject input).
 -/
 
-section Specs
--- Preconditions: reject empty arrays.
-abbrev precondition (n : Int) (a : Array Int) : Prop :=
-  a.size > 0
-
--- Postcondition: Boolean meaning of being strictly greater than every element.
--- We specify using index-wise comparison over the array.
-abbrev postcondition (n : Int) (a : Array Int) (result : Bool) : Prop :=
-  (result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n))
-end Specs
-
 section Impl
 method isGreater (n : Int) (a : Array Int)
   return (result : Bool)
-  require precondition n a
-  ensures postcondition n a result
+  require a.size > 0
+  ensures result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
   do
     let mut ok := true
     let mut i : Nat := 0

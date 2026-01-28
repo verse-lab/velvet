@@ -22,23 +22,6 @@ predicate GloballySorted(a: seq<int>)
   forall i, j :: 0 <= i < j < |a| ==> a[i] <= a[j]
 }
 
-// No input restrictions
-predicate precondition(a: seq<int>)
-{
-  true
-}
-
-// Postcondition:
-// 1) The boolean result reflects adjacent sortedness.
-// 2) If true, also satisfies the global non-decreasing guarantee.
-// 3) If false, then adjacent sortedness does not hold.
-predicate postcondition(a: seq<int>, result: bool)
-{
-  (result == true <==> AdjacentSorted(a)) &&
-  (result == true ==> GloballySorted(a)) &&
-  (result == false <==> !AdjacentSorted(a))
-}
-
 // Helper lemma: if adjacent-sorted then globally-sorted
 lemma AdjacentImpliesGlobal(a: seq<int>)
   requires AdjacentSorted(a)
@@ -47,16 +30,19 @@ lemma AdjacentImpliesGlobal(a: seq<int>)
   if |a| <= 1 {
     return;
   }
+
   forall i, j | 0 <= i < j < |a|
     ensures a[i] <= a[j]
   {
     if j == i + 1 {
+      assert a[i] <= a[j];
     } else {
       var k := i;
       while k < j
         invariant i <= k <= j
         invariant a[i] <= a[k]
       {
+        assert a[k] <= a[k + 1];
         k := k + 1;
       }
     }
@@ -64,8 +50,7 @@ lemma AdjacentImpliesGlobal(a: seq<int>)
 }
 
 method isSorted(a: seq<int>) returns (result: bool)
-  requires precondition(a)
-  ensures postcondition(a, result)
+  ensures result == true <==> GloballySorted(a)
 {
   var sorted := true;
   var i: nat := 0;
