@@ -96,7 +96,6 @@ theorem count_take [DecidableEq α] [Inhabited α] {a : α} {xs : Array α} :
   (xs.take (n + 1)).count a = if xs[n]! = a then (xs.take n).count a + 1 else (xs.take n).count a := by
   intro; grind [Array.extract_succ_right]
 
-@[loomSpec]
 lemma mergeSorted_correct (a1 : Array Nat) (a2 : Array Nat) :
     triple
       (with_name_prefix`require isSorted a2 ∧ with_name_prefix`require isSorted a1)
