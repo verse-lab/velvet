@@ -30,7 +30,8 @@ private def _root_.Lean.SimplePersistentEnvExtension.get [Inhabited σ] (ext : S
   [Monad m] [MonadEnv m] : m σ := do
   return ext.getState (<- getEnv)
 
-def getAssertionStx : TacticM (Option Term) := withMainContext do
+/-- Get assertion info: returns (name, syntax) pair for case tagging -/
+def getAssertionInfo : TacticM (Option (Name × Term)) := withMainContext do
   let goal <- getMainTarget
   let goalStx <- ppExpr goal
   let ⟨_, ss, ns, _⟩ <- loomAssertionsMap.get
@@ -41,7 +42,7 @@ def getAssertionStx : TacticM (Option Term) := withMainContext do
       let sname <- nname.getName
       let some id1 := ns[sname]?
         | throwError s!"typeWithName {sname} not registered: {typeWithNameExpr}"
-      return some ss[id1]!
+      return some (sname, ss[id1]!)
   match_expr withNameExpr with
   | WithName exp name =>
     let name <- name.getName
@@ -52,10 +53,13 @@ def getAssertionStx : TacticM (Option Term) := withMainContext do
         let sname <- nname.getName
         let some id1 := ns[sname]?
           | throwError s!"typeWithName {sname} not registered: {typeWithNameExpr}"
-        return some ss[id1]!
-    return some ss[id]!
+        return some (sname, ss[id1]!)
+    return some (name, ss[id]!)
   | _ => throwError s!"Failed to prove assertion which is not registered4: {goalStx}"
-  --let ⟨maxId, ss, ns⟩ <- loomAssertionsMap.get
+
+def getAssertionStx : TacticM (Option Term) := do
+  let info? <- getAssertionInfo
+  return info?.map (·.2)
 
 declare_syntax_cat loom_solve_tactic
 syntax "loom_solve" : loom_solve_tactic
@@ -143,10 +147,13 @@ elab_rules : tactic
       let mut unsolved := #[]
       for mvarId in <- getUnsolvedGoals do
         setGoals [mvarId]
-        let stx <- getAssertionStx
+        let info? <- getAssertionInfo
         evalTactic vlsUnfold
-        if let some stx := stx then
-          (<- getMainGoal).setTag <| .mkSimple stx.raw.prettyPrint.pretty
+        if let some (name, stx) := info? then
+          -- Combine the internal name with the expression for readable case tags
+          let exprStr := stx.raw.prettyPrint.pretty
+          let caseTag := s!"{name}: {exprStr}"
+          (<- getMainGoal).setTag <| .mkSimple caseTag
           if loomSolveIsReporting vls then
             logErrorAt stx $ m!"Failed to prove assertion\n{mvarId}"
         else if loomSolveIsReporting vls then

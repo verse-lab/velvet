@@ -2,7 +2,7 @@ import Lake
 open Lake DSL System
 
 require "leanprover-community" / "mathlib" @ git "v4.24.0"
-require auto from git "https://github.com/leanprover-community/lean-auto.git" @ "main"
+require auto from git "https://github.com/leanprover-community/lean-auto.git" @ "f62266d7cef8d70a7354f13ba925114642c2445b"
 
 package Loom where
   leanOptions :=  #[⟨`pp.unicode.fun , true⟩] -- pretty-prints `fun a ↦ b`
@@ -126,10 +126,6 @@ lean_lib CaseStudiesBase {
 
 lean_lib Cashmere {
   globs := #[Glob.submodules `CaseStudies.Cashmere]
-}
-
-lean_lib Velvet {
-  globs := #[Glob.submodules `CaseStudies.Velvet]
 }
 
 lean_lib CaseStudies {

@@ -16,5 +16,3 @@ jobs:
           use-github-cache: false
       - name: Build Cashmere
         run: lake build Cashmere
-      - name: Build Velvet
-        run: lake build Velvet

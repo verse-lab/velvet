@@ -51,7 +51,7 @@ declare_syntax_cat doneWith
 declare_syntax_cat decreasingTerm
 declare_syntax_cat invariantClause
 declare_syntax_cat invariantClauses
-syntax "invariant" termBeforeDo linebreak : invariantClause
+syntax "invariant" (str)? termBeforeDo linebreak : invariantClause
 syntax "done_with" termBeforeDo : doneWith
 syntax "decreasing" termBeforeDo : decreasingTerm
 syntax (invariantClause linebreak)* : invariantClauses
@@ -100,6 +100,12 @@ This measure elaborates to a term of type `β → Option ℕ` where `β` is a re
 correctness semantics.
 If `decreasing` is unspecified, measure is assumed to be `none`.
 -/
+/-- Helper to wrap an invariant with the appropriate name elaborator -/
+def mkNamedInvariant (invName? : Option (TSyntax `str)) (inv : TSyntax `term) : MacroM (TSyntax `term) :=
+  match invName? with
+  | some name => `(with_custom_name `invariant $name $inv)
+  | none => `(with_name_prefix `invariant $inv)
+
 macro_rules
   | `(doElem| while $t do $seq:doSeq) => do
     let decr <- withRef (<- getRef) `(decreasing none)
@@ -113,12 +119,13 @@ macro_rules
           $seq:doSeq
         else break)
   | `(doElem| while $t
-              $[invariant $inv:term
+              $[invariant $[$invName:str]? $inv:term
               ]*
               $[done_with $inv_done]?
               $[decreasing $measure]?
               do $seq:doSeq) => do
-      let invs <- `(invariants [ $[(with_name_prefix `invariant $inv:term)],* ])
+      let namedInvs ← (invName.zip inv).mapM fun (n?, i) => mkNamedInvariant n? i
+      let invs <- `(invariants [ $[$namedInvs:term],* ])
       let invd_some ← match inv_done with
       | some invd_some => withRef invd_some ``($invd_some)
       | none => ``(¬$t:term)
@@ -135,7 +142,6 @@ macro_rules
             else break)
       | none => do
         let decr <- withRef (<- getRef) `(decreasing none)
-        let invs <- `(invariants [ $[(with_name_prefix `invariant $inv:term)],* ])
         `(doElem|
           for _ in Lean.Loop.mk do
             $invs:term
@@ -155,11 +161,12 @@ macro_rules
           $[$seq:doElem]*)
     | _ => Lean.Macro.throwError "while_some expects a sequence of do-elements"
   | `(doElem| while_some $x:ident :| $t
-              $[invariant $inv:term
+              $[invariant $[$invName:str]? $inv:term
               ]*
               $[done_with $inv_done]? do
                 $seq:doSeq) => do
-    let invs <- `(invariants [ $[(with_name_prefix `invariant $inv:term)],* ])
+    let namedInvs ← (invName.zip inv).mapM fun (n?, i) => mkNamedInvariant n? i
+    let invs <- `(invariants [ $[$namedInvs:term],* ])
     let invd_some ← match inv_done with
     | some invd_some => withRef invd_some ``($invd_some)
     | none => ``(¬$t:term)
@@ -179,10 +186,11 @@ macro_rules
           else break)
     | _ => Lean.Macro.throwError "while_some expects a sequence of do-elements"
   | `(doElem| for $x:ident in $t
-            $[invariant $inv:term
+            $[invariant $[$invName:str]? $inv:term
             ]*
             do $seq:doSeq) => do
-      let invs <- `(invariants [ $[(with_name_prefix `invariant $inv:term)],* ])
+      let namedInvs ← (invName.zip inv).mapM fun (n?, i) => mkNamedInvariant n? i
+      let invs <- `(invariants [ $[$namedInvs:term],* ])
       match seq with
       | `(doSeq| $[$seq:doElem]*)
       | `(doSeq| $[$seq:doElem;]*)

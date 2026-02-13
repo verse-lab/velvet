@@ -123,6 +123,21 @@ elab "type_with_name_prefix" lit:name inv:term : term => do
       })
   Term.elabTerm (<- ``(typeWithName $inv $(Lean.quoteNameMk invName))) none
 
+/-- Elaborator for invariants with a user-provided custom name.
+    The name is prefixed with the given prefix (e.g., "invariant_myname") -/
+elab "with_custom_name" namePrefix:name customName:str inv:term : term => do
+  let ⟨maxId, _, ns, _⟩ <- loomAssertionsMap.get
+  let newMaxId := maxId + 1
+  let invName := (namePrefix.getName.toString ++ "_" ++ customName.getString).toName
+  if ns.contains invName then
+    throwErrorAt customName m!"Duplicate invariant name '{customName.getString}'. Each named invariant must have a unique name."
+  loomAssertionsMap.modify (fun res => {
+      syntaxStore := res.syntaxStore.insert newMaxId inv
+      nameStore := res.nameStore.insert invName newMaxId
+      maxId := newMaxId
+      nameCounter := res.nameCounter
+      })
+  Term.elabTerm (<- ``(WithName $inv $(Lean.quoteNameMk invName))) none
 
 def termBeforeInvariant := Parser.withForbidden "invariant" Parser.termParser
 

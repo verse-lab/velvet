@@ -217,16 +217,22 @@ macro_rules
       try simp at *
       try aesop))
 
+/-- Helper to wrap an invariant with the appropriate name elaborator for Cashmere -/
+def mkNamedInvariantCashmere (balance : Ident) (balanceType : Term) (invName? : Option (TSyntax `str)) (inv : TSyntax `term) : MacroM (TSyntax `term) :=
+  match invName? with
+  | some name => `(fun ($balance : $balanceType) => with_custom_name `invariant $name $inv)
+  | none => `(fun ($balance : $balanceType) => with_name_prefix `invariant $inv)
+
 macro_rules
   | `(doElem| while $t
-              $[invariant $inv:term
+              $[invariant $[$invName:str]? $inv:term
               ]*
               $[done_with $inv_done]?
               $[decreasing $measure]?
               do $seq:doSeq) => do
       let balance := mkIdent `balance_name
       let balanceType <- `(term| Bal)
-      let inv : Array Term <- inv.mapM fun (inv : Term) => withRef inv ``(fun ($(balance):ident : $balanceType)=> with_name_prefix `inv $inv)
+      let inv : Array Term <- (invName.zip inv).mapM fun (n?, i) => mkNamedInvariantCashmere balance balanceType n? i
       let invd_some <- match inv_done with
       | some invd_some => withRef invd_some ``(fun ($(balance):ident : $balanceType) => with_name_prefix `done $invd_some)
       | none => ``(fun ($(balance):ident : $balanceType) => with_name_prefix `done ¬$t:term)
