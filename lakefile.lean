@@ -1,18 +1,16 @@
 import Lake
 open Lake DSL System
 
-require "leanprover-community" / "mathlib" @ git "v4.24.0"
-require auto from git "https://github.com/leanprover-community/lean-auto.git" @ "f62266d7cef8d70a7354f13ba925114642c2445b"
+require Loom from git "https://github.com/verse-lab/loom.git" @ "master"
 
-package Loom where
-  leanOptions :=  #[⟨`pp.unicode.fun , true⟩] -- pretty-prints `fun a ↦ b`
+package Velvet where
+  leanOptions := #[⟨`pp.unicode.fun, true⟩]
 
 -- ## Dependencies
 -- IMPORTANT: If you change any of these, also change `dependencies.toml`
 def z3.version := "4.15.4"
 def cvc5.version := "1.3.1"
 -- Changes to this file trigger re-downloading dependencies
--- FIXME: changing one version triggers re-downloading ALL dependencies
 def dependencyFile := "dependencies.toml"
 
 def z3.baseUrl := "https://github.com/Z3Prover/z3/releases/download"
@@ -28,7 +26,6 @@ def z3.platform :=
 
 def z3.target := s!"{arch}-{platform}"
 def z3.fullName := s!"z3-{version}-{z3.target}"
--- e.g. https://github.com/Z3Prover/z3/releases/download/z3-4.14.0/z3-4.14.0-arm64-osx-13.7.2.zip
 def z3.url := s!"{baseUrl}/z3-{version}/{fullName}.zip"
 
 def cvc5.baseUrl := "https://github.com/cvc5/cvc5/releases/download"
@@ -39,7 +36,6 @@ def cvc5.os :=
 def cvc5.arch := if System.Platform.target.startsWith "x86_64" then "x86_64" else "arm64"
 def cvc5.target := s!"{os}-{arch}-static"
 def cvc5.fullName := s!"cvc5-{cvc5.target}"
--- e.g. https://github.com/cvc5/cvc5/releases/download/cvc5-1.2.1/cvc5-macOS-arm64-static.zip
 def cvc5.url := s!"{baseUrl}/cvc5-{version}/{fullName}.zip"
 
 inductive Solver
@@ -77,7 +73,6 @@ def copyFile' (src : FilePath) (dst : FilePath) : LogIO PUnit := do
     args := #[src.toString, dst.toString]
   }
 
--- Modelled after https://github.com/abdoo8080/lean-cvc5/blob/6ab43688cff28aaf5096fb153e3dd89014bf4410/lakefile.lean#L62
 def downloadSolver (solver : Solver) (pkg : Package) (oFile : FilePath) : JobM PUnit := do
   let zipPath := (pkg.buildDir / s!"{solver}").addExtension "zip"
   logInfo s!"Downloading {solver} from {solver.url}"
@@ -86,7 +81,7 @@ def downloadSolver (solver : Solver) (pkg : Package) (oFile : FilePath) : JobM P
   if ← extractedPath.pathExists then
     IO.FS.removeDirAll extractedPath
   unzip zipPath pkg.buildDir
-  let binPath := extractedPath/ "bin" / s!"{solver}"
+  let binPath := extractedPath / "bin" / s!"{solver}"
   copyFile' binPath oFile
   if ← oFile.pathExists then
     logInfo s!"{solver} is now at {oFile}"
@@ -100,38 +95,17 @@ def downloadDependency (pkg : Package) (oFile : FilePath) (build : Package → F
   let srcJob ← inputTextFile lakefilePath
   buildFileAfterDep oFile srcJob fun _srcFile => build pkg oFile
 
+-- Loom's SMT.lean resolves solver paths relative to its own source via `currentDirectory!`,
+-- which points to `.lake/packages/Loom/.lake/build/`. We download solvers there.
+def loomBuildDir (pkg : Package) := pkg.lakeDir / "packages" / "Loom" / ".lake" / "build"
+
 target downloadDependencies pkg : Array FilePath := do
-  let z3 ← downloadDependency pkg (pkg.buildDir / "z3") (downloadSolver Solver.z3)
-  let cvc5 ← downloadDependency pkg (pkg.buildDir / "cvc5") (downloadSolver Solver.cvc5)
+  let solverDir := loomBuildDir pkg
+  let z3 ← downloadDependency pkg (solverDir / "z3") (downloadSolver Solver.z3)
+  let cvc5 ← downloadDependency pkg (solverDir / "cvc5") (downloadSolver Solver.cvc5)
   return Job.collectArray #[z3, cvc5]
 
-
-def CaseStudiesRoot : Array Glob :=
-  #[`CaseStudies.Extension,
-    `CaseStudies.Macro,
-    `CaseStudies.Tactic,
-    `CaseStudies.TestingUtil,
-    `CaseStudies.Theory]
-
 @[default_target]
-lean_lib Loom {
-  globs := #[Glob.submodules `Loom]
+lean_lib Velvet where
+  globs := #[Glob.submodules `Velvet]
   extraDepTargets := #[``downloadDependencies]
-}
-
-@[default_target]
-lean_lib CaseStudiesBase {
-  globs := CaseStudiesRoot
-}
-
-lean_lib Cashmere {
-  globs := #[Glob.submodules `CaseStudies.Cashmere]
-}
-
-lean_lib Velvet {
-  globs := #[Glob.submodules `CaseStudies.Velvet]
-}
-
-lean_lib CaseStudies {
-  globs := #[Glob.submodules `Loom, Glob.submodules `CaseStudies]
-}
