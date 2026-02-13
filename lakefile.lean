@@ -82,6 +82,7 @@ def downloadSolver (solver : Solver) (pkg : Package) (oFile : FilePath) : JobM P
     IO.FS.removeDirAll extractedPath
   unzip zipPath pkg.buildDir
   let binPath := extractedPath / "bin" / s!"{solver}"
+  IO.FS.createDirAll oFile.parent.get!
   copyFile' binPath oFile
   if ← oFile.pathExists then
     logInfo s!"{solver} is now at {oFile}"
