@@ -128,6 +128,10 @@ lean_lib Cashmere {
   globs := #[Glob.submodules `CaseStudies.Cashmere]
 }
 
+lean_lib Velvet {
+  globs := #[Glob.submodules `CaseStudies.Velvet]
+}
+
 lean_lib CaseStudies {
   globs := #[Glob.submodules `Loom, Glob.submodules `CaseStudies]
 }
