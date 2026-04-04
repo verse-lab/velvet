@@ -33,7 +33,7 @@ Velvet requires [Lean 4](https://github.com/leanprover/lean4). We have tested Ve
 To build Velvet, run:
 
 ```bash
-lake build
+lake exe cache get; lake build
 ```
 
 <details close>
