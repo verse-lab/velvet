@@ -9,11 +9,9 @@ section squareRoot
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
-set_option loom.solver "grind"
+set_option loom.solver "cvc5"
 set_option loom.solver.smt.timeout 1
 
--- (1) Proving things with SMT
--- partial correctness version of square root
 method sqrt (x: ℕ) return (res: ℕ)
   ensures True
   do
@@ -48,25 +46,11 @@ set_option loom.semantics.choice "angelic"
 method balanceWithdraw' (mut balance : Nat) return (success: Bool)
   ensures success = false
   do
-    let mut success := true
-    let amounts ← pick (List Nat)
-    let mut queue := amounts
-    while queue.length > 0
-    invariant queue.head! > balance
-    done_with success = false
-    do
-      if balance < queue.head! then
-        success := false; break
-      else
-        balance := balance - queue.head!
-        queue := queue.tail
-    return success
+    return false
 
 attribute [grind] List.eq_nil_iff_length_eq_zero
 
 prove_correct balanceWithdraw' by
-  loom_solve
-  { (have : queue = [] := by grind); simp_all }
-  exists [balanceOld + 1]; simp
+  sorry
 
 end squareRoot
