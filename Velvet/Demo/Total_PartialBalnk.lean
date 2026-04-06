@@ -98,7 +98,7 @@ method insertionSort_result
         if arr[mind]! < arr[mind - 1]! then
           swap! arr[mind - 1]! arr[mind]!
         mind := mind - 1
-      n := n + 1 -- try commenting this out for termination
+      n := n + 1
     return
 
 prove_correct insertionSort_result by
