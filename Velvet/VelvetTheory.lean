@@ -227,3 +227,16 @@ abbrev pickEx [Inhabited α] : WPGen (m := VelvetM) (pick α) := {
     simp [iSup]; exists True; grind
 }
 end
+
+section
+open PartialCorrectness DemonicChoice
+
+@[loomSpec]
+abbrev pickEx' [Inhabited α] : WPGen (m := VelvetM) (pick α) := {
+  get post := ∀ x, post x
+  prop := by
+    rintro post posth;
+    rw [MonadNonDet.wp_pick]
+    simp [iInf]; grind
+}
+end

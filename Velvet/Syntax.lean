@@ -518,3 +518,12 @@ elab_rules : command
   let testerDefCmd ← `(command|
     def $(mkIdent testerName) $bindersIdents* : Bool := $ifTerm)
   elabCommand testerDefCmd
+
+@[app_unexpander WithName] def unexpandWithName : Lean.PrettyPrinter.Unexpander
+  | `($(_) $p:term) => `($p:term)
+  | `($(_) $p:term $_) => `($p:term)
+  | _ => throw ()
+@[app_unexpander WithName.mk'] def unexpandWithNameMk : Lean.PrettyPrinter.Unexpander
+  | `($(_) $p:term) => `($p:term)
+  | `($(_) $p:term $_) => `($p:term)
+  | _ => throw ()

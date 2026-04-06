@@ -3,7 +3,6 @@
 ----------------------------------------------------
 
 import Velvet.Std
-import CaseStudies.TestingUtil
 
 section squareRoot
 
@@ -44,11 +43,25 @@ set_option loom.semantics.choice "angelic"
 method balanceWithdraw' (mut balance : Nat) return (success: Bool)
   ensures success = false
   do
-    return false
+    let mut success := true
+    let amounts ← pick (List Nat)
+    let mut queue := amounts
+    while queue.length > 0
+    invariant queue.head! > balance
+    done_with success = false
+    do
+      if balance < queue.head! then
+        success := false; break
+      else
+        balance := balance - queue.head!
+        queue := queue.tail
+    return success
 
 attribute [grind] List.eq_nil_iff_length_eq_zero
 
 prove_correct balanceWithdraw' by
-  sorry
+  loom_solve
+  { (have : queue = [] := by grind); simp_all }
+  exists [balanceOld + 1]; simp
 
 end squareRoot

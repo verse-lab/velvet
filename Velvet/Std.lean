@@ -123,3 +123,5 @@ lemma lemma_2 [Inhabited α] (s : List α) (x : α) :
   intro h hx
   obtain ⟨i, hi, hix⟩ := List.mem_iff_getElem.mp hx
   exact h i hi (by rw [getElem!_pos s i hi, hix])
+
+attribute [grind] List.eq_nil_iff_length_eq_zero
