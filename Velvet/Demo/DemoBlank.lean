@@ -41,7 +41,7 @@ method balanceWithdraw (mut balance : Nat) return (success: Bool)
     return true
 
 prove_correct balanceWithdraw by
-  simp
+  sorry
 
 set_option loom.semantics.choice "angelic"
 
