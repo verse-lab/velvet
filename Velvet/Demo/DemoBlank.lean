@@ -16,8 +16,6 @@ method sqrt (x: ℕ) return (res: ℕ)
   ensures True
   do
     return 0
-prove_correct sqrt by
-  sorry
 
 -- #eval sqrt 10 |>.extract
 
