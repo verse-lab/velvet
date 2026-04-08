@@ -111,6 +111,6 @@ run_elab do
 set_option maxHeartbeats 1000000
 
 prove_correct insertionSort by
-  loom_solve_async
+  loom_solve_async!
 
 end insertionSort

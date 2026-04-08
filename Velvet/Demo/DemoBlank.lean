@@ -18,6 +18,14 @@ method sqrt (x: ℕ) return (res: ℕ)
 
 -- #eval sqrt 10 |>.extract
 
+end squareRoot
+
+section nondetermisim
+
+set_option loom.solver "grind"
+set_option loom.semantics.termination "partial"
+set_option loom.semantics.choice "demonic"
+
 variable [FinEnum α]
 
 method Predicate.toArray (mut s: α -> Bool) return (res: Array α)
@@ -31,12 +39,24 @@ prove_correct Predicate.toArray by
   sorry
 
 method balanceWithdraw (mut balance : Nat) return (success: Bool)
-  ensures True
+  ensures success = true
   do
-    return true
+    let mut success := true
+    let amounts ← pick (List Nat)
+    let mut queue := amounts
+    while queue.length > 0
+    invariant queue.sum <= balance
+    invariant success = true
+    do
+      if balance < queue.head! then
+        success := false; break
+      else
+        balance := balance - queue.head!
+        queue := queue.tail
+    return success
 
-prove_correct balanceWithdraw by
-  sorry
+-- prove_correct balanceWithdraw by
+--   loom_solve!
 
 set_option loom.semantics.choice "angelic"
 
@@ -64,4 +84,4 @@ prove_correct balanceWithdraw' by
   { (have : queue = [] := by grind); simp_all }
   exists [balanceOld + 1]; simp
 
-end squareRoot
+end nondetermisim
