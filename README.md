@@ -47,14 +47,7 @@ alongside `chart_all.png` and a `benchmark_results.csv`.
 Tested on macOS (arm64, Apple M1) and Ubuntu (x86_64) with `cvc5` 1.3.1, `z3`
 4.15.4, Lean 4.24.0.
 
-1. **Clone this branch and enter the repository**:
-
-   ```bash
-   git clone --branch cav26-ae https://github.com/verse-lab/velvet.git
-   cd velvet
-   ```
-
-2. **Install Lean** (via [`elan`](https://github.com/leanprover/elan)):
+1. **Install Lean** (via [`elan`](https://github.com/leanprover/elan)):
 
    ```bash
    curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain leanprover/lean4:stable
@@ -63,7 +56,7 @@ Tested on macOS (arm64, Apple M1) and Ubuntu (x86_64) with `cvc5` 1.3.1, `z3`
    `elan` reads [`lean-toolchain`](lean-toolchain) and pulls the exact Lean
    version (4.24.0) used to prepare the artefact.
 
-3. **Build Velvet** from the repository root:
+2. **Build Velvet** from the repository root:
 
    ```bash
    lake exe cache get; lake build
@@ -83,10 +76,10 @@ Tested on macOS (arm64, Apple M1) and Ubuntu (x86_64) with `cvc5` 1.3.1, `z3`
 
    </details>
 
-4. **Install Dafny** (≥ 4.x) — see <https://dafny.org/dafny/Installation>, or
+3. **Install Dafny** (≥ 4.x) — see <https://dafny.org/dafny/Installation>, or
    on macOS `brew install dafny` (pulls in `z3` automatically).
 
-5. **Install the benchmark tooling**:
+4. **Install the benchmark tooling**:
 
    ```bash
    # hyperfine
@@ -99,7 +92,7 @@ Tested on macOS (arm64, Apple M1) and Ubuntu (x86_64) with `cvc5` 1.3.1, `z3`
    pip install matplotlib numpy
    ```
 
-6. **Run the driver**:
+5. **Run the driver**:
 
    ```bash
    python3 Bench/generate_artefact.py
