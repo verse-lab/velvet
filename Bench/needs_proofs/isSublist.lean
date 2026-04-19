@@ -63,8 +63,6 @@ set_option maxHeartbeats 10000000
 attribute [grind] List.singleton_append List.append_assoc List.take_prefix List.IsPrefix.isInfix List.take_left
 
 prove_correct isSublist by
-  loom_solve; simp at * 
+  loom_solve; simp at *
   intro hmain
-  rcases invariant_not_missed hmain with (_|⟨pre, suf, hpre⟩) <;> try grind
-  have hpre_ne_nil : pre ≠ [] := by grind
-  grind
+  rcases invariant_not_missed hmain with (_|⟨pre, suf, hpre⟩) <;> grind
