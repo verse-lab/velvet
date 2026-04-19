@@ -86,16 +86,14 @@ Tested on macOS (arm64, Apple M1) and Ubuntu (x86_64) with `cvc5` 1.3.1, `z3`
    brew install hyperfine                # macOS
    # sudo apt install hyperfine          # Ubuntu
 
-   # Python deps — use a venv to avoid PEP 668 ("externally managed")
-   python3 -m venv .venv
-   . .venv/bin/activate
-   pip install matplotlib numpy
+   # Download uv for python dependency management
+   curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
 5. **Run the driver**:
 
    ```bash
-   python3 Bench/generate_artefact.py
+   uv run --with matplotlib,numpy Bench/generate_artefact.py
    ```
 
    <details close>
