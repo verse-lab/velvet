@@ -55,6 +55,50 @@ Velvet depends on [Loom](https://github.com/verse-lab/loom), which in turn depen
 
 </details>
 
+## Building the Artefact (CAV 26)
+
+The `cav26-ae` branch ships the benchmark programs used in the paper
+(`Bench/both_easy/`, `Bench/needs_proofs/`, `Bench/hard/`) together with a
+single driver that reproduces `Bench/results/chart_all.pdf`:
+
+1. **Install Lean** (via [`elan`](https://github.com/leanprover/elan)):
+
+   ```bash
+   curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain leanprover/lean4:stable
+   ```
+
+2. **Build Velvet** from the repository root:
+
+   ```bash
+   lake exe cache get
+   lake build
+   ```
+
+3. **Install Dafny** (≥ 4.x). See <https://dafny.org/dafny/Installation>, or
+   on macOS: `brew install dafny`.
+
+4. **Install the benchmark tooling**:
+
+   ```bash
+   # hyperfine
+   brew install hyperfine                # macOS
+   # sudo apt install hyperfine          # Ubuntu
+   # Python deps
+   python3 -m pip install matplotlib numpy
+   ```
+
+5. **Run the driver** — benchmarks every Dafny / Lean pair, aggregates the
+   results, and writes the chart:
+
+   ```bash
+   python3 Bench/generate_artefact.py
+   ```
+
+   The chart of the paper is produced at `Bench/results/chart_all.pdf` (a
+   matching `.png` and a `benchmark_results.csv` are emitted next to it).
+   Pass `--runs N --warmup W` to tune hyperfine, or `--skip-bench` to only
+   re-render the chart from existing JSON results.
+
 ## Documentation
 
 For detailed documentation of Velvet's features and usage, see [velvet_documentation.md](Velvet/velvet_documentation.md).
