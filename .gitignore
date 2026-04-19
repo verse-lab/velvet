@@ -1,2 +1,4 @@
 /.lake
 .DS_Store
+/.venv
+/Bench/results/

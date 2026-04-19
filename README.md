@@ -83,8 +83,11 @@ single driver that reproduces `Bench/results/chart_all.pdf`:
    # hyperfine
    brew install hyperfine                # macOS
    # sudo apt install hyperfine          # Ubuntu
-   # Python deps
-   python3 -m pip install matplotlib numpy
+
+   # Python deps — use a venv to avoid PEP 668 ("externally managed")
+   python3 -m venv .venv
+   . .venv/bin/activate
+   pip install matplotlib numpy
    ```
 
 5. **Run the driver** — benchmarks every Dafny / Lean pair, aggregates the
