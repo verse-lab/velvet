@@ -242,6 +242,10 @@ theorem spv_dot_exh
     by_cases triv: spv1.size ≤ pnt1 ∨ spv2.size ≤ pnt2 <;> simp [triv]
     omega
 
+@[solverHint]
+lemma replicate_one_zero_add (a : ℤ) :
+  (Array.replicate 1 (0 : ℤ))[0]! + a = a := by simp
+
 --proofs for sparse vector by sparse vector multiplication
 --and sparse matrix by sparse vector multiplication algorithms
 prove_correct SpVSpV by
