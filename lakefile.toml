@@ -1,0 +1,10 @@
+name = "velvet2"
+version = "0.1.0"
+defaultTargets = ["velvet2"]
+
+[[lean_lib]]
+name = "Velvet2"
+
+[[lean_exe]]
+name = "velvet2"
+root = "Main"
