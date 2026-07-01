@@ -16,7 +16,7 @@ Main features:
 
 * **Access to mathlib** -- use Lean's rich ecosystem of formalised mathematics in program specifications and proofs
 
-For a detailed description of Velvet, see the [paper](paper.pdf).
+For a detailed description of Velvet, see the [paper]([paper.pdf](https://ilyasergey.net/assets/pdf/papers/velvet-cav26.pdf)).
 
 ## Using Velvet
 
