@@ -9,8 +9,6 @@ section squareRoot
 
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
-set_option loom.solver "grind"
-set_option loom.solver.smt.timeout 1
 
 -- (1) Proving things with SMT
 -- partial correctness version of square root
@@ -28,7 +26,15 @@ method sqrt (x: ℕ) return (res: ℕ)
       do
         i := i + 1
       return i - 1
+
+#eval sqrt 10 |>.extract
+
+set_option loom.solver "grind"
+set_option loom.solver.smt.timeout 1
+
 prove_correct sqrt by
+  -- loom_goals_intro
+  -- loom_unfold
   loom_solve
   {
     intros i h
@@ -36,8 +42,6 @@ prove_correct sqrt by
     exact Nat.mul_self_le_mul_self_iff.mp h
   }
   all_goals loom_smt
-
--- #eval sqrt 10 |>.extract
 
 variable [FinEnum α]
 
