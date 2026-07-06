@@ -108,6 +108,7 @@ prove_correct spmv by
   loom_solve
 
 --helper function for calculation of dot product on sparse vectors
+-- (Step 1) Pure function
 def spv_dot (spv1 spv2: SpV Int) (pnt1 pnt2: ℕ): Int :=
   if (spv1.size) ≤ pnt1 ∨ (spv2.size) ≤ pnt2 then
     0
@@ -150,6 +151,7 @@ method SpVSpV
     return
 
 --Compressed Sparse Row matrix by sparse vector multiplicaiton
+-- (Step 2) Proving refinement
 method SpMSpV
   (mut out: Array Int)
   (spm: Array (SpV Int))
@@ -183,6 +185,7 @@ method SpMSpV
     return
 
 --lemma for helper function
+-- (Step 3) Helper lemma
 @[solverHint]
 lemma spv_dot_eq
   (spv1 spv2: SpV Int) (pnt1 pnt2: ℕ) (prev: Int):
@@ -251,6 +254,7 @@ lemma replicate_one_zero_add (a : ℤ) :
 prove_correct SpVSpV by
   loom_solve <;> loom_auto
 
+-- (Step 4) Verifying the imperative function
 prove_correct SpMSpV by
   loom_solve <;> loom_auto
 
@@ -286,6 +290,7 @@ theorem getValSpV_empty (spv: SpV Int) (j: ℕ) (h_empty: ∀ i < spv.size, spv.
   simp [none_case]
 
 --theorem: sumUpTo helper equals to actual dot product for sparse vector by vector multiplication
+-- (Step 5) Proving the property of the pure function
 theorem VSpV_correct_pure (out: Array Int) (arr: Array Int)
   (spv: SpV Int)
   (h_b: ∀ i < spv.size, spv.ind[i]! < arr.size):
@@ -694,6 +699,7 @@ theorem SpVSpV_correct_triple (out: Array Int) (spv1 spv2: SpV Int) (n: ℕ):
       exact triple_true
 
 --Compressed Sparse Row matrix by sparse vector multiplicaiton algorithm actually computes matrix product
+-- (Step 6) Proving that the imperative programs is correct
 theorem SpMSpV_correct_triple
   (out: Array Int)
   (spm: Array (SpV Int))

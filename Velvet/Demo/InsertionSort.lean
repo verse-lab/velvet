@@ -74,7 +74,7 @@ method insertionSort
       -- decreasing mind
       do
         if arr[mind]! < arr[mind - 1]! then
-          swap! arr[mind - 1]! arr[mind]!
+          swap! arr[mind]! arr[mind - 1]!
         mind := mind - 1
       n := n + 1 -- try commenting this out for termination
     return
@@ -111,6 +111,6 @@ run_elab do
 set_option maxHeartbeats 1000000
 
 prove_correct insertionSort by
-  loom_solve_async!
+  loom_solve
 
 end insertionSort
