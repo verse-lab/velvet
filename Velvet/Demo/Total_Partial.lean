@@ -1,6 +1,21 @@
 -------------------------------------------------------
--- Example 3: Combaning Total and Partial Correctness
+-- Example 3: Combining Total and Partial Correctness
 -------------------------------------------------------
+
+-- This file illustrates that total correctness can be established by proving its
+-- two constituents *separately* and then gluing them together:
+--
+--   total correctness  =  partial correctness  +  termination
+--
+-- We verify insertion sort three times:
+--   • `insertionSort_part`        — WHAT it computes, *if* it terminates (partial).
+--   • `insertionSort_termination` — THAT it terminates, ignoring the result.
+--   • `insertionSort_result`      — the full total-correctness claim, obtained by
+--                                   composing the two proofs above (no re-proving).
+--
+-- The payoff: each half uses only the machinery it needs — invariants for the
+-- functional spec, ranking functions for termination — so neither proof is
+-- burdened by the other's obligations.
 
 import Velvet.Std
 
@@ -8,6 +23,11 @@ attribute [grind] Array.multiset_swap
 
 section
 
+-- Part A — PARTIAL correctness.
+-- Under "partial" termination semantics the loops carry no ranking function: we
+-- promise the postcondition only *conditionally on* termination. The invariants
+-- capture the full functional spec (sortedness of the prefix + permutation of the
+-- input), which is exactly what carries over once termination is known.
 set_option loom.semantics.termination "partial"
 set_option loom.semantics.choice "demonic"
 
@@ -47,6 +67,11 @@ end
 
 section
 
+-- Part B — TERMINATION only.
+-- Under "total" semantics every loop must exhibit a `decreasing` ranking function.
+-- The postcondition is the trivial `True`: we deliberately say *nothing* about the
+-- result here, so the proof is only about the ranking measures shrinking. The
+-- functional invariants are dropped — they are Part A's job.
 set_option loom.semantics.termination "total"
 set_option loom.semantics.choice "demonic"
 
@@ -78,6 +103,10 @@ prove_correct insertionSort_termination by
   loom_solve!
 end
 
+-- Part C — TOTAL correctness, by composition.
+-- Same program, now with both the full functional spec *and* "total" semantics.
+-- Crucially, we do not re-verify the loops: the proof below assembles the total
+-- result purely from Part A (partial correctness) and Part B (termination).
 set_option loom.semantics.termination "total"
 set_option loom.semantics.choice "demonic"
 
@@ -102,9 +131,11 @@ method insertionSort_result
     return
 
 prove_correct insertionSort_result by
-  have triple_termination := insertionSort_termination_correct arrOld
-  have triple_res := insertionSort_part_correct arrOld
-  -- applying lemma about separation of termination proof and correctness proof
+  -- Pull in the two proofs established separately above...
+  have triple_termination := insertionSort_termination_correct arrOld -- Part B: it terminates
+  have triple_res := insertionSort_part_correct arrOld                -- Part A: what it computes
+  -- ...and glue them: `total_decompose_triple` is the lemma stating that a
+  -- termination proof plus a partial-correctness proof yield total correctness.
   exact VelvetM.total_decompose_triple
     (insertionSort_termination arrOld) (insertionSort_part arrOld) (insertionSort_result arrOld)
     (eqx := by rfl) (eqy := by rfl)
