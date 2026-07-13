@@ -1,0 +1,139 @@
+import Lean
+
+open Lean Meta Elab
+
+namespace Named
+
+/--
+Attach a user-facing name and source syntax to a value without changing its
+denotation. Verification tooling can inspect the wrapper before unfolding it.
+-/
+public def mk {α : Sort u} (_name : Name) (_stx : Option Syntax) (value : α) : α :=
+  value
+
+/-- A named natural-number measure used to formulate decreasing obligations. -/
+public structure Measure where
+  name : Name
+  stx : Option Syntax
+  value : Nat
+
+/-- Compact output syntax used by the `Named.mk` unexpander. -/
+syntax:max "⟪" ident " : " term "⟫" : term
+
+/-- Attach a name and captured source syntax to a value. -/
+syntax:max "named[" ident "] " term : term
+
+macro_rules
+  | `(named[$name:ident] $value:term) => do
+      let nameStr := Lean.Syntax.mkStrLit name.getId.toString
+      let text := value.raw.reprint.getD (toString value.raw.formatStx)
+      let textStr := Lean.Syntax.mkStrLit text
+      `(Named.mk
+        (Lean.Name.mkSimple $nameStr)
+        (some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
+        $value)
+
+/-- Pretty-print `Named.mk` applications as `⟪name : value⟫`. -/
+@[app_unexpander Named.mk, app_unexpander Named.Measure.mk]
+meta def unexpandMk : Lean.PrettyPrinter.Unexpander
+  | `($(_) $name $_stx $value) => do
+      let ident ← match name with
+        | `(Lean.Name.mkSimple $name:str) =>
+            pure <| mkIdent (Name.mkSimple name.getString)
+        | _ =>
+            if name.raw.isOfKind ``Lean.Parser.Term.quotedName then
+              if let some name := name.raw[0].isNameLit? then
+                pure <| mkIdent name
+              else
+                throw ()
+            else
+              throw ()
+      `(⟪ $ident : $value ⟫)
+  | _ => throw ()
+
+private def getName (name : Expr) : MetaM Name := do
+  let name ← whnfR name
+  let some name := name.name?
+    | throwError "invalid Named.mk name: {name}"
+  return name
+
+private def get? (type : Expr) : MetaM (Option (Name × Expr)) := do
+  let type ← instantiateMVars type
+  match_expr type with
+  | Named.mk _α name _stx value =>
+      return some (← getName name, value)
+  | _ => return none
+
+/-- Whether an expression is a named value or an `And` tree containing one. -/
+public partial def contains (type : Expr) : Bool :=
+  if type.isAppOf ``Named.mk then
+    true
+  else if type.isAppOfArity ``And 2 then
+    contains (type.getArg! 0) || contains (type.getArg! 1)
+  else
+    false
+
+/--
+Unwrap and name every `Named.mk ... p` proposition in a goal's hypotheses.
+Structural conjunctions are split only when they contain named propositions.
+-/
+public partial def processHyp (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    for localDecl in ← getLCtx do
+      if localDecl.isImplementationDetail then
+        continue
+      let type ← instantiateMVars localDecl.type
+      if let some type ← withReducible <| reduceRecMatcher? type then
+        let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId type
+        return ← processHyp goal
+      if let some (name, prop) ← get? type then
+        let goal ← goal.rename localDecl.fvarId name
+        let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId prop
+        return ← processHyp goal
+      if type.isAppOfArity ``And 2 && contains type then
+        let subgoals ← goal.cases localDecl.fvarId
+        return ← subgoals.toList.flatMapM fun subgoal =>
+          processHyp subgoal.mvarId
+    return [goal]
+
+/--
+Unwrap a `Named.mk ... p` target, changing it to `p` and setting the goal's case
+tag to the encoded name.
+-/
+public def processGoal (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    let target ← goal.getType
+    if let some (name, prop) ← get? target then
+      let goal ← goal.replaceTargetDefEq prop
+      goal.setTag name
+      return [goal]
+    return [goal]
+
+/-- Build an `And` tree whose leaves are individually named propositions. -/
+public def mkPropList (ts : Array (TSyntax `term)) (names : Array (Option Name) := #[])
+    (pfx : String := "clause") : MacroM (TSyntax `term) := do
+  if ts.isEmpty then
+    `(term| True)
+  else
+    let namedMk := mkIdent ``Named.mk
+    let getName (i : Nat) : MacroM (TSyntax `term) := do
+      let name := match names[i]? with
+        | some (some name) => name.toString
+        | _ => s!"{pfx}{i + 1}"
+      let nameStr := Lean.Syntax.mkStrLit name
+      `(Lean.Name.mkSimple $nameStr)
+    let getStx (i : Nat) : MacroM (TSyntax `term) := do
+      let text := ts[i]!.raw.reprint.getD (toString (ts[i]!.raw.formatStx))
+      let textStr := Lean.Syntax.mkStrLit text
+      `(some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
+    let named (i : Nat) : MacroM (TSyntax `term) := do
+      let name ← getName i
+      let stx ← getStx i
+      `($namedMk ($name) ($stx) $(ts[i]!))
+    let lastIdx := ts.size - 1
+    let mut result ← named lastIdx
+    for i in List.range lastIdx |>.reverse do
+      result ← `($(← named i) ∧ $result)
+    return result
+
+end Named

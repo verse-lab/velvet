@@ -65,33 +65,27 @@ do
 prove_correct fibFor by
   vcgen' [fibFor]
   case vc1 =>
-    cases hxs : (0...n).toList with
-    | nil =>
-        have hl := congrArg List.length hxs
-        simp at hl
-        subst n
-        simp [fibAccSpec]
-    | cons cur tail =>
-        have hl := congrArg List.length hxs
-        have hc := congrArg (fun xs => xs[0]?) hxs
-        simp [Std.Rco.getElem?_toList_eq] at hl hc
-        simp_all [fibAccSpec]
-        omega
+    split_conjs <;> name_vcs;expose_names
+    simp at *; grind [fibAccSpec]
+    simp at *; grind
+    grind [fibAccSpec]
+    grind
   case ensures1 => simp_all
   case vc3 =>
     rename_i pref cur suff h b
+    trace_state
     cases suff with
     | nil =>
         have hl := congrArg List.length h
         have hc := congrArg (fun xs => xs[pref.length]?) h
         simp [Std.Rco.getElem?_toList_eq] at hl hc
-        simp_all [fibAccSpec]
+        simp_all [Named.mk, fibAccSpec]
     | cons next rest =>
         have hl := congrArg List.length h
         have hc := congrArg (fun xs => xs[pref.length]?) h
         have hn := congrArg (fun xs => xs[pref.length + 1]?) h
         simp [Std.Rco.getElem?_toList_eq] at hl hc hn
-        simp_all [fibAccSpec]
+        simp_all [Named.mk, fibAccSpec]
         grind
 
 
@@ -102,8 +96,9 @@ theorem fibAcc_correct' (n : Nat) (a : Nat) (b : Nat) :
     True
     (fibAcc n a b)
     (fun result =>
-        NamedProp.one
+        Named.mk
         (Lean.Name.mkSimple "ensures1")
+        none
         (result = fibAccSpec n a b))
     (True : Prop) := by
     apply triple_from_option_spec

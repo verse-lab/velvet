@@ -1,6 +1,6 @@
 import Lean
 import Std.Tactic.Do
-import Velvet2.NamedProp
+import Velvet2.Named
 
 open Lean Meta Elab Tactic
 
@@ -43,28 +43,38 @@ elab "split_conjs" : tactic => do
 
 syntax "vcgen' " "[" term,* "]" (" with " ident)? : tactic
 
-private partial def processNamedPropGoals (goal : MVarId) : MetaM (List MVarId) :=
+private partial def processNamedGoals (goal : MVarId) : MetaM (List MVarId) :=
   goal.withContext do
     let target ← goal.getType
     if let some target ← withReducible <| reduceRecMatcher? target then
-      return ← processNamedPropGoals (← goal.replaceTargetDefEq target)
+      return ← processNamedGoals (← goal.replaceTargetDefEq target)
 
-    match ← NamedProp.processNamedPropGoal goal with
+    match ← Named.processGoal goal with
     | [processed] =>
         if processed != goal then
-          return ← processNamedPropGoals processed
-        if ← isAndType target then
-          if NamedProp.containsNamedProp target then
-            return ← (← goal.constructor).flatMapM processNamedPropGoals
+          return ← processNamedGoals processed
+        let target ← whnfR (← instantiateMVars target)
+        if target.isAppOfArity ``And 2 && Named.contains target then
+          return ← (← goal.constructor).flatMapM processNamedGoals
         return [goal]
     | processed =>
-        return ← processed.flatMapM processNamedPropGoals
+        return ← processed.flatMapM processNamedGoals
+
+private def processNamedVCs (goals : List MVarId) : MetaM (List MVarId) := do
+  let goals ← goals.flatMapM Named.processHyp
+  goals.flatMapM processNamedGoals
+
+/--
+Expose names that became reachable after simplifying or splitting matches.
+Named hypotheses are unwrapped and renamed; named conjunctions of verification
+conditions are split; named targets are unwrapped and assigned matching case
+tags.
+-/
+elab "name_vcs" : tactic => do
+  setGoals (← liftMetaM <| processNamedVCs (← getGoals))
 
 elab "vcgen' " "[" args:term,* "]" _with:(" with " ident)? : tactic => do
   let simpArgs ← args.getElems.mapM fun arg =>
     `(Lean.Parser.Tactic.simpLemma| $arg:term)
   evalTactic (← `(tactic| vcgen [$(Syntax.TSepArray.ofElems simpArgs),*]))
-  let goals <- getGoals
-  let goals ← liftMetaM <| goals.flatMapM NamedProp.processNamedPropHyp
-  let goals ← liftMetaM <| goals.flatMapM processNamedPropGoals
-  setGoals goals
+  setGoals (← liftMetaM <| processNamedVCs (← getGoals))

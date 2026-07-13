@@ -1,6 +1,6 @@
 import Lean
 import Velvet2.Specs
-import Velvet2.NamedProp
+import Velvet2.Named
 import Lean.Parser
 import Std.Internal.Do
 import Std.Internal.Do.WP.Basic
@@ -9,7 +9,7 @@ import Std.Internal.Do.Triple.Basic
 import Std.Internal.Do.Triple.Gadget
 import Std.Internal.Do.Triple.SpecLemmas
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do NamedProp
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
 
 /-! ## Small local compatibility layer -/
 
@@ -125,8 +125,8 @@ elab_rules : command
         ensNames := ensNames.push <| match ensNs[idx]! with
           | some id => id.getId
           | none => Name.mkSimple s!"ensures{idx + 1}"
-      let pre ← liftMacroM <| mkNamedPropList req (explicitNames reqNames) "requires"
-      let post ← liftMacroM <| mkNamedPropList ens (explicitNames ensNames) "ensures"
+      let pre ← liftMacroM <| mkPropList req (explicitNames reqNames) "requires"
+      let post ← liftMacroM <| mkPropList ens (explicitNames ensNames) "ensures"
       let defCmd ←
         if recTk.isSome then
           `(command|
@@ -217,12 +217,12 @@ elab_rules : command
 
 macro_rules
   | `(doElem| for' $pat:term in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) => do
-  let invs' ← mkNamedPropList invs (optionalIdentNames ns) "invariant"
+  let invs' ← mkPropList invs (optionalIdentNames ns) "invariant"
   let doneTerm ← match done with
     | some done => pure done
     | none => `(True)
   let doneName := hDone.join.map (·.getId) |>.getD `h_done_with
-  let done' ← mkNamedPropList #[doneTerm] #[some doneName] "done_with"
+  let done' ← mkPropList #[doneTerm] #[some doneName] "done_with"
   `(doElem| for $pat in $xs do
     invariantGadget $invs'
     onDoneGadget $done'
@@ -230,15 +230,25 @@ macro_rules
   | `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* decreasing $[$hm : ]? $m $[done_with $[$h_done : ]? $d]? do $body) => do
   let defaultLoopIdent := mkIdent `h_loop
   let loopIdent := hcond.getD defaultLoopIdent
-  let invs' ← mkNamedPropList invs (optionalIdentNames ns) "invariant"
+  let invs' ← mkPropList invs (optionalIdentNames ns) "invariant"
   let defaultDoneWith : TSyntax `term ← withRef cond do `(¬ $cond)
   let doneWith := d.getD defaultDoneWith
   let doneWithName := match h_done.join with
     | some id => id.getId
     | none => `h_done_with
-  let doneWithNamed ← mkNamedPropList #[doneWith] #[some doneWithName] "done_with"
+  let doneWithNamed ← mkPropList #[doneWith] #[some doneWithName] "done_with"
+  let measureName := hm.map (·.getId) |>.getD `decreasing
+  let measureNameStr := Lean.Syntax.mkStrLit measureName.toString
+  let measureNameTerm : TSyntax `term ←
+    `(Lean.Name.mkSimple $measureNameStr)
+  let measureText := m.raw.reprint.getD (toString m.raw.formatStx)
+  let measureTextStr := Lean.Syntax.mkStrLit measureText
+  let measureStx : TSyntax `term ←
+    `(some (Lean.Syntax.atom Lean.SourceInfo.none $measureTextStr))
+  let measureNamed : TSyntax `term ←
+    `(Named.Measure.mk $measureNameTerm $measureStx $m)
   `(doElem| repeat do
     invariantGadget $invs'
-    decreasingGadget $m
+    decreasingGadget $measureNamed
     onDoneGadget $doneWithNamed
     if $loopIdent : $cond then $body else break)

@@ -1,4 +1,5 @@
 import Lean
+import Velvet2.Named
 import Std.Internal.Do
 import Std.Internal.Do.WP.Basic
 import Std.Internal.Do.Triple.Basic
@@ -7,7 +8,8 @@ import Std.Internal.Do.Triple.SpecLemmas
 open Std.Internal.Do
 
 def invariantGadget {m : Type u → Type v} [Monad m] (_inv : Prop) : m PUnit := pure ⟨⟩
-def decreasingGadget {m : Type u → Type v} [Monad m] (_measure : Nat) : m PUnit := pure ⟨⟩
+def decreasingGadget {m : Type u → Type v} [Monad m]
+    (_measure : Named.Measure) : m PUnit := pure ⟨⟩
 def onDoneGadget {m : Type u → Type v} [Monad m] (_done : Prop) : m PUnit := pure ⟨⟩
 
 namespace Velvet2.Spec
@@ -26,13 +28,16 @@ to `vcgen` while it selects this rule.
 @[spec 1100]
 theorem forInLoopWithGadgets {β : Type}
     {l : Lean.Loop} {init : β}
-    {inv done : β → Prop} {measure : β → Nat}
+    {inv done : β → Prop} {measure : β → Named.Measure}
     {f : Unit → β → Option (ForInStep β)}
     (step : ∀ b,
       Std.Internal.Do.Triple (loopBody f b)
         (inv b)
         (fun r => match r with
-          | .yield b' => measure b' < measure b ∧ inv b'
+          | .yield b' =>
+              match measure b, measure b' with
+              | ⟨name, stx, current⟩, ⟨_, _, next⟩ =>
+                  Named.mk name stx (next < current) ∧ inv b'
           | .done b' => inv b' ∧ done b')
         True) :
     Std.Internal.Do.Triple
@@ -50,18 +55,19 @@ theorem forInLoopWithGadgets {β : Type}
         (loopInv (.inl b))
         (fun r => match r with
           | .yield b' => Lean.Order.meet
-              (Lean.Order.CompleteLattice.ofProp (measure b' < measure b))
+              (Lean.Order.CompleteLattice.ofProp
+                ((measure b').value < (measure b).value))
               (loopInv (.inl b'))
           | .done b' => loopInv (.inr b'))
         True := by
     intro b
-    simpa [loopBody, loopInv] using step b
+    simpa [Named.mk, loopBody, loopInv] using step b
   simpa [invariantGadget, decreasingGadget, onDoneGadget, loopInv] using
     (Std.Internal.Do.Spec.forIn_loop
       (l := l)
       (init := init)
       (f := f)
-      (measure := measure)
+      (measure := fun b => (measure b).value)
       (inv := loopInv)
       (einv := True)
       step')
@@ -70,13 +76,6 @@ theorem forInLoopWithGadgets {β : Type}
 def rangeLoopBody (f : α → β → Option (ForInStep β)) (i : α) (b : β) :
     Option (ForInStep β) :=
   f i b
-
-@[simp]
-private def rangeCursorInv (inv : α → β → Prop) (done : β → Prop)
-    (suffix : List α) (b : β) : Prop :=
-  match suffix with
-  | [] => done b
-  | cur :: _ => inv cur b
 
 open Std Std.PRange in
 
@@ -121,7 +120,9 @@ theorem forInRcoWithGadgets {α β : Type}
       Std.Internal.Do.Triple (rangeLoopBody f cur b)
         (inv cur b)
         (fun r => match r with
-          | .yield b' => rangeCursorInv inv done suff b'
+          | .yield b' => match suff with
+            | [] => done b'
+            | cur :: _ => inv cur b'
           | .done b' => done b')
         True) :
     Std.Internal.Do.Triple
@@ -135,7 +136,9 @@ theorem forInRcoWithGadgets {α β : Type}
       (fun b => done b)
       True := by
   let cursorInv : Std.Internal.Do.Invariant xs.toList β Prop := fun cursor b =>
-    rangeCursorInv inv done cursor.suffix b
+    match cursor.suffix with
+    | [] => done b
+    | cur :: _ => inv cur b
   have step' : ∀ (pref : List α) (cur : α) (suff : List α)
       (h : xs.toList = pref ++ cur :: suff) (b : β),
       Std.Internal.Do.Triple (f cur b)
@@ -145,7 +148,7 @@ theorem forInRcoWithGadgets {α β : Type}
           | .done b' => cursorInv ⟨xs.toList, [], by simp⟩ b')
         True := by
     intro pref cur suff h b
-    simpa [rangeLoopBody, cursorInv, rangeCursorInv] using step pref cur suff h b
+    cases suff <;> simpa [rangeLoopBody, cursorInv] using step pref cur _ h b
   change Std.Internal.Do.Triple (forIn xs init f)
     (match xs.toList with
       | [] => done init
