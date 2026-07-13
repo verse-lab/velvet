@@ -1,5 +1,6 @@
 import Lean
 import Velvet2.Specs
+import Velvet2.NamedProp
 import Lean.Parser
 import Std.Internal.Do
 import Std.Internal.Do.WP.Basic
@@ -8,7 +9,7 @@ import Std.Internal.Do.Triple.Basic
 import Std.Internal.Do.Triple.Gadget
 import Std.Internal.Do.Triple.SpecLemmas
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do NamedProp
 
 /-! ## Small local compatibility layer -/
 
@@ -20,18 +21,6 @@ def assertGadget {m : Type u → Type v} [Monad m] (_name : Name) {_Pred : Sort 
   pure ⟨⟩
 
 
-namespace NamedProp
-
-@[simp, grind =]
-noncomputable def one (_name : Name) (p : Prop)
-    (_stx : Option Syntax := none) : Prop := p
-
-@[simp, grind =]
-noncomputable def cons (_name : Name) (p rest : Prop)
-    (_stx : Option Syntax := none) : Prop := p ∧ rest
-
-end NamedProp
-
 public def optionalIdentNames (ids : Array (Option Ident)) : Array (Option Name) :=
   ids.map fun
     | some id => some id.getId
@@ -39,29 +28,6 @@ public def optionalIdentNames (ids : Array (Option Ident)) : Array (Option Name)
 
 public def explicitNames (names : Array Name) : Array (Option Name) :=
   names.map some
-
-public def mkNamedPropList (ts : Array (TSyntax `term)) (names : Array (Option Name) := #[])
-    (pfx : String := "clause") : MacroM (TSyntax `term) := do
-  if ts.isEmpty then
-    `(term| True)
-  else
-    let namedPropOne := mkIdent ``NamedProp.one
-    let namedPropCons := mkIdent ``NamedProp.cons
-    let getName (i : Nat) : MacroM (TSyntax `term) := do
-      let name := match names[i]? with
-        | some (some name) => name.toString
-        | _ => s!"{pfx}{i + 1}"
-      let nameStr := Lean.Syntax.mkStrLit name
-      `(Lean.Name.mkSimple $nameStr)
-    let getStx (i : Nat) : MacroM (TSyntax `term) := do
-      let text := ts[i]!.raw.reprint.getD (toString (ts[i]!.raw.formatStx))
-      let textStr := Lean.Syntax.mkStrLit text
-      `(some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
-    let lastIdx := ts.size - 1
-    let mut result ← `($namedPropOne ($(← getName lastIdx)) $(ts[lastIdx]!) ($(← getStx lastIdx)))
-    for i in List.range lastIdx |>.reverse do
-      result ← `($namedPropCons ($(← getName i)) $(ts[i]!) $result ($(← getStx i)))
-    return result
 
 theorem triple_from_option_spec {α β : Type}
     {f : α → Option β} {a : α} {pre : Prop} {post : β → Prop}
@@ -120,6 +86,7 @@ and one collection, including closed-open ranges such as `start...stop`.
 -/
 syntax "for' " term " in " termBeforeDo
   (" invariant " (atomic(ident " : "))? termBeforeDo)*
+  (" done_with " (atomic(ident " : "))? termBeforeDo)?
   " do " doSeq : doElem
 
 syntax "method " ("rec ")? ident bracketedBinder* " returns " "(" ident " : " term ")"
@@ -249,10 +216,16 @@ elab_rules : command
     obligations.modify' (·.erase declName)
 
 macro_rules
-  | `(doElem| for' $pat:term in $xs $[ invariant $[$ns : ]? $invs]* do $body) => do
+  | `(doElem| for' $pat:term in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) => do
   let invs' ← mkNamedPropList invs (optionalIdentNames ns) "invariant"
+  let doneTerm ← match done with
+    | some done => pure done
+    | none => `(True)
+  let doneName := hDone.join.map (·.getId) |>.getD `h_done_with
+  let done' ← mkNamedPropList #[doneTerm] #[some doneName] "done_with"
   `(doElem| for $pat in $xs do
     invariantGadget $invs'
+    onDoneGadget $done'
     do $body)
   | `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* decreasing $[$hm : ]? $m $[done_with $[$h_done : ]? $d]? do $body) => do
   let defaultLoopIdent := mkIdent `h_loop

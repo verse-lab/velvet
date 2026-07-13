@@ -1,4 +1,5 @@
 import Velvet2.Syntax
+import Velvet2.Tactics
 
 open Std.Internal.Do
 
@@ -6,6 +7,22 @@ open Std.Internal.Do
 def fibAccSpec : Nat → Nat → Nat → Nat
   | 0, a, _ => a
   | n + 1, a, b => fibAccSpec n b (a + b)
+
+@[grind =]
+theorem fibAccSpec_add (n a b c d : Nat) :
+    fibAccSpec n (a + c) (b + d) = fibAccSpec n a b + fibAccSpec n c d := by
+  induction n generalizing a b c d with
+  | zero => simp [fibAccSpec]
+  | succ n ih =>
+    simp only [fibAccSpec]
+    rw [show a + c + (b + d) = (a + b) + (c + d) by omega]
+    exact ih b (a + b) d (c + d)
+
+@[grind =]
+theorem fibAccSpec_pair_step (n : Nat) :
+    fibAccSpec n 0 1 + fibAccSpec n 1 1 = fibAccSpec (n + 1) 1 1 := by
+  rw [← fibAccSpec_add]
+  rfl
 
 method rec fibAcc (n : Nat) (a : Nat) (b : Nat)
   returns (result : Nat)
@@ -21,6 +38,62 @@ do
 
 prove_correct fibAcc by
   sorry
+
+/- Iterative Fibonacci using Velvet's annotated finite-range loop syntax. -/
+method fibFor (n : Nat)
+  returns (result : Nat)
+  ensures result = fibAccSpec n 0 1
+do
+  let mut a := 0
+  let mut b := 1
+  let mut i := 0
+  for' j in 0...n
+    invariant cursor_index : i = j
+    invariant fib_values :
+      a = fibAccSpec i 0 1 ∧ b = fibAccSpec i 1 1
+    invariant index_bound : i ≤ n
+    done_with fib_done : i = n ∧ a = fibAccSpec n 0 1
+  do
+    let next := a + b
+    a := b
+    b := next
+    i := i + 1
+  return a
+
+#check fibFor
+
+prove_correct fibFor by
+  vcgen' [fibFor]
+  case vc1 =>
+    cases hxs : (0...n).toList with
+    | nil =>
+        have hl := congrArg List.length hxs
+        simp at hl
+        subst n
+        simp [fibAccSpec]
+    | cons cur tail =>
+        have hl := congrArg List.length hxs
+        have hc := congrArg (fun xs => xs[0]?) hxs
+        simp [Std.Rco.getElem?_toList_eq] at hl hc
+        simp_all [fibAccSpec]
+        omega
+  case ensures1 => simp_all
+  case vc3 =>
+    rename_i pref cur suff h b
+    cases suff with
+    | nil =>
+        have hl := congrArg List.length h
+        have hc := congrArg (fun xs => xs[pref.length]?) h
+        simp [Std.Rco.getElem?_toList_eq] at hl hc
+        simp_all [fibAccSpec]
+    | cons next rest =>
+        have hl := congrArg List.length h
+        have hc := congrArg (fun xs => xs[pref.length]?) h
+        have hn := congrArg (fun xs => xs[pref.length + 1]?) h
+        simp [Std.Rco.getElem?_toList_eq] at hl hc hn
+        simp_all [fibAccSpec]
+        grind
+
 
 
 set_option linter.unusedVariables false in

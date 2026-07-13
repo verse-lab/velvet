@@ -1,5 +1,6 @@
 import Velvet2.Syntax
 import Velvet2.Ghost
+import Velvet2.Tactics
 
 /- attribute [-grind] getElem?_neg getElem?_pos getElem!_neg getElem!_pos -/
 
@@ -26,24 +27,12 @@ do
 
 set_option maxHeartbeats 10000000
 
-/- open Std.Internal.Do Lean.Order in
- - prove_correct isGreaterWithInvariants by
- -   apply Triple.intro
- -   apply named_prop_one_pre_intro
- -   intros ha
- -   apply prop_pre_elim
- -   unfold wp
- -   apply WP.wp_bind -/
-
-
-#print isGreaterWithInvariants
-
-set_option trace.Elab.Tactic.Do.vcgen true
 prove_correct isGreaterWithInvariants by
-  vcgen [isGreaterWithInvariants]
+  vcgen' [isGreaterWithInvariants]
   
 
 
+#print isGreaterWithInvariants
 
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
   returns (result : Bool)

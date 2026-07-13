@@ -66,51 +66,97 @@ theorem forInLoopWithGadgets {β : Type}
       (einv := True)
       step')
 
+@[spec]
+def rangeLoopBody (f : α → β → Option (ForInStep β)) (i : α) (b : β) :
+    Option (ForInStep β) :=
+  f i b
+
+@[simp]
+private def rangeCursorInv (inv : α → β → Prop) (done : β → Prop)
+    (suffix : List α) (b : β) : Prop :=
+  match suffix with
+  | [] => done b
+  | cur :: _ => inv cur b
+
 open Std Std.PRange in
+
+
 /--
-A specialization of Lean's finite closed-open range specification which reads
-Velvet's state invariant from the marker at the start of the loop body.
-Termination and exhaustion are supplied by `Std.Rco`, so this rule needs no
-variant or separate `done_with` annotation.
+Stdlib rco spec:
+
+@[spec]
+theorem Spec.forIn_rco {α β : Type u} {m : Type u → Type v} {Pred : Type u} {EPred : Type u}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [LE α] [LT α] [DecidableLT α] [UpwardEnumerable α] [Rxo.IsAlwaysFinite α]
+    [LawfulUpwardEnumerable α] [LawfulUpwardEnumerableLE α] [LawfulUpwardEnumerableLT α]
+    {xs : Rco α} {init : β} {f : α → β → m (ForInStep β)}
+    (inv : Invariant xs.toList β Pred)
+    {epost : EPred}
+    (step : ∀ pref cur suff (h : xs.toList = pref ++ cur :: suff) b,
+      Triple
+        (f cur b)
+        (inv ⟨pref, cur::suff, h.symm⟩ b)
+        (fun r => match r with
+          | ForInStep.yield b' => inv ⟨pref ++ [cur], suff, by simp [h]⟩ b'
+          | ForInStep.done b' => inv ⟨xs.toList, [], by simp⟩ b')
+        epost) :
+    Triple
+      (forIn xs init f)
+      (inv ⟨[], xs.toList, rfl⟩ init)
+      (fun b => inv ⟨xs.toList, [], by simp⟩ b)
+      epost := by
+Specification for a finite closed-open range carrying inline invariants.
+The invariant is indexed by the current range element. At the terminal cursor,
+where there is no current element, `done` is used instead.
 -/
 @[spec 1100]
-theorem forInRcoWithInvariantGadget {α β : Type}
+theorem forInRcoWithGadgets {α β : Type}
     [LE α] [LT α] [DecidableLT α] [UpwardEnumerable α] [Rxo.IsAlwaysFinite α]
     [LawfulUpwardEnumerable α] [LawfulUpwardEnumerableLE α]
     [LawfulUpwardEnumerableLT α]
     {xs : Rco α} {init : β}
-    {inv : β → Prop}
+    {inv : α → β → Prop} {done : β → Prop}
     {f : α → β → Option (ForInStep β)}
-    (step : ∀ i b, inv b →
-      (f i b).elim True fun r => match r with
-        | .yield b' => inv b'
-        | .done b' => inv b') :
+    (step : ∀ pref cur suff (_h : xs.toList = pref ++ cur :: suff) b,
+      Std.Internal.Do.Triple (rangeLoopBody f cur b)
+        (inv cur b)
+        (fun r => match r with
+          | .yield b' => rangeCursorInv inv done suff b'
+          | .done b' => done b')
+        True) :
     Std.Internal.Do.Triple
       (forIn xs init fun i b => do
-        invariantGadget (inv b)
+        invariantGadget (inv i b)
+        onDoneGadget (done b)
         f i b)
-      (inv init)
-      (fun b => inv b)
+      (match xs.toList with
+        | [] => done init
+        | cur :: _ => inv cur init)
+      (fun b => done b)
       True := by
-  let cursorInv : Std.Internal.Do.Invariant xs.toList β Prop := fun _ b => inv b
-  have step' : ∀ pref cur suff (h : xs.toList = pref ++ cur :: suff) b,
+  let cursorInv : Std.Internal.Do.Invariant xs.toList β Prop := fun cursor b =>
+    rangeCursorInv inv done cursor.suffix b
+  have step' : ∀ (pref : List α) (cur : α) (suff : List α)
+      (h : xs.toList = pref ++ cur :: suff) (b : β),
       Std.Internal.Do.Triple (f cur b)
         (cursorInv ⟨pref, cur :: suff, h.symm⟩ b)
         (fun r => match r with
           | .yield b' => cursorInv ⟨pref ++ [cur], suff, by simp [h]⟩ b'
           | .done b' => cursorInv ⟨xs.toList, [], by simp⟩ b')
         True := by
-    intro _ cur _ _ b
-    apply Std.Internal.Do.Triple.intro
-    intro hinv
-    exact step cur b hinv
-  simpa [invariantGadget, cursorInv] using
-    (Std.Internal.Do.Spec.forIn_rco
-      (xs := xs)
-      (init := init)
-      (f := f)
-      (inv := cursorInv)
-      (epost := True)
-      step')
+    intro pref cur suff h b
+    simpa [rangeLoopBody, cursorInv, rangeCursorInv] using step pref cur suff h b
+  change Std.Internal.Do.Triple (forIn xs init f)
+    (match xs.toList with
+      | [] => done init
+      | cur :: _ => inv cur init)
+    (fun b => done b) True
+  exact Std.Internal.Do.Spec.forIn_rco
+    (xs := xs)
+    (init := init)
+    (f := f)
+    (inv := cursorInv)
+    (epost := True)
+    step'
 
 end Velvet2.Spec
