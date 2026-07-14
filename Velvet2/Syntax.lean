@@ -16,11 +16,6 @@ open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
 abbrev Triple {α : Type} (pre : Prop) (x : Option α) (post : α → Prop) (epost : Prop) : Prop :=
   Std.Internal.Do.Triple x pre post epost
 
-def assertGadget {m : Type u → Type v} [Monad m] (_name : Name) {_Pred : Sort w} (_as : _Pred) :
-    m PUnit :=
-  pure ⟨⟩
-
-
 public def optionalIdentNames (ids : Array (Option Ident)) : Array (Option Name) :=
   ids.map fun
     | some id => some id.getId
@@ -96,11 +91,14 @@ syntax "method " ("rec ")? ident bracketedBinder* " returns " "(" ident " : " te
 syntax "assert" (atomic(ident " : ")) term : term
 
 macro_rules
-  | `(term| assert $nm:ident : $t:term ) => do
-    let str := nm.getId.getString!
-    let strlit := Lean.Syntax.mkStrLit str
-    let nm' : TSyntax `term ← `(Lean.Name.mkSimple $strlit)
-    `(_root_.assertGadget $nm' $t)
+  | `(term| assert $nm:ident : $t:term) => do
+    let nameStr := Lean.Syntax.mkStrLit nm.getId.toString
+    let name : TSyntax `term ← `(Lean.Name.mkSimple $nameStr)
+    let text := t.raw.reprint.getD (toString t.raw.formatStx)
+    let textStr := Lean.Syntax.mkStrLit text
+    let stx : TSyntax `term ←
+      `(some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
+    `(_root_.assertGadget (Named.mk $name $stx $t))
 
 set_option linter.unusedVariables false in
 elab_rules : command

@@ -12,7 +12,29 @@ def decreasingGadget {m : Type u → Type v} [Monad m]
     (_measure : Named.Measure) : m PUnit := pure ⟨⟩
 def onDoneGadget {m : Type u → Type v} [Monad m] (_done : Prop) : m PUnit := pure ⟨⟩
 
+/-- A runtime no-op that introduces an assertion into verification conditions. -/
+def assertGadget {m : Type u → Type v} [Monad m] {_Pred : Type w}
+    (_assertion : _Pred) : m PUnit := pure ⟨⟩
+
 namespace Velvet2.Spec
+
+open Lean.Order
+
+/--
+Checking an assertion requires the assertion itself and makes it available when
+proving the continuation.
+-/
+@[spec]
+theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [Frame Pred] (assertion : Pred) {post : PUnit → Pred} {epost : EPred} :
+    Triple (_root_.assertGadget (m := m) assertion)
+      (assertion ⊓ (assertion ⇨ post ⟨⟩)) post epost := by
+  simpa [_root_.assertGadget] using
+    (Triple.pure (m := m)
+      (pre := assertion ⊓ (assertion ⇨ post ⟨⟩))
+      (post := post) (epost := epost) (a := ⟨⟩)
+      (h := himp_sound assertion (post ⟨⟩)))
 
 /-- A reducible boundary around an annotated loop's executable body. -/
 @[spec]

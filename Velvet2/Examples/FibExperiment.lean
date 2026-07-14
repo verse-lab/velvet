@@ -47,6 +47,7 @@ do
   let mut a := 0
   let mut b := 1
   let mut i := 0
+  assert hi : i = 0
   for' j in 0...n
     invariant cursor_index : i = j
     invariant fib_values :
@@ -64,14 +65,15 @@ do
 
 prove_correct fibFor by
   vcgen' [fibFor]
-  case vc1 =>
+  case hi => grind
+  case vc2 =>
     split_conjs <;> name_vcs;expose_names
     simp at *; grind [fibAccSpec]
     simp at *; grind
     grind [fibAccSpec]
     grind
   case ensures1 => simp_all
-  case vc3 =>
+  case vc4 =>
     rename_i pref cur suff h b
     trace_state
     cases suff with
