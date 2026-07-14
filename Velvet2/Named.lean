@@ -98,6 +98,7 @@ public partial def processHyp (goal : MVarId) : MetaM (List MVarId) :=
         let goal ← goal.rename localDecl.fvarId name
         let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId prop
         return ← processHyp goal
+      let type ← whnfR type
       if type.isAppOfArity ``And 2 && contains type then
         let subgoals ← goal.cases localDecl.fvarId
         return ← subgoals.toList.flatMapM fun subgoal =>

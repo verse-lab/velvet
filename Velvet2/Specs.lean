@@ -87,10 +87,8 @@ theorem forInLoopWithGadgets {m : Type u → Type v} {Pred EPred : Type u}
       Std.Internal.Do.Triple (f () b)
         (loopInv (.inl b))
         (fun r => match r with
-          | .yield b' => Lean.Order.meet
-              (Lean.Order.CompleteLattice.ofProp
-                ((measure b').value < (measure b).value))
-              (loopInv (.inl b'))
+          | .yield b' =>
+              ⌜(measure b').value < (measure b).value⌝ ⊓ loopInv (.inl b')
           | .done b' => loopInv (.inr b'))
         einv := by
     intro b

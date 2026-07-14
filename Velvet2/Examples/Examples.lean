@@ -29,10 +29,79 @@ set_option maxHeartbeats 10000000
 
 prove_correct isGreaterWithInvariants by
   vcgen' [isGreaterWithInvariants]
+  · grind
+  · grind
   
 
 
 #print isGreaterWithInvariants
+
+/-- The same loop written with Lean's ordinary `while` syntax. -/
+def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
+  let mut ok := true
+  let mut i := 0
+  while i < a.size do
+    if a[i]! < n then
+      ok := ok
+    else
+      ok := false
+    i := i + 1
+  return ok
+
+/-- A native `vcgen` proof with the loop invariant and variant supplied manually. -/
+theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
+    Std.Internal.Do.Triple (isGreaterNativeWhile n a)
+      True
+      (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n)
+      True := by
+  vcgen [isGreaterNativeWhile] invariants
+  · fun
+    | .inl b => 0 ≤ b.snd ∧ b.snd ≤ a.size ∧
+        (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)
+    | .inr b => (0 ≤ b.snd ∧ b.snd ≤ a.size ∧
+        (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
+        a.size ≤ b.snd
+  · fun b => a.size - b.snd
+  all_goals simp only [Lean.Order.meet_prop_eq_and, Lean.Order.ofProp_prop_eq] at *
+  case vc1 => simp
+  case vc2 =>
+    rename_i result hinv
+    rcases hinv with ⟨⟨_, hle, hok⟩, hge⟩
+    have hi : result.snd = a.size := Nat.le_antisymm hle hge
+    simpa [hi] using hok
+  case vc3 =>
+    rename_i state hinv hcond hbranch
+    rcases hinv with ⟨_, _, hok⟩
+    constructor
+    · omega
+    constructor
+    · omega
+    constructor
+    · omega
+    rw [hok]
+    constructor
+    · intro hall j hj
+      by_cases hlt : j < state.snd
+      · exact hall j hlt
+      · have : j = state.snd := by omega
+        subst j
+        exact hbranch
+    · intro hall j hj
+      exact hall j (by omega)
+  case vc4 =>
+    rename_i state hinv hcond hbranch
+    constructor
+    · omega
+    constructor
+    · omega
+    constructor
+    · omega
+    simp only [Bool.false_eq_true, false_iff]
+    intro hall
+    exact hbranch (hall state.snd (by omega))
+  case vc5 =>
+    rename_i state hinv hcond
+    exact ⟨hinv, by omega⟩
 
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
   returns (result : Bool)

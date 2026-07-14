@@ -60,7 +60,22 @@ private partial def processNamedGoals (goal : MVarId) : MetaM (List MVarId) :=
     | processed =>
         return ← processed.flatMapM processNamedGoals
 
+private def normalizePropLattice (goal : MVarId) : MetaM (List MVarId) :=
+  goal.withContext do
+    let mut theorems : SimpTheorems := {}
+    theorems ← theorems.addConst ``Lean.Order.meet_prop_eq_and
+    theorems ← theorems.addConst ``Lean.Order.ofProp_prop_eq
+    let ctx ← Simp.mkContext
+      (config := { failIfUnchanged := false })
+      (simpTheorems := #[theorems])
+    let (result, _) ← simpGoal goal ctx
+      (fvarIdsToSimp := (← getLCtx).getFVarIds)
+    match result with
+    | none => return []
+    | some (_, goal) => return [goal]
+
 private def processNamedVCs (goals : List MVarId) : MetaM (List MVarId) := do
+  let goals ← goals.flatMapM normalizePropLattice
   let goals ← goals.flatMapM Named.processHyp
   goals.flatMapM processNamedGoals
 
