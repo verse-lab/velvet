@@ -1,6 +1,7 @@
 import Velvet2.Syntax
 import Velvet2.Ghost
 import Velvet2.Tactics
+import Velvet2.VCGen'.Driver
 
 /- attribute [-grind] getElem?_neg getElem?_pos getElem!_neg getElem!_pos -/
 
@@ -28,15 +29,17 @@ do
 set_option maxHeartbeats 10000000
 
 prove_correct isGreaterWithInvariants by
-  vcgen' [isGreaterWithInvariants] <;> try grind
-  · split_conjs; constructor
-    · grind
-    · next b h hbranch left right =>
-        intro hall
-        exfalso
-        apply hbranch
-        have hlt := hall b.snd (by omega)
-        simpa [getElem!_pos, h] using hlt
+  vcgen'' [isGreaterWithInvariants]
+  
+  /- vcgen' [isGreaterWithInvariants] <;> try grind
+   - · split_conjs; constructor
+   -   · grind
+   -   · next b h hbranch left right =>
+   -       intro hall
+   -       exfalso
+   -       apply hbranch
+   -       have hlt := hall b.snd (by omega)
+   -       simpa [getElem!_pos, h] using hlt -/
   
 
 
