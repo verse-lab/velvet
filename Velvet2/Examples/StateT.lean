@@ -112,7 +112,8 @@ theorem checkedAdd_correct (delta : Nat) :
       (fun current s => s = current + delta)
       (⟨fun _ : String => True, True⟩ : EPost.Cons (String → Prop) Prop) := by
   vcgen' [checkedAdd]
-  all_goals simp_all <;> omega
+  all_goals try simp_all
+  all_goals omega
 
 /-- A stateful loop that either reaches `target` or throws at `blocked`. -/
 def countUnlessBlocked (target blocked : Nat) : CounterExceptOption Nat := do

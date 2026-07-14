@@ -67,7 +67,7 @@ private partial def get? (type : Expr) : MetaM (Option (Name × Expr)) := do
       | .app fn arg =>
           let some (name, value) ← get? fn
             | return none
-          return some (name, .app value arg)
+          return some (name, (Expr.app value arg).headBeta)
       | _ => return none
 
 /-- Whether an expression is a named value or an `And` tree containing one. -/

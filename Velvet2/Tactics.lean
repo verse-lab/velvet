@@ -1,6 +1,7 @@
 import Lean
 import Std.Tactic.Do
 import Velvet2.Named
+import Velvet2.VCGen'.Frontend
 
 open Lean Meta Elab Tactic
 
@@ -63,6 +64,8 @@ private partial def processNamedGoals (goal : MVarId) : MetaM (List MVarId) :=
 private def normalizePropLattice (goal : MVarId) : MetaM (List MVarId) :=
   goal.withContext do
     let mut theorems : SimpTheorems := {}
+    theorems ← theorems.addConst ``Lean.Order.meet_apply
+    theorems ← theorems.addConst ``Lean.Order.CompleteLattice.ofProp_apply
     theorems ← theorems.addConst ``Lean.Order.meet_prop_eq_and
     theorems ← theorems.addConst ``Lean.Order.ofProp_prop_eq
     let ctx ← Simp.mkContext
