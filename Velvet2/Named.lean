@@ -57,12 +57,18 @@ private def getName (name : Expr) : MetaM Name := do
     | throwError "invalid Named.mk name: {name}"
   return name
 
-private def get? (type : Expr) : MetaM (Option (Name × Expr)) := do
+private partial def get? (type : Expr) : MetaM (Option (Name × Expr)) := do
   let type ← instantiateMVars type
   match_expr type with
   | Named.mk _α name _stx value =>
       return some (← getName name, value)
-  | _ => return none
+  | _ =>
+      match type with
+      | .app fn arg =>
+          let some (name, value) ← get? fn
+            | return none
+          return some (name, .app value arg)
+      | _ => return none
 
 /-- Whether an expression is a named value or an `And` tree containing one. -/
 public partial def contains (type : Expr) : Bool :=
@@ -71,7 +77,9 @@ public partial def contains (type : Expr) : Bool :=
   else if type.isAppOfArity ``And 2 then
     contains (type.getArg! 0) || contains (type.getArg! 1)
   else
-    false
+    match type with
+    | .app fn _ => contains fn
+    | _ => false
 
 /--
 Unwrap and name every `Named.mk ... p` proposition in a goal's hypotheses.

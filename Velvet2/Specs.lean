@@ -7,14 +7,23 @@ import Std.Internal.Do.Triple.SpecLemmas
 
 open Std.Internal.Do
 
-def invariantGadget {m : Type u → Type v} [Monad m] (_inv : Prop) : m PUnit := pure ⟨⟩
-def decreasingGadget {m : Type u → Type v} [Monad m]
-    (_measure : Named.Measure) : m PUnit := pure ⟨⟩
-def onDoneGadget {m : Type u → Type v} [Monad m] (_done : Prop) : m PUnit := pure ⟨⟩
+variable {m : Type u → Type v} {Pred EPred : Type u}
+
+/-- Runtime no-op exposing a loop invariant to verification tooling. -/
+def invariantGadget [Monad m] [Assertion Pred] [Assertion EPred]
+    [WPMonad m Pred EPred] (_inv : Pred) : m PUnit := pure ⟨⟩
+
+/-- Runtime no-op exposing a decreasing measure to verification tooling. -/
+def decreasingGadget [Monad m] [Assertion Pred] [Assertion EPred]
+    [WPMonad m Pred EPred] (_measure : Named.Measure) : m PUnit := pure ⟨⟩
+
+/-- Runtime no-op exposing a loop's terminal assertion to verification tooling. -/
+def onDoneGadget [Monad m] [Assertion Pred] [Assertion EPred]
+    [WPMonad m Pred EPred] (_done : Pred) : m PUnit := pure ⟨⟩
 
 /-- A runtime no-op that introduces an assertion into verification conditions. -/
-def assertGadget {m : Type u → Type v} [Monad m] {_Pred : Type w}
-    (_assertion : _Pred) : m PUnit := pure ⟨⟩
+def assertGadget [Monad m] [Assertion Pred] [Assertion EPred]
+    [WPMonad m Pred EPred] (_assertion : Pred) : m PUnit := pure ⟨⟩
 
 namespace Velvet2.Spec
 
@@ -38,7 +47,7 @@ theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
 
 /-- A reducible boundary around an annotated loop's executable body. -/
 @[spec]
-def loopBody (f : Unit → β → Option (ForInStep β)) (b : β) : Option (ForInStep β) :=
+def loopBody (f : Unit → β → m (ForInStep β)) (b : β) : m (ForInStep β) :=
   f () b
 
 /--
@@ -48,10 +57,12 @@ The markers are runtime no-ops; their arguments make the annotations visible
 to `vcgen` while it selects this rule.
 -/
 @[spec 1100]
-theorem forInLoopWithGadgets {β : Type}
-    {l : Lean.Loop} {init : β}
-    {inv done : β → Prop} {measure : β → Named.Measure}
-    {f : Unit → β → Option (ForInStep β)}
+theorem forInLoopWithGadgets {m : Type u → Type v} {Pred EPred : Type u}
+    [Monad m] [Lean.Order.MonadTail m]
+    [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {β : Type u} {l : Lean.Loop} {init : β}
+    {inv done : β → Pred} {measure : β → Named.Measure}
+    {f : Unit → β → m (ForInStep β)} {einv : EPred}
     (step : ∀ b,
       Std.Internal.Do.Triple (loopBody f b)
         (inv b)
@@ -59,9 +70,9 @@ theorem forInLoopWithGadgets {β : Type}
           | .yield b' =>
               match measure b, measure b' with
               | ⟨name, stx, current⟩, ⟨_, _, next⟩ =>
-                  Named.mk name stx (next < current) ∧ inv b'
-          | .done b' => inv b' ∧ done b')
-        True) :
+                  ⌜Named.mk name stx (next < current)⌝ ⊓ inv b'
+          | .done b' => inv b' ⊓ done b')
+        einv) :
     Std.Internal.Do.Triple
       (forIn l init fun u b => do
         invariantGadget (inv b)
@@ -69,8 +80,8 @@ theorem forInLoopWithGadgets {β : Type}
         onDoneGadget (done b)
         f u b)
       (inv init)
-      (fun b => inv b ∧ done b)
-      True := by
+      (fun b => inv b ⊓ done b)
+      einv := by
   let loopInv := Std.Internal.Do.RepeatInvariant.ofInvariantAndBreak inv done
   have step' : ∀ b,
       Std.Internal.Do.Triple (f () b)
@@ -81,7 +92,7 @@ theorem forInLoopWithGadgets {β : Type}
                 ((measure b').value < (measure b).value))
               (loopInv (.inl b'))
           | .done b' => loopInv (.inr b'))
-        True := by
+        einv := by
     intro b
     simpa [Named.mk, loopBody, loopInv] using step b
   simpa [invariantGadget, decreasingGadget, onDoneGadget, loopInv] using
@@ -91,12 +102,12 @@ theorem forInLoopWithGadgets {β : Type}
       (f := f)
       (measure := fun b => (measure b).value)
       (inv := loopInv)
-      (einv := True)
+      (einv := einv)
       step')
 
 @[spec]
-def rangeLoopBody (f : α → β → Option (ForInStep β)) (i : α) (b : β) :
-    Option (ForInStep β) :=
+def rangeLoopBody (f : α → β → m (ForInStep β)) (i : α) (b : β) :
+    m (ForInStep β) :=
   f i b
 
 open Std Std.PRange in
@@ -131,13 +142,15 @@ The invariant is indexed by the current range element. At the terminal cursor,
 where there is no current element, `done` is used instead.
 -/
 @[spec 1100]
-theorem forInRcoWithGadgets {α β : Type}
+theorem forInRcoWithGadgets {m : Type u → Type v} {Pred EPred : Type u}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {α β : Type u}
     [LE α] [LT α] [DecidableLT α] [UpwardEnumerable α] [Rxo.IsAlwaysFinite α]
     [LawfulUpwardEnumerable α] [LawfulUpwardEnumerableLE α]
     [LawfulUpwardEnumerableLT α]
     {xs : Rco α} {init : β}
-    {inv : α → β → Prop} {done : β → Prop}
-    {f : α → β → Option (ForInStep β)}
+    {inv : α → β → Pred} {done : β → Pred}
+    {f : α → β → m (ForInStep β)} {einv : EPred}
     (step : ∀ pref cur suff (_h : xs.toList = pref ++ cur :: suff) b,
       Std.Internal.Do.Triple (rangeLoopBody f cur b)
         (inv cur b)
@@ -146,7 +159,7 @@ theorem forInRcoWithGadgets {α β : Type}
             | [] => done b'
             | cur :: _ => inv cur b'
           | .done b' => done b')
-        True) :
+        einv) :
     Std.Internal.Do.Triple
       (forIn xs init fun i b => do
         invariantGadget (inv i b)
@@ -156,8 +169,8 @@ theorem forInRcoWithGadgets {α β : Type}
         | [] => done init
         | cur :: _ => inv cur init)
       (fun b => done b)
-      True := by
-  let cursorInv : Std.Internal.Do.Invariant xs.toList β Prop := fun cursor b =>
+      einv := by
+  let cursorInv : Std.Internal.Do.Invariant xs.toList β Pred := fun cursor b =>
     match cursor.suffix with
     | [] => done b
     | cur :: _ => inv cur b
@@ -168,20 +181,16 @@ theorem forInRcoWithGadgets {α β : Type}
         (fun r => match r with
           | .yield b' => cursorInv ⟨pref ++ [cur], suff, by simp [h]⟩ b'
           | .done b' => cursorInv ⟨xs.toList, [], by simp⟩ b')
-        True := by
+        einv := by
     intro pref cur suff h b
     cases suff <;> simpa [rangeLoopBody, cursorInv] using step pref cur _ h b
-  change Std.Internal.Do.Triple (forIn xs init f)
-    (match xs.toList with
-      | [] => done init
-      | cur :: _ => inv cur init)
-    (fun b => done b) True
-  exact Std.Internal.Do.Spec.forIn_rco
-    (xs := xs)
-    (init := init)
-    (f := f)
-    (inv := cursorInv)
-    (epost := True)
-    step'
+  simpa [invariantGadget, onDoneGadget] using
+    (Std.Internal.Do.Spec.forIn_rco
+      (xs := xs)
+      (init := init)
+      (f := f)
+      (inv := cursorInv)
+      (epost := einv)
+      step')
 
 end Velvet2.Spec
