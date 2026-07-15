@@ -28,9 +28,18 @@ do
 
 set_option maxHeartbeats 10000000
 
+/- set_option trace.Elab.Tactic.Do.vcgen true -/
 prove_correct isGreaterWithInvariants by
-  vcgen'' [isGreaterWithInvariants]
-  
+  /- vcgen'' [isGreaterWithInvariants] invariants
+   - · fun
+   -   | .inl b => 0 ≤ b.snd ∧ b.snd ≤ a.size ∧
+   -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)
+   -   | .inr b => (0 ≤ b.snd ∧ b.snd ≤ a.size ∧
+   -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
+   -       a.size ≤ b.snd
+   - · fun b => a.size - b.snd -/
+  vcgen'' [isGreaterWithInvariants] with finish
+
   /- vcgen' [isGreaterWithInvariants] <;> try grind
    - · split_conjs; constructor
    -   · grind

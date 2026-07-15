@@ -1,5 +1,6 @@
 import Velvet2.Syntax
 import Velvet2.Tactics
+import Velvet2.VCGen'.Frontend
 
 open Std.Internal.Do
 
@@ -64,31 +65,32 @@ do
 #check fibFor
 
 prove_correct fibFor by
-  vcgen' [fibFor]
-  case hi => grind
-  case vc2 =>
-    split_conjs <;> name_vcs;expose_names
-    simp at *; grind [fibAccSpec]
-    simp at *; grind
-    grind [fibAccSpec]
-    grind
-  case ensures1 => simp_all
-  case vc4 =>
-    rename_i pref cur suff h b
-    trace_state
-    cases suff with
-    | nil =>
-        have hl := congrArg List.length h
-        have hc := congrArg (fun xs => xs[pref.length]?) h
-        simp [Std.Rco.getElem?_toList_eq] at hl hc
-        simp_all [Named.mk, fibAccSpec]
-    | cons next rest =>
-        have hl := congrArg List.length h
-        have hc := congrArg (fun xs => xs[pref.length]?) h
-        have hn := congrArg (fun xs => xs[pref.length + 1]?) h
-        simp [Std.Rco.getElem?_toList_eq] at hl hc hn
-        simp_all [Named.mk, fibAccSpec]
-        grind
+  vcgen'' [fibFor, fibAccSpec]
+
+  /- case hi => grind
+   - case vc2 =>
+   -   split_conjs <;> name_vcs;expose_names
+   -   simp at *; grind [fibAccSpec]
+   -   simp at *; grind
+   -   grind [fibAccSpec]
+   -   grind
+   - case ensures1 => simp_all
+   - case vc4 =>
+   -   rename_i pref cur suff h b
+   -   trace_state
+   -   cases suff with
+   -   | nil =>
+   -       have hl := congrArg List.length h
+   -       have hc := congrArg (fun xs => xs[pref.length]?) h
+   -       simp [Std.Rco.getElem?_toList_eq] at hl hc
+   -       simp_all [Named.mk, fibAccSpec]
+   -   | cons next rest =>
+   -       have hl := congrArg List.length h
+   -       have hc := congrArg (fun xs => xs[pref.length]?) h
+   -       have hn := congrArg (fun xs => xs[pref.length + 1]?) h
+   -       simp [Std.Rco.getElem?_toList_eq] at hl hc hn
+   -       simp_all [Named.mk, fibAccSpec]
+   -       grind -/
 
 
 

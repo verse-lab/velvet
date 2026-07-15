@@ -67,34 +67,29 @@ theorem countRange_correct (n : Nat) :
       (fun r s => r = n ∧ s = n)
       True := by
   vcgen' [countRange]
-  case vc1 =>
-    cases hxs : (0...n).toList with
-    | nil =>
-      have hl := congrArg List.length hxs
-      simp at hl
-      name_vcs
-      simp_all
-    | cons first rest =>
-      have hl := congrArg List.length hxs
-      have hc := congrArg (fun xs => xs[0]?) hxs
-      simp [Std.Rco.getElem?_toList_eq] at hl hc
-      name_vcs
-      simp_all
-  case vc2 => simp_all
-  case vc3 =>
-    split_conjs <;> name_vcs
-    case range_done =>
-      rename_i initial pref current b state suffix h hlast left right
-      have hl := congrArg List.length hlast
-      have hc := congrArg (fun xs => xs[pref.length]?) hlast
-      simp [Std.Rco.getElem?_toList_eq] at hl hc
-      simp_all
-    case range_state =>
-      rename_i initial pref current b state suffix h next rest hnext left right
-      have hc := congrArg (fun xs => xs[pref.length]?) hnext
-      have hn := congrArg (fun xs => xs[pref.length + 1]?) hnext
-      simp [Std.Rco.getElem?_toList_eq] at hc hn
-      simp_all
+  case range_done =>
+    rename_i initial h
+    have hl := congrArg List.length h
+    simp at hl
+    simp_all
+  case range_state =>
+    rename_i initial current tail h
+    have hc := congrArg (fun xs => xs[0]?) h
+    simp [Std.Rco.getElem?_toList_eq] at hc
+    simp_all
+  case vc3 => simp_all
+  case range_done =>
+    rename_i initial pref current h b state
+    have hl := congrArg List.length h
+    have hc := congrArg (fun xs => xs[pref.length]?) h
+    simp [Std.Rco.getElem?_toList_eq] at hl hc
+    simp_all
+  case range_state =>
+    rename_i initial pref current next tail h b state
+    have hc := congrArg (fun xs => xs[pref.length]?) h
+    have hn := congrArg (fun xs => xs[pref.length + 1]?) h
+    simp [Std.Rco.getElem?_toList_eq] at hc hn
+    simp_all
 
 /-- A larger `StateT Nat (ExceptT String Option)` stack. -/
 def checkedAdd (delta : Nat) : CounterExceptOption Nat := do

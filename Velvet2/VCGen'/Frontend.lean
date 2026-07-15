@@ -164,7 +164,7 @@ private meta def elabSymSimpParts
     -- (the simproc elaborators only use `CoreM`/`MetaM` capabilities).
     throwError "named Sym.simp variants are not yet supported in `vcgen`; \
       use `vcgen simplifying_assumptions [thm₁, thm₂, ...]` with the default variant instead"
-  -- Resolve extra theorems (local hypotheses first, then global constants)
+  -- Resolve extra theorems (local hypotheses first, then global constants).
   let mut extraThms : Array Sym.Simp.Theorem := #[]
   if let some ids := extraIds? then
     let lctx ← getLCtx
@@ -204,10 +204,14 @@ elaborator; we replicate that check here).
 -/
 private meta def parseInvariantMap (stx : Syntax) :
     TermElabM (Option (Std.HashMap Nat Syntax)) := do
-  let some altsStx := stx.getOptional? | return none
+  let some altsStx := stx.getOptional? | do
+    trace[Elab.Tactic.Do.vcgen] "🧩 Frontend: no explicit `invariants` alternatives"
+    return none
   -- The `invariants?` (suggest) form is handled separately by upstream's `elabInvariants`.
   match altsStx with
-  | `(invariantAlts| invariants? $_*) => return none
+  | `(invariantAlts| invariants? $_*) =>
+      trace[Elab.Tactic.Do.vcgen] "🧩 Frontend: `invariants?` suggestion mode"
+      return none
   | _ => pure ()
   let stx' : TSyntax ``invariantAlts := ⟨altsStx⟩
   match stx' with
@@ -218,12 +222,14 @@ private meta def parseInvariantMap (stx : Syntax) :
     for h : i in 0...alts.size do
       let alt := alts[i]
       match alt with
-      | `(invariantDotAlt| · $_rhs) =>
+      | `(invariantDotAlt| · $rhs) =>
         if dotOrCase matches .false then
           throwErrorAt alt "Alternation between labelled and bulleted invariants is not supported."
         dotOrCase := .true
         map := map.insert (i + 1) alt
-      | `(invariantCaseAlt| | $tag $_args* => $_rhs) =>
+        trace[Elab.Tactic.Do.vcgen]
+          "🧩 Frontend: mapped positional alternative {i + 1} to inv{i + 1}: {rhs}"
+      | `(invariantCaseAlt| | $tag $_args* => $rhs) =>
         if dotOrCase matches .true then
           throwErrorAt alt "Alternation between labelled and bulleted invariants is not supported."
         dotOrCase := .false
@@ -235,6 +241,8 @@ private meta def parseInvariantMap (stx : Syntax) :
         if map.contains n then
           throwErrorAt tag s!"Duplicate invariant alternative for `inv{n}`."
         map := map.insert n alt
+        trace[Elab.Tactic.Do.vcgen]
+          "🧩 Frontend: mapped labelled alternative `{tag}` to inv{n}: {rhs}"
       | _ => throwErrorAt alt "Expected `invariantDotAlt` or `invariantCaseAlt`."
     return some map
   | _ => return none
@@ -248,13 +256,22 @@ elaborated inline by `Driver.emitVC` (tracked in `inlineHandled`) are skipped, s
 we don't warn about alts that were already consumed there. -/
 private meta def elabRemainingInvariants (alts : Std.HashMap Nat Syntax)
     (invariants : Array MVarId) (inlineHandled : Std.HashSet Nat) : SymM Unit := do
+  trace[Elab.Tactic.Do.vcgen]
+    "🧩 Frontend post-pass: {invariants.size} invariant subgoal(s), {inlineHandled.size} handled eagerly"
   let mut handled := inlineHandled
   for h : i in 0...invariants.size do
     let n := i + 1
-    if handled.contains n then continue
-    let some alt := alts[n]? | continue
+    if handled.contains n then
+      trace[Elab.Tactic.Do.vcgen] "   inv{n}: skipping; already handled eagerly"
+      continue
+    let some _alt := alts[n]? | do
+      trace[Elab.Tactic.Do.vcgen] "   inv{n}: no user alternative in the post-pass"
+      continue
     handled := handled.insert n
-    discard <| VCGen'.elabInvariant alts n invariants[i]
+    trace[Elab.Tactic.Do.vcgen] "   inv{n}: trying user alternative in the post-pass"
+    let success ← VCGen'.elabInvariant alts n invariants[i]
+    trace[Elab.Tactic.Do.vcgen]
+      if success then "   ✓ post-pass assigned the invariant" else "   ✗ post-pass left the invariant open"
   -- Warn on user-provided alts that matched no invariant goal (neither inline nor post-hoc).
   for (n, alt) in alts.toArray do
     unless handled.contains n do
@@ -373,6 +390,8 @@ meta def evalSymVCGenDoublePrime : Lean.Elab.Tactic.Grind.GrindTactic := fun stx
   let args ← parseArgs stx goal.mvarId
   let result ← Lean.Elab.Tactic.Grind.liftGrindM do
     let result ← VCGen'.run goal args.ctx args.scope args.config.stepLimit (frameDB? := args.frameDB?)
+    trace[Elab.Tactic.Do.vcgen]
+      "🧩 VCGen result: {result.invariants.size} invariant subgoal(s), {result.vcs.size} ordinary VC(s)"
     if let some alts := args.invariantAlts? then
       elabRemainingInvariants alts result.invariants result.inlineHandledInvariants
     return result
@@ -382,6 +401,8 @@ meta def evalSymVCGenDoublePrime : Lean.Elab.Tactic.Grind.GrindTactic := fun stx
     runTacticM (goals := result.invariants.toList) <|
       elabInvariants stx[5] result.invariants (suggestInvariant (result.vcs.map (·.mvarId)))
   let invariants ← result.invariants.filterM (not <$> ·.isAssigned)
+  trace[Elab.Tactic.Do.vcgen]
+    "🧩 Returning {invariants.size} still-open invariant goal(s) to the tactic state"
   let newGoals ← Lean.Elab.Tactic.Grind.liftGrindM do
     let invGoals ← invariants.toList.mapM Grind.mkGoalCore
     return invGoals ++ result.vcs.toList
@@ -408,11 +429,11 @@ input as `Grind.vcgen …` and running it inside a `GrindTacticM` context built
 without `withProtectedMCtx`, so leftover `Grind.Goal`s flow back as the new tactic
 goals. The optional `with $g:grind` clause runs as `<;> $g` and lets the user-supplied
 grind step share an internalised E-graph with `vcgen`. -/
-@[tactic Lean.Parser.Tactic.vcgenDoublePrime]
-public meta def elabVCGenDoublePrime : Tactic := fun stx => withMainContext do
+private meta def elabVCGenDoublePrimeCore (stx : Syntax) : TacticM Unit := withMainContext do
   let `(tactic| vcgen''%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]? $[with $w:vcgenDischarge]?) := stx
     | throwUnsupportedSyntax
+  -- get the tactic after with ... (must be grind mode tactic ig?)
   let g? ← elabVCGenDischargeDoublePrime w
   -- Without `with`, no downstream grind step will read the E-graph, so opt out of
   -- internalisation; `with` keeps the default `internalize := true`.
@@ -423,7 +444,10 @@ public meta def elabVCGenDoublePrime : Tactic := fun stx => withMainContext do
         pure (Lean.Parser.Tactic.appendConfig off cfg)
   let core ← `(tactic| vcgen''%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]?)
+  trace[Elab.Tactic.Do.vcgen] "Core Tactic: {core}"
   let goal ← getMainGoal
+  trace[Elab.Tactic.Do.vcgen] "Main Goal being vcgen'd: {goal}"
+
   -- `clean := false` keeps inaccessible binder names (no `exposeNames`), so users can
   -- still rename them with `case vcN h => …`.
   let params ← Grind.mkDefaultParams { clean := false }
@@ -432,5 +456,16 @@ public meta def elabVCGenDoublePrime : Tactic := fun stx => withMainContext do
     if let some g := g? then
       Grind.evalGrindTactic (← `(grind| skip <;> $g))
   replaceMainGoal (state.goals.map (·.mvarId))
+
+/-- Run `vcgen''` transactionally so a failing `with` discharger cannot leak a partially assigned
+proof skeleton containing its still-open VC metavariables into the enclosing declaration. -/
+@[tactic Lean.Parser.Tactic.vcgenDoublePrime]
+public meta def elabVCGenDoublePrime : Tactic := fun stx => do
+  let saved ← saveState
+  try
+    elabVCGenDoublePrimeCore stx
+  catch ex =>
+    saved.restore
+    throw ex
 
 end Lean.Elab.Tactic.Do.Internal

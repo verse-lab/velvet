@@ -50,6 +50,20 @@ public inductive SolveResult where
   /-- No further progress possible; emit the current goal as a VC. -/
   | stop (reason : SolveResult.StopReason)
 
+/-- Trace the result of a successful solve strategy at the point where it creates subgoals. -/
+private def traceSubgoals (phase rule : String) (subgoals : List MVarId) : VCGenM Unit := do
+  trace[Elab.Tactic.Do.vcgen]
+    "🔄 {phase} / {rule}: produced {subgoals.length} subgoal(s)"
+  if subgoals.isEmpty then
+    trace[Elab.Tactic.Do.vcgen] "   ✓ goal closed"
+  else
+    let mut i : Nat := 1
+    for sg in subgoals do
+      let target ← instantiateMVars (← sg.getType)
+      let status := if ← sg.isAssigned then "assigned" else "open"
+      trace[Elab.Tactic.Do.vcgen] "   [{i}] ({status}) {target}"
+      i := i + 1
+
 private def isDuplicable (e : Expr) : Bool := match e with
   | .bvar .. | .mvar .. | .fvar .. | .const .. | .lit .. | .sort .. => true
   | .mdata _ e | .proj _ _ e => isDuplicable e
@@ -467,30 +481,48 @@ The function performs the following steps in order:
     reduce projection heads, and finally apply a registered `@[spec]` theorem.
 -/
 public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := goal.withContext do
-  if ← outOfFuel then return .stop .outOfFuel
-  let target ← goal.getType
-  trace[Elab.Tactic.Do.vcgen] "🎯 Target: {target}"
+  if ← outOfFuel then
+    trace[Elab.Tactic.Do.vcgen] "⏹ Stop: out of fuel"
+    return .stop .outOfFuel
+  let target ← instantiateMVars (← goal.getType)
+  trace[Elab.Tactic.Do.vcgen] "🎯 Input goal:\n   {target}"
 
   -- Phase 1: simplify `target` until it is of the form `pre ⊑ rhs`.
-  if let some gs ← forallIntro? goal target then return .goals scope gs
-  if let some g ← targetLetIntro? goal target then return .goals scope [g]
-  if let some g ← tripleUnfold? goal target then return .goals scope [g]
-  if let some g ← bareWPToLe? goal target then return .goals scope [g]
-  if let some gs ← liftedHypBare? scope goal target then return .goals scope gs
+  if let some gs ← forallIntro? goal target then
+    traceSubgoals "phase 1" "introduce forall binders" gs
+    return .goals scope gs
+  if let some g ← targetLetIntro? goal target then
+    traceSubgoals "phase 1" "introduce target let" [g]
+    return .goals scope [g]
+  if let some g ← tripleUnfold? goal target then
+    traceSubgoals "phase 1" "unfold Triple" [g]
+    return .goals scope [g]
+  if let some g ← bareWPToLe? goal target then
+    traceSubgoals "phase 1" "turn bare WP into entailment" [g]
+    return .goals scope [g]
+  if let some gs ← liftedHypBare? scope goal target then
+    traceSubgoals "phase 1" "discharge bare goal from lifted hypothesis" gs
+    return .goals scope gs
 
   let_expr PartialOrder.rel α inst pre rhs := target
-    | return .stop (.noEntailment target)
+    | trace[Elab.Tactic.Do.vcgen] "⏹ Stop: target is not an entailment"
+      return .stop (.noEntailment target)
 
   -- A previous rule application may have assigned the entailment's sides to fresh metavariables
   -- (e.g. a lattice-split operand). Instantiate those heads so the shape tests below see the
   -- assigned form.
   let pre ← instantiateMVarsIfMVarApp pre
   let rhs ← instantiateMVarsIfMVarApp rhs
+  trace[Elab.Tactic.Do.vcgen] "🔎 Entailment:\n   pre: {pre}\n   rhs: {rhs}"
 
   -- Phase 2: close reflexive goals, then drive `pre` toward `⊤`, lifting any pure content so a
   -- later spec application sees a `⊤` precondition.
-  if let some gs ← rfl? goal then return .goals scope gs
-  if let some (scope, gs) ← normalizePre? scope goal α pre target then return .goals scope gs
+  if let some gs ← rfl? goal then
+    traceSubgoals "phase 2" "close reflexive entailment" gs
+    return .goals scope gs
+  if let some (scope, gs) ← normalizePre? scope goal α pre target then
+    traceSubgoals "phase 2" "normalize precondition" gs
+    return .goals scope gs
 
   -- Collect new local specs before any strategy that may emit multiple subgoals
   -- (`wpMatch?`, `splitLatticeOp?`) or apply a registered spec (`applySpec`).
@@ -498,39 +530,61 @@ public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := g
 
   -- Phase 3: shape the `rhs` (reduce an EPost projection, decompose a lattice connective), then
   -- discharge a residual entailment against the lifted hypothesis.
-  if let some g ← reduceEPostHead? goal target α inst pre rhs then return .goals scope [g]
-  if let some gs ← splitLatticeOp? goal rhs then return .goals scope gs
-  if let some gs ← liftedHyp? scope goal α pre rhs then return .goals scope gs
+  if let some g ← reduceEPostHead? goal target α inst pre rhs then
+    traceSubgoals "phase 3" "reduce EPost projection" [g]
+    return .goals scope [g]
+  if let some gs ← splitLatticeOp? goal rhs then
+    traceSubgoals "phase 3" "split RHS lattice operation" gs
+    return .goals scope gs
+  if let some gs ← liftedHyp? scope goal α pre rhs then
+    traceSubgoals "phase 3" "discharge from lifted hypothesis" gs
+    return .goals scope gs
 
   -- Phase 4: wp decomposition. The program-shape steps below all consume one unit of fuel
   -- (the `stepLimit` config option) when they make progress.
   if let some info := getWPInfo? rhs then
-    trace[Elab.Tactic.Do.vcgen] "📜 Program: {info.prog}"
+    trace[Elab.Tactic.Do.vcgen] "📜 Weakest precondition program:\n   {info.prog}"
     -- Stop if the program matches the `until` pattern.
     if ← matchesUntilPattern info.m info.prog then
+      trace[Elab.Tactic.Do.vcgen] "⏹ Stop: program matched the `until` pattern"
       return .stop (.untilPatternMatched info.m)
     if let some g ← wpConsumeMData? goal info then
+      traceSubgoals "phase 4" "remove program metadata" [g]
       return .goals scope [g]
     if let some g ← wpLet? goal info then
       VCGen.burnOne
+      traceSubgoals "phase 4" "zeta-reduce program let" [g]
       return .goals scope [g]
     if let some gs ← wpMatch? goal info then
       VCGen.burnOne
+      traceSubgoals "phase 4" "split program match/conditional" gs
       return .goals scope gs
     if let some g ← wpFVarZeta? goal info then
       VCGen.burnOne
+      traceSubgoals "phase 4" "zeta-unfold program local definition" [g]
       return .goals scope [g]
     if let some g ← wpHeadReduce? goal info then
       VCGen.burnOne
+      traceSubgoals "phase 4" "reduce program head" [g]
       return .goals scope [g]
     let f := info.prog.getAppFn
     if f.isConst || f.isFVar then
       VCGen.burnOne
       match ← applyFrame scope goal info with
-      | .framed scope subgoals => return .goals scope subgoals
-      | .notFramed goal info => return ← applySpec scope goal info
+      | .framed scope subgoals =>
+        traceSubgoals "phase 4" "apply frame" subgoals
+        return .goals scope subgoals
+      | .notFramed goal info =>
+        match ← applySpec scope goal info with
+        | .goals scope subgoals =>
+          traceSubgoals "phase 4" "apply specification" subgoals
+          return .goals scope subgoals
+        | .stop reason =>
+          trace[Elab.Tactic.Do.vcgen] "⏹ Stop: no applicable specification"
+          return .stop reason
     throwError "Failed to decompose weakest precondition for {info.prog}. This should not happen."
 
+  trace[Elab.Tactic.Do.vcgen] "⏹ Stop: no strategy made progress"
   return .stop (.noProgress pre rhs)
 
 end VCGen'

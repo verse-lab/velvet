@@ -55,6 +55,9 @@ private partial def processNamedGoals (goal : MVarId) : MetaM (List MVarId) :=
         if processed != goal then
           return ← processNamedGoals processed
         let target ← whnfR (← instantiateMVars target)
+        if target.isForall then
+          let (_, goal) ← goal.intros
+          return ← processNamedGoals goal
         if target.isAppOfArity ``And 2 && Named.contains target then
           return ← (← goal.constructor).flatMapM processNamedGoals
         return [goal]
@@ -64,10 +67,26 @@ private partial def processNamedGoals (goal : MVarId) : MetaM (List MVarId) :=
 private def normalizePropLattice (goal : MVarId) : MetaM (List MVarId) :=
   goal.withContext do
     let mut theorems : SimpTheorems := {}
-    theorems ← theorems.addConst ``Lean.Order.meet_apply
-    theorems ← theorems.addConst ``Lean.Order.CompleteLattice.ofProp_apply
-    theorems ← theorems.addConst ``Lean.Order.meet_prop_eq_and
-    theorems ← theorems.addConst ``Lean.Order.ofProp_prop_eq
+    for declName in #[
+      ``Lean.Order.meet_apply,
+      ``Lean.Order.join_apply,
+      ``Lean.Order.himp_apply,
+      ``Lean.Order.top_apply,
+      ``Lean.Order.bot_apply,
+      ``Lean.Order.CompleteLattice.ofProp_apply,
+      ``Lean.Order.iInf_apply,
+      ``Lean.Order.iSup_apply,
+      ``Lean.Order.meet_prop_eq_and,
+      ``Lean.Order.join_prop_eq_or,
+      ``Lean.Order.himp_prop_eq_imp,
+      ``Lean.Order.top_prop_eq,
+      ``Lean.Order.bot_prop_eq,
+      ``Lean.Order.ofProp_prop_eq,
+      ``Lean.Order.iInf_prop_eq_forall,
+      ``Lean.Order.iSup_prop_eq_exists,
+      ``Lean.Order.le_prop_eq_imp
+    ] do
+      theorems ← theorems.addConst declName
     let ctx ← Simp.mkContext
       (config := { failIfUnchanged := false })
       (simpTheorems := #[theorems])

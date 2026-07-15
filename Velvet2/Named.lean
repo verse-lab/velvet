@@ -1,4 +1,7 @@
-import Lean
+module
+
+prelude
+public import Lean
 
 open Lean Meta Elab
 
@@ -8,8 +11,14 @@ namespace Named
 Attach a user-facing name and source syntax to a value without changing its
 denotation. Verification tooling can inspect the wrapper before unfolding it.
 -/
+@[expose, grind .]
 public def mk {α : Sort u} (_name : Name) (_stx : Option Syntax) (value : α) : α :=
   value
+
+/-- Local proof rule for explicitly removing a `Named.mk` wrapper without making it a global simp
+normalization rule. -/
+public theorem mk_eq {α : Sort u} (name : Name) (stx : Option Syntax) (value : α) :
+    mk name stx value = value := rfl
 
 /-- A named natural-number measure used to formulate decreasing obligations. -/
 public structure Measure where
@@ -35,7 +44,7 @@ macro_rules
 
 /-- Pretty-print `Named.mk` applications as `⟪name : value⟫`. -/
 @[app_unexpander Named.mk, app_unexpander Named.Measure.mk]
-meta def unexpandMk : Lean.PrettyPrinter.Unexpander
+public meta def unexpandMk : Lean.PrettyPrinter.Unexpander
   | `($(_) $name $_stx $value) => do
       let ident ← match name with
         | `(Lean.Name.mkSimple $name:str) =>
@@ -51,21 +60,19 @@ meta def unexpandMk : Lean.PrettyPrinter.Unexpander
       `(⟪ $ident : $value ⟫)
   | _ => throw ()
 
-private def getName (name : Expr) : MetaM Name := do
-  let name ← whnfR name
-  let some name := name.name?
-    | throwError "invalid Named.mk name: {name}"
-  return name
-
-private partial def get? (type : Expr) : MetaM (Option (Name × Expr)) := do
+/-- Extract the outer `Named.mk` annotation, following an application spine. -/
+public partial def extract? (type : Expr) : MetaM (Option (Name × Expr)) := do
   let type ← instantiateMVars type
   match_expr type with
   | Named.mk _α name _stx value =>
-      return some (← getName name, value)
+      let nameExpr ← whnfR name
+      let some name := nameExpr.name?
+        | throwError "invalid Named.mk name: {nameExpr}"
+      return some (name, value)
   | _ =>
       match type with
       | .app fn arg =>
-          let some (name, value) ← get? fn
+          let some (name, value) ← extract? fn
             | return none
           return some (name, (Expr.app value arg).headBeta)
       | _ => return none
@@ -94,12 +101,12 @@ public partial def processHyp (goal : MVarId) : MetaM (List MVarId) :=
       if let some type ← withReducible <| reduceRecMatcher? type then
         let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId type
         return ← processHyp goal
-      if let some (name, prop) ← get? type then
+      if let some (name, prop) ← extract? type then
         let goal ← goal.rename localDecl.fvarId name
         let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId prop
         return ← processHyp goal
       let type ← whnfR type
-      if type.isAppOfArity ``And 2 && contains type then
+      if type.isAppOfArity ``And 2 && contains (type.getArg! 0) && contains (type.getArg! 1) then
         let subgoals ← goal.cases localDecl.fvarId
         return ← subgoals.toList.flatMapM fun subgoal =>
           processHyp subgoal.mvarId
@@ -112,7 +119,7 @@ tag to the encoded name.
 public def processGoal (goal : MVarId) : MetaM (List MVarId) :=
   goal.withContext do
     let target ← goal.getType
-    if let some (name, prop) ← get? target then
+    if let some (name, prop) ← extract? target then
       let goal ← goal.replaceTargetDefEq prop
       goal.setTag name
       return [goal]
