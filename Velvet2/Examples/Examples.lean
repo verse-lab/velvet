@@ -38,7 +38,12 @@ prove_correct isGreaterWithInvariants by
    -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
    -       a.size ≤ b.snd
    - · fun b => a.size - b.snd -/
-  vcgen'' [isGreaterWithInvariants] with finish
+  vcgen'' [isGreaterWithInvariants]
+  all_goals simp_all [getElem!_pos]
+  all_goals try grind
+  rename_i b hlt hnle
+  refine ⟨b.snd, by omega, ?_⟩
+  simpa [getElem!_pos, hlt] using hnle
 
   /- vcgen' [isGreaterWithInvariants] <;> try grind
    - · split_conjs; constructor
@@ -132,7 +137,7 @@ do
 
 
 prove_correct isGreaterWithInvariants' by
-  sorry
+  vcgen'' [isGreaterWithInvariants'] 
   --constructor
   --intros; grind
   --intros; expose_names
@@ -155,7 +160,7 @@ ensures True do
 
 -- Should this really verify?? Very weirddd (even when I change Int -> Nat)
 prove_correct foo' by
-  sorry
+  vcgen'' [foo']
   
 
 method get_idx returns (res: Nat)
@@ -164,7 +169,7 @@ method get_idx returns (res: Nat)
         return 1
 
 prove_correct get_idx by
-    sorry
+  vcgen'' [get_idx] with finish
 
 
 method isGreaterWithInvariants'' (n : Int) (a : Array Int)
@@ -232,16 +237,9 @@ noncomputable def withdraw (amt: Nat) (curBal: Ghost Nat) : StateT Nat Id Nat:= 
        pure newAmt
     else
         pure bal
-
-
-
     
 theorem withdraw_correct : True := by
   trivial
-
-          
-
-
 
 set_option maxHeartbeats 10000000
 

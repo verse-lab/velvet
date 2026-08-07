@@ -176,6 +176,7 @@ private def mkProveCorrectThm (name : Ident) (obligation : Obligations)
     `(
       command|
       set_option linter.unusedVariables false in
+      @[spec]
       theorem $lemmaName $binders* :
         $tripleId
           $pre
@@ -193,6 +194,7 @@ private def mkProveCorrectThm (name : Ident) (obligation : Obligations)
     `(
       command|
       set_option linter.unusedVariables false in
+      @[spec]
       theorem $lemmaName $binders* :
         $tripleId
           $pre

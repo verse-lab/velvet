@@ -29,21 +29,21 @@ namespace Velvet2.Spec
 
 open Lean.Order
 
-/--
-Checking an assertion requires the assertion itself and makes it available when
-proving the continuation.
--/
+/-- Specification for `assertGadget`: the precondition requires both `assertion` and the
+Heyting implication `assertion ⇨ post ⟨⟩`, so the assertion is available when proving the
+continuation. -/
 @[spec]
 theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [Frame Pred] (assertion : Pred) {post : PUnit → Pred} {epost : EPred} :
+    (assertion : Pred) [∀ a : Pred, PreservesSup (meet a)]
+    {post : PUnit → Pred} {epost : EPred} :
     Triple (_root_.assertGadget (m := m) assertion)
       (assertion ⊓ (assertion ⇨ post ⟨⟩)) post epost := by
   simpa [_root_.assertGadget] using
     (Triple.pure (m := m)
       (pre := assertion ⊓ (assertion ⇨ post ⟨⟩))
       (post := post) (epost := epost) (a := ⟨⟩)
-      (h := himp_sound assertion (post ⟨⟩)))
+      (h := meet_himp_le))
 
 /-- A reducible boundary around an annotated loop's executable body. -/
 @[spec]
@@ -126,7 +126,8 @@ cursor contexts can make VCGen's cached unfolding rule retain a free variable fr
 context. -/
 @[spec 1100]
 theorem forInRcoWithGadgets {m : Type u → Type v} {Pred EPred : Type u}
-    [Monad m] [Assertion Pred] [Lean.Order.Frame Pred]
+    [Monad m] [Assertion Pred]
+    [∀ a : Pred, Lean.Order.PreservesSup (Lean.Order.meet a)]
     [Assertion EPred] [WPMonad m Pred EPred]
     {α β : Type u}
     [LE α] [LT α] [DecidableLT α] [UpwardEnumerable α] [Rxo.IsAlwaysFinite α]
@@ -200,7 +201,7 @@ theorem forInRcoWithGadgets {m : Type u → Type v} {Pred EPred : Type u}
       apply Lean.Order.PartialOrder.rel_trans
         (y := (⊤ : Pred) ⊓ ((⊤ : Pred) ⇨ x))
       · exact Lean.Order.le_meet _ _ _ (Lean.Order.le_top _) Lean.Order.PartialOrder.rel_refl
-      · exact Lean.Order.himp_sound (α := Pred) (⊤ : Pred) x
+      · exact Lean.Order.meet_himp_le
     have himpOfTrueLe (p : Prop) (hp : p) (x : Pred) : (⌜p⌝ ⇨ x) ⊑ x := by
       simpa [Lean.Order.CompleteLattice.ofProp, hp] using topHimpLe x
     cases hxs : xs.toList with

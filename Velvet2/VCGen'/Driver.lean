@@ -24,7 +24,7 @@ and emits VCs (or invariant holes) for those `solve` cannot decompose further.
 
 namespace VCGen'
 
-open VCGen
+open _root_.Lean.Elab.Tactic.Do.Internal.VCGen
 
 /--
 Try to elaborate the user's invariant alt for invariant number `n` inline,
@@ -274,10 +274,10 @@ Return the VCs and invariant goals.
 `stepLimit?`, when `some n`, seeds the fuel counter to `n`; when `none`, fuel is unlimited.
 -/
 public partial def run (goal : Grind.Goal) (ctx : VCGen.Context) (scope : VCGen.Scope)
-    (stepLimit? : Option Nat := none) (frameDB? : Option (Deferred FrameDB) := none) :
+    (stepLimit? : Option Nat := none) (frameDB : FrameDB := {}) :
     Grind.GrindM Result := do
   let initState : VCGen.State :=
-    { fuel := match stepLimit? with | some n => .limited n | none => .unlimited, frameDB? }
+    { fuel := match stepLimit? with | some n => .limited n | none => .unlimited, frameDB }
   -- VCGen temporarily violates the `SymM` folded-projections invariant: `reduceHead?`
   -- exposes kernel projections in intermediate terms and restores the invariant in its
   -- final result, so the `shareCommon` kernel-projection check is disabled.
@@ -307,9 +307,8 @@ public partial def run (goal : Grind.Goal) (ctx : VCGen.Context) (scope : VCGen.
       g.mvarId.setTag tag
       return some g
   let vcs ← vcs.filterMap id |>.filterM (not <$> ·.mvarId.isAssigned)
-  let unmatchedFrames := match state.frameDB? with
-    | some (.elaborated db) => db.entries.filterMap fun e => if e.retired then none else some e.frameStx
-    | _ => #[]
+  let unmatchedFrames := state.frameDB.entries.filterMap fun e =>
+    if e.retired then none else some e.frameStx
   return {
     invariants := state.invariants,
     vcs,

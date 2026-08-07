@@ -66,6 +66,28 @@ do
 
 prove_correct fibFor by
   vcgen'' [fibFor, fibAccSpec]
+  all_goals simp_all [fibAccSpec]
+  all_goals try grind [fibAccSpec]
+  case fib_done =>
+    rename_i pref cur h b
+    have hl := congrArg List.length h
+    have hc := congrArg (fun xs => xs[pref.length]?) h
+    simp [Std.Rco.getElem?_toList_eq] at hl hc
+    simp_all [fibAccSpec]
+  case cursor_index =>
+    rename_i pref cur next tail h b
+    have hl := congrArg List.length h
+    have hc := congrArg (fun xs => xs[pref.length]?) h
+    have hn := congrArg (fun xs => xs[pref.length + 1]?) h
+    simp [Std.Rco.getElem?_toList_eq] at hl hc hn
+    simp_all
+  case index_bound =>
+    rename_i pref cur next tail h b
+    have hl := congrArg List.length h
+    have hc := congrArg (fun xs => xs[pref.length]?) h
+    have hn := congrArg (fun xs => xs[pref.length + 1]?) h
+    simp [Std.Rco.getElem?_toList_eq] at hl hc hn
+    omega
 
   /- case hi => grind
    - case vc2 =>
