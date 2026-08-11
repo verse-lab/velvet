@@ -65,7 +65,7 @@ do
 #check fibFor
 
 prove_correct fibFor by
-  vcgen'' [fibFor, fibAccSpec]
+  vcgen'' [fibFor, fibAccSpec] 
   all_goals simp_all [fibAccSpec]
   all_goals try grind [fibAccSpec]
   case fib_done =>

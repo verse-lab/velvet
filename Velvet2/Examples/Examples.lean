@@ -38,7 +38,7 @@ prove_correct isGreaterWithInvariants by
    -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
    -       a.size ≤ b.snd
    - · fun b => a.size - b.snd -/
-  vcgen'' [isGreaterWithInvariants]
+  vcgen'' [isGreaterWithInvariants] with finish
   all_goals simp_all [getElem!_pos]
   all_goals try grind
   rename_i b hlt hnle
@@ -243,5 +243,6 @@ theorem withdraw_correct : True := by
 
 set_option maxHeartbeats 10000000
 
-/- prove_correct isGreaterWithInvariants'' by
- -     mvcgen' -/
+prove_correct isGreaterWithInvariants'' by
+    vcgen'' [isGreaterWithInvariants''] with finish <;> sorry
+

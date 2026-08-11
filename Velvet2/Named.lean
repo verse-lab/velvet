@@ -62,12 +62,12 @@ public meta def unexpandMk : Lean.PrettyPrinter.Unexpander
 
 /-- Extract the outer `Named.mk` annotation, following an application spine. -/
 public partial def extract? (type : Expr) : MetaM (Option (Name × Expr)) := do
-  let type ← instantiateMVars type
+  -- We expect already instantiated..
+  /- let type ← instantiateMVars type -/
   match_expr type with
   | Named.mk _α name _stx value =>
-      let nameExpr ← whnfR name
-      let some name := nameExpr.name?
-        | throwError "invalid Named.mk name: {nameExpr}"
+      let some name := name.name?
+        | throwError "invalid Named.mk name: {name}"
       return some (name, value)
   | _ =>
       match type with

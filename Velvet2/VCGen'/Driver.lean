@@ -176,7 +176,7 @@ private def unwrapNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
 `And.intro` rule. Structure inside one `Named.mk` remains one obligation. -/
 private partial def splitNamedGoalConjs (goal : Grind.Goal) : VCGenM (List Grind.Goal) :=
     goal.mvarId.withContext do
-  let target ← whnfR (← instantiateMVars (← goal.mvarId.getType))
+  let target ← Sym.shareCommon (<- goal.mvarId.getType')
   if Option.isSome (← Named.extract? target) then
     return [goal]
   if target.isForall then
