@@ -9,6 +9,7 @@ prelude
 public import Lean.Elab.Tactic.Meta
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
 public import Velvet2.VCGen.Solve
+public import Velvet2.Named
 public import Lean.Meta.Sym.Grind
 
 open Lean Meta Elab Tactic Sym
@@ -77,6 +78,20 @@ private def handleInvariantSubgoals (subgoals : List MVarId) : VCGenM (Array MVa
       others := others.push sg
   return others
 
+/-- Remove an outer `Named.mk` from a goal using the symbolic simplifier while preserving the
+existing Grind state. -/
+private def unwrapNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
+  let thm ← Sym.Simp.mkTheoremFromDecl ``Named.mk_eq
+  let mut theorems : Sym.Simp.Theorems := {}
+  theorems := theorems.insert thm
+  let methods : Sym.Simp.Methods := { post := theorems.rewrite }
+  match ← Sym.simpGoal goal.mvarId methods with
+  | .closed => return none
+  | .noProgress =>
+      throwError "Failed to unwrap named goal {goal.mvarId}"
+  | .goal mvarId =>
+      return some { goal with mvarId }
+
 /--
 Called when decomposing the goal further did not succeed; in this case we emit a VC for the goal.
 Invariant subgoals are handled separately by `handleInvariantSubgoals` directly inside `work`,
@@ -94,8 +109,17 @@ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
       pure mvarId
     else
       pure goal.mvarId
-  mvarId.setKind .syntheticOpaque
-  modify fun s => { s with vcs := s.vcs.push { goal with mvarId } }
+  let emittedGoal := { goal with mvarId }
+  let target ← instantiateMVars (← mvarId.getType)
+  let emittedGoal ←
+    if let some (name, _) ← Named.extract? target then
+      let some emittedGoal ← unwrapNamedGoal emittedGoal | return
+      emittedGoal.mvarId.setTag name
+      pure emittedGoal
+    else
+      pure emittedGoal
+  emittedGoal.mvarId.setKind .syntheticOpaque
+  modify fun s => { s with vcs := s.vcs.push emittedGoal }
 
 private structure WorkItem where
   goal : Grind.Goal

@@ -1,11 +1,17 @@
 module
 
 prelude
-public import Lean
+public import Lean.Elab.Tactic.Basic
+public import Lean.Meta.Tactic.Cases
+public import Lean.Meta.Tactic.Rename
+public import Lean.Meta.Tactic.Replace
+public import Lean.Meta.Sym.SymM
 
-open Lean Meta Elab
+open Lean Meta Elab Lean.Meta.Sym
 
 namespace Named
+
+noncomputable section
 
 /--
 Attach a user-facing name and source syntax to a value without changing its
@@ -61,7 +67,7 @@ public meta def unexpandMk : Lean.PrettyPrinter.Unexpander
   | _ => throw ()
 
 /-- Extract the outer `Named.mk` annotation, following an application spine. -/
-public partial def extract? (type : Expr) : MetaM (Option (Name × Expr)) := do
+public partial def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
   -- We expect already instantiated..
   /- let type ← instantiateMVars type -/
   match_expr type with
@@ -92,7 +98,7 @@ public partial def contains (type : Expr) : Bool :=
 Unwrap and name every `Named.mk ... p` proposition in a goal's hypotheses.
 Structural conjunctions are split only when they contain named propositions.
 -/
-public partial def processHyp (goal : MVarId) : MetaM (List MVarId) :=
+public partial def processHyp (goal : MVarId) : SymM (List MVarId) :=
   goal.withContext do
     for localDecl in ← getLCtx do
       if localDecl.isImplementationDetail then
@@ -116,7 +122,7 @@ public partial def processHyp (goal : MVarId) : MetaM (List MVarId) :=
 Unwrap a `Named.mk ... p` target, changing it to `p` and setting the goal's case
 tag to the encoded name.
 -/
-public def processGoal (goal : MVarId) : MetaM (List MVarId) :=
+public def processGoal (goal : MVarId) : SymM (List MVarId) :=
   goal.withContext do
     let target ← goal.getType
     if let some (name, prop) ← extract? target then
@@ -151,5 +157,7 @@ public def mkPropList (ts : Array (TSyntax `term)) (names : Array (Option Name) 
     for i in List.range lastIdx |>.reverse do
       result ← `($(← named i) ∧ $result)
     return result
+
+end
 
 end Named

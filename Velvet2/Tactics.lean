@@ -44,7 +44,7 @@ elab "split_conjs" : tactic => do
 
 syntax "vcgen' " "[" term,* "]" (" with " ident)? : tactic
 
-private partial def processNamedGoals (goal : MVarId) : MetaM (List MVarId) :=
+private partial def processNamedGoals (goal : MVarId) : SymM (List MVarId) :=
   goal.withContext do
     let target ← goal.getType
     if let some target ← withReducible <| reduceRecMatcher? target then
@@ -96,7 +96,7 @@ private def normalizePropLattice (goal : MVarId) : MetaM (List MVarId) :=
     | none => return []
     | some (_, goal) => return [goal]
 
-private def processNamedVCs (goals : List MVarId) : MetaM (List MVarId) := do
+private def processNamedVCs (goals : List MVarId) : SymM (List MVarId) := do
   let goals ← goals.flatMapM normalizePropLattice
   let goals ← goals.flatMapM Named.processHyp
   goals.flatMapM processNamedGoals
@@ -108,10 +108,10 @@ conditions are split; named targets are unwrapped and assigned matching case
 tags.
 -/
 elab "name_vcs" : tactic => do
-  setGoals (← liftMetaM <| processNamedVCs (← getGoals))
+  setGoals (← liftMetaM <| SymM.run <| processNamedVCs (← getGoals))
 
 elab "vcgen' " "[" args:term,* "]" _with:(" with " ident)? : tactic => do
   let simpArgs ← args.getElems.mapM fun arg =>
     `(Lean.Parser.Tactic.simpLemma| $arg:term)
   evalTactic (← `(tactic| vcgen [$(Syntax.TSepArray.ofElems simpArgs),*]))
-  setGoals (← liftMetaM <| processNamedVCs (← getGoals))
+  setGoals (← liftMetaM <| SymM.run <| processNamedVCs (← getGoals))
