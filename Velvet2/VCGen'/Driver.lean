@@ -146,17 +146,21 @@ private def simplifyLatticeVC (goal : MVarId) : VCGenM (List MVarId) := do
   -- Consume annotations that are already exposed, then run the same pass again for annotations
   -- exposed by the lattice rewrites.
   let goals ← Named.processHyp goal
-  goals.flatMapM fun goal => goal.withContext do
-    let mut theorems : SimpTheorems := {}
-    for declName in emittedLatticeSimpRules do
-      theorems ← theorems.addConst declName
-    let ctx ← Simp.mkContext
-      (config := { failIfUnchanged := false })
-      (simpTheorems := #[theorems])
-    -- Application rewrites can expose new proposition-level lattice redexes at the root. A small
-    -- bounded fixed-point pass handles function lattices without enabling these rules globally.
-    let some goal ← simplifyLatticePasses ctx goal 4 | return []
-    Named.processHyp goal
+  let mut results := []
+  for goal in goals do
+    let processed ← goal.withContext do
+      let mut theorems : SimpTheorems := {}
+      for declName in emittedLatticeSimpRules do
+        theorems ← theorems.addConst declName
+      let ctx ← Simp.mkContext
+        (config := { failIfUnchanged := false })
+        (simpTheorems := #[theorems])
+      -- Application rewrites can expose new proposition-level lattice redexes at the root. A small
+      -- bounded fixed-point pass handles function lattices without enabling these rules globally.
+      let some goal ← simplifyLatticePasses ctx goal 4 | return []
+      Named.processHyp goal
+    results := results ++ processed
+  return results
 
 /-- Remove an outer `Named.mk` from a goal using the symbolic simplifier. This is run only after
 all VC generation and trivial-conjunct processing has finished. -/
@@ -187,8 +191,10 @@ private partial def splitNamedGoalConjs (goal : Grind.Goal) : VCGenM (List Grind
       && Named.contains (target.getArg! 0) && Named.contains (target.getArg! 1) then
     let .goals subgoals ← (← read).backwardRules.andIntro.apply goal.mvarId
       | throwError "Failed to split named conjunction in {goal.mvarId}"
-    return ← subgoals.flatMapM fun mvarId =>
-      splitNamedGoalConjs { goal with mvarId }
+    let mut results := []
+    for mvarId in subgoals do
+      results := results ++ (← splitNamedGoalConjs { goal with mvarId })
+    return results
   return [goal]
 
 /--

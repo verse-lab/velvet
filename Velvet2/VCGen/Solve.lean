@@ -6,9 +6,11 @@ Authors: Sebastian Graf, Vladimir Gladshtein
 module
 
 prelude
+public import Init.Data.Sum.Basic
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
 public import Lean.Elab.Tactic.Do.Internal.VCGen.RuleCache
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Entails
+public import Velvet2.VCGen.Util
 public import Lean.Meta.Sym.InstantiateS
 import Lean.Meta.Sym.InferType
 import Lean.Meta.Sym.InstantiateMVarsS
@@ -68,7 +70,7 @@ private def forallIntro? (goal : MVarId) (target : Expr) : VCGenM (Option (List 
     | .closed => return some []
     | .goal goal' => pure (goal', true)
     | .noProgress => pure (goal, false)
-  let goal' ← introsHygienic goal
+  let goal' ← _root_.Velvet2.VCGen.introsHygienic goal
   if !simped && goal' == goal then
     throwError "Failed to intro forall target {goal}"
   return some [goal']
@@ -91,7 +93,7 @@ private def targetLetIntro? (goal : MVarId) (target : Expr) : VCGenM (Option MVa
     return some (← goal.replaceTargetDefEqFast (← Sym.instantiateRevBetaS body #[val]))
   else
     trace[Elab.Tactic.Do.vcgen] "let-intro: {name}"
-    return some (← introsHygienic goal)
+    return some (← _root_.Velvet2.VCGen.introsHygienic goal)
 
 /-- Strategy 3: unfold a `Triple` target into the underlying lattice entailment. -/
 private def tripleUnfold? (goal : MVarId) (target : Expr) : VCGenM (Option MVarId) := do
@@ -189,13 +191,61 @@ private def iSupPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option MVarId) 
     | throwError "Failed to eliminate the `iSup` precondition of {goal}"
   return some g
 
+/-- Backward rule used by `splitPropAndLe?`: split a syntactic `And` on the RHS of a bare
+`Prop` entailment. `splitLatticeOp?` handles `Lean.Order.meet`, but generated invariants use the
+ordinary `And` constructor directly. -/
+private theorem propLeAndRule (p q r : Prop) :
+    p ⊑ q → p ⊑ r → p ⊑ (q ∧ r) :=
+  fun hq hr hp => ⟨hq hp, hr hp⟩
+
+private def splitPropAndLe? (goal : MVarId) (α rhs : Expr) : VCGenM (Option (List MVarId)) := do
+  unless α.isProp && rhs.isAppOfArity ``And 2 do return none
+  let rule ← mkBackwardRuleFromDecl ``propLeAndRule
+  let .goals goals ← rule.applyChecked goal | return none
+  return some goals
+
+/-- Backward rule used by `namedAndPreIntro?`: peel the left side of a conjunction from a bare
+`Prop` precondition while retaining the remainder as the residual precondition. -/
+private theorem namedAndPreIntroRule (p q rhs : Prop) :
+    (p → q ⊑ rhs) → (p ∧ q) ⊑ rhs :=
+  fun h hpq => h hpq.1 hpq.2
+
+/-- Peel one outer Named conjunct from a bare `Prop` precondition. For example,
+`(⟪a : A⟫ ∧ rest) ⊑ rhs` becomes `⟪a : A⟫ → rest ⊑ rhs`. The Named wrapper remains on the
+new binder so the regular forall-introduction pass assigns its user-facing name on the next
+worklist iteration. -/
+private def namedAndPreIntro? (goal : MVarId) (α pre : Expr) : VCGenM (Option MVarId) := do
+  unless α.isProp do return none
+  let_expr And lhs _rest := pre | return none
+  let some _ ← Named.extract? lhs | return none
+  let rule ← mkBackwardRuleFromDecl ``namedAndPreIntroRule
+  let .goals [g] ← rule.applyChecked goal
+    | throwError "Failed to peel the Named conjunction precondition of {goal}"
+  return some g
+
+/-- Definitionally normalize only the precondition operand of an entailment, leaving the RHS
+untouched. Returning to the worklist after this step lets the ordinary Named-conjunction strategy
+peel the newly exposed conjunction one component at a time. -/
+private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVarId) := do
+  let pre' ← match ← Sym.simp pre (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
+    | .rfl .. => return none
+    | .step pre' _ .. => pure pre'
+  let args := target.getAppArgs
+  let target' ← mkAppNS target.getAppFn (args.set! (args.size - 2) pre')
+  return some (← goal.replaceTargetDefEqFast target')
+
 /-- Strategy 7: move a bare `Prop` precondition `φ ⊑ rhs` into the local context via
 `le_of_imp_top_le`, leaving `⊤ ⊑ rhs`. Runs after `True` and `⊤` preconditions are handled, so
 `φ` carries information worth keeping. Returns the new goal and the introduced hypothesis. -/
 private def barePreIntro? (goal : MVarId) (α pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
   unless α.isProp do return none
   if pre.isAppOf ``Lean.Order.top then return none
-  return some (← introPre (← read).backwardRules.propPreIntro goal)
+  let .goals [goal] ← (← read).backwardRules.propPreIntro.applyChecked goal
+    | throwError "Failed to apply precondition intro rule to {goal}"
+  let goal ← _root_.Velvet2.VCGen.introsHygienic goal
+  let some decl := (← goal.withContext getLCtx).lastDecl
+    | throwError "Failed to intro the lifted precondition of {goal}"
+  return some (goal, decl.fvarId)
 
 /-- Strategy 7: replace a `True` precondition by `⊤` via `true_le_of_top_le`, or reduce a lifted
 `⊤ s₁ … sₙ` precondition (the bare top applied to the state arguments introduced by
@@ -219,6 +269,8 @@ introduce excess state arguments; drop a `True` precondition; lift a bare `Prop`
 Returns the updated scope, recording any lifted hypothesis. -/
 private def normalizePre? (scope : VCGen.Scope) (goal : MVarId) (α pre target : Expr) :
     VCGenM (Option (VCGen.Scope × List MVarId)) := do
+  if let some g ← reducePre? goal pre target then
+    return some (scope, [g])
   if let some g ← stripMeetTopPre? goal pre then
     return some (scope, [g])
   if let some (g, h) ← ofPropPreIntro? goal pre then
@@ -230,6 +282,8 @@ private def normalizePre? (scope : VCGen.Scope) (goal : MVarId) (α pre target :
   if let some goal' ← introsExcessArgs goal then return some (scope, [goal'])
   if let some gs ← normalizePreToTop? goal pre target then
     return some (scope, gs)
+  if let some g ← namedAndPreIntro? goal α pre then
+    return some (scope, [g])
   if let some (g, h) ← barePreIntro? goal α pre then
     return some ({ scope with lastLiftedPre? := some h }, [g])
   return none
@@ -499,17 +553,35 @@ The function performs the following steps in order:
 -/
 public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := goal.withContext do
   if ← outOfFuel then return .stop .outOfFuel
-  let target ← goal.getType
-  trace[Elab.Tactic.Do.vcgen] "🎯 Target: {target}"
+  -- Spec application can assign metavariables nested inside the next program (for example the
+  -- loop body `f () b`). Instantiate the complete target before inspecting its WP shape so an
+  -- assigned body headed by `ite` is visible to `wpMatch?`.
+  let target ← instantiateMVarsS (← goal.getType)
+  trace[Elab.Tactic.Do.vcgen] "🎯 Goal: {goal}"
+  trace[Elab.Tactic.Do.vcgen] "🎯 TargetType: {target}"
 
   -- Phase 1: simplify `target` until it is of the form `pre ⊑ rhs`.
-  if let some g ← consumeMData? goal target then return .goals scope [g]
-  if let some gs ← forallIntro? goal target then return .goals scope gs
-  if let some g ← targetLetIntro? goal target then return .goals scope [g]
-  if let some g ← tripleUnfold? goal target then return .goals scope [g]
-  if let some g ← bareWPToLe? goal target then return .goals scope [g]
-  if let some gs ← liftedHypBare? scope goal target then return .goals scope gs
-  if let some g ← instantiateGoal? goal target then return .goals scope [g]
+  if let some g ← consumeMData? goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got consumed..: {g}"
+    return .goals scope [g]
+  if let some gs ← forallIntro? goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got foralled..: {gs}"
+    return .goals scope gs
+  if let some g ← targetLetIntro? goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got let-introed..: {g}"
+    return .goals scope [g]
+  if let some g ← tripleUnfold? goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got triple-unfolded..: {g}"
+    return .goals scope [g]
+  if let some g ← bareWPToLe? goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got bareWPToLE?..: {g}"
+    return .goals scope [g]
+  if let some gs ← liftedHypBare? scope goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got bareWPToLE?..: {gs}"
+    return .goals scope gs
+  if let some g ← instantiateGoal? goal target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Target got instantiateGoaled?..: {g}"
+    return .goals scope [g]
 
   let_expr PartialOrder.rel α inst pre rhs := target
     | return .stop (.noEntailment target)
@@ -517,7 +589,9 @@ public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := g
   -- Phase 2: close reflexive goals, then drive `pre` toward `⊤`, lifting any pure content so a
   -- later spec application sees a `⊤` precondition.
   if let some gs ← rfl? goal then return .goals scope gs
-  if let some (scope, gs) ← normalizePre? scope goal α pre target then return .goals scope gs
+  if let some (scope, gs) ← normalizePre? scope goal α pre target then
+    trace[Elab.Tactic.Do.vcgen] "🎯 Pre got normalized?..: {gs}"
+    return .goals scope gs
 
   -- Collect new local specs before any strategy that may emit multiple subgoals
   -- (`wpMatch?`, `splitLatticeOp?`) or apply a registered spec (`applySpec`).
@@ -526,6 +600,7 @@ public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := g
   -- Phase 3: shape the `rhs` (reduce an EPost projection, decompose a lattice connective or a
   -- forall, then discharge a residual entailment against the lifted hypothesis).
   if let some g ← reduceEPostHead? goal target α inst pre rhs then return .goals scope [g]
+  if let some gs ← splitPropAndLe? goal α rhs then return .goals scope gs
   if let some gs ← splitLatticeOp? goal rhs then return .goals scope gs
   if let some gs ← splitForallLe? goal rhs then return .goals scope gs
   if let some gs ← liftedHyp? scope goal α pre rhs then return .goals scope gs

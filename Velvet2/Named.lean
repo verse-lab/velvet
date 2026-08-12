@@ -11,8 +11,6 @@ open Lean Meta Elab Lean.Meta.Sym
 
 namespace Named
 
-noncomputable section
-
 /--
 Attach a user-facing name and source syntax to a value without changing its
 denotation. Verification tooling can inspect the wrapper before unfolding it.
@@ -77,6 +75,8 @@ public partial def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
       return some (name, value)
   | _ =>
       match type with
+      | .mdata _ body =>
+          extract? body
       | .app fn arg =>
           let some (name, value) ← extract? fn
             | return none
@@ -114,8 +114,10 @@ public partial def processHyp (goal : MVarId) : SymM (List MVarId) :=
       let type ← whnfR type
       if type.isAppOfArity ``And 2 && contains (type.getArg! 0) && contains (type.getArg! 1) then
         let subgoals ← goal.cases localDecl.fvarId
-        return ← subgoals.toList.flatMapM fun subgoal =>
-          processHyp subgoal.mvarId
+        let mut results := []
+        for subgoal in subgoals do
+          results := results ++ (← processHyp subgoal.mvarId)
+        return results
     return [goal]
 
 /--
@@ -157,7 +159,5 @@ public def mkPropList (ts : Array (TSyntax `term)) (names : Array (Option Name) 
     for i in List.range lastIdx |>.reverse do
       result ← `($(← named i) ∧ $result)
     return result
-
-end
 
 end Named

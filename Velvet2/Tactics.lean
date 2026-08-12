@@ -1,9 +1,8 @@
-import Lean
-import Std.Tactic.Do
 import Velvet2.Named
+import Velvet2.VCGen.Frontend
 import Velvet2.VCGen'.Frontend
 
-open Lean Meta Elab Tactic
+open Lean Meta Elab Tactic Lean.Meta.Sym
 
 private def isAndType (type : Expr) : MetaM Bool := do
   let type ← whnfR (← instantiateMVars type)
@@ -97,7 +96,7 @@ private def normalizePropLattice (goal : MVarId) : MetaM (List MVarId) :=
     | some (_, goal) => return [goal]
 
 private def processNamedVCs (goals : List MVarId) : SymM (List MVarId) := do
-  let goals ← goals.flatMapM normalizePropLattice
+  let goals ← goals.flatMapM fun goal => liftMetaM (normalizePropLattice goal)
   let goals ← goals.flatMapM Named.processHyp
   goals.flatMapM processNamedGoals
 

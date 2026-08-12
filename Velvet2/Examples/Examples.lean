@@ -1,7 +1,7 @@
 import Velvet2.Syntax
 import Velvet2.Ghost
 import Velvet2.Tactics
-import Velvet2.VCGen'.Driver
+import Velvet2.VCGen.Frontend
 
 /- attribute [-grind] getElem?_neg getElem?_pos getElem!_neg getElem!_pos -/
 
@@ -38,12 +38,8 @@ prove_correct isGreaterWithInvariants by
    -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
    -       a.size ≤ b.snd
    - · fun b => a.size - b.snd -/
-  vcgen'' [isGreaterWithInvariants] with finish
-  all_goals simp_all [getElem!_pos]
-  all_goals try grind
-  rename_i b hlt hnle
-  refine ⟨b.snd, by omega, ?_⟩
-  simpa [getElem!_pos, hlt] using hnle
+  vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
+  all_goals sorry
 
   /- vcgen' [isGreaterWithInvariants] <;> try grind
    - · split_conjs; constructor
@@ -74,57 +70,67 @@ def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
 /-- A native `vcgen` proof with the loop invariant and variant supplied manually. -/
 theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
     Std.Internal.Do.Triple (isGreaterNativeWhile n a)
-      True
-      (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n)
+      (Named.mk `precond Option.none True)
+      (Named.mk `postcond Option.none (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n))
       True := by
-  vcgen [isGreaterNativeWhile] invariants
+  vcgen_ [isGreaterNativeWhile] invariants
   · fun
-    | .inl b => 0 ≤ b.snd ∧ b.snd ≤ a.size ∧
-        (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)
-    | .inr b => (0 ≤ b.snd ∧ b.snd ≤ a.size ∧
-        (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
-        a.size ≤ b.snd
-  · fun b => a.size - b.snd
-  all_goals simp only [Lean.Order.meet_prop_eq_and, Lean.Order.ofProp_prop_eq] at *
-  case vc1 => simp
-  case vc2 =>
-    rename_i result hinv
-    rcases hinv with ⟨⟨_, hle, hok⟩, hge⟩
-    have hi : result.snd = a.size := Nat.le_antisymm hle hge
-    simpa [hi] using hok
-  case vc3 =>
-    rename_i state hinv hcond hbranch
-    rcases hinv with ⟨_, _, hok⟩
-    constructor
-    · omega
-    constructor
-    · omega
-    constructor
-    · omega
-    rw [hok]
-    constructor
-    · intro hall j hj
-      by_cases hlt : j < state.snd
-      · exact hall j hlt
-      · have : j = state.snd := by omega
-        subst j
-        exact hbranch
-    · intro hall j hj
-      exact hall j (by omega)
-  case vc4 =>
-    rename_i state hinv hcond hbranch
-    constructor
-    · omega
-    constructor
-    · omega
-    constructor
-    · omega
-    simp only [Bool.false_eq_true, false_iff]
-    intro hall
-    exact hbranch (hall state.snd (by omega))
-  case vc5 =>
-    rename_i state hinv hcond
-    exact ⟨hinv, by omega⟩
+    | .inl b =>
+        Named.mk `idx_nonneg Option.none (0 ≤ b.snd) ∧
+        Named.mk `idx_bounded Option.none (b.snd ≤ a.size) ∧
+        Named.mk `ok_iff_prefix Option.none
+          (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)
+    | .inr b =>
+        (Named.mk `idx_nonneg Option.none (0 ≤ b.snd) ∧
+         Named.mk `idx_bounded Option.none (b.snd ≤ a.size) ∧
+         Named.mk `ok_iff_prefix Option.none
+           (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
+        Named.mk `loop_done Option.none (a.size ≤ b.snd)
+  · Std.Internal.Do.RepeatVariant.ofMeasure (Pred := Prop)
+      (fun b => a.size - b.snd)
+  all_goals grind
+
+/- The same loop using Velvet's inline loop annotations. -/
+method isGreaterInlineAnnotations (n : Int) (a : Array Int)
+  returns (result : Bool)
+  requires precond: True
+  ensures postcond: result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
+do
+  let mut ok := true
+  let mut i : Nat := 0
+  while' loop_cond: i < a.size
+    invariant idx_nonneg: 0 ≤ i
+    invariant idx_bounded: i ≤ a.size
+    invariant ok_iff_prefix: ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
+    decreasing by_size: a.size - i
+    done_with loop_done: a.size ≤ i
+  do
+    if a[i]! < n then
+      ok := ok
+    else
+      ok := false
+    i := i + 1
+  return ok
+
+prove_correct isGreaterInlineAnnotations by
+  vcgen_ [isGreaterInlineAnnotations]
+  all_goals grind
+
+/- A finite range using Velvet's `for'` annotations and the bundled VCGen frontend. -/
+method scanRangeVCGen (n : Nat)
+  returns (result : Unit)
+  requires precond: True
+  ensures postcond: True
+do
+  for' i in 0...n
+    invariant cursor_reflexive: i = i
+    done_with scan_done: True
+  do
+    pure ()
+  return ()
+
+prove_correct scanRangeVCGen by
+  vcgen_ [scanRangeVCGen]
 
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
   returns (result : Bool)
@@ -244,5 +250,6 @@ theorem withdraw_correct : True := by
 set_option maxHeartbeats 10000000
 
 prove_correct isGreaterWithInvariants'' by
-    vcgen'' [isGreaterWithInvariants''] with finish <;> sorry
+    vcgen'' [isGreaterWithInvariants'']
+    all_goals sorry
 

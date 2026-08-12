@@ -1,7 +1,7 @@
-import Lean
 import Velvet2.Specs
 import Velvet2.Named
 import Lean.Parser
+import Lean.Elab.Command
 import Std.Internal.Do
 import Std.Internal.Do.WP.Basic
 import Std.Internal.Do.WP.Lemmas
@@ -223,20 +223,24 @@ macro_rules
     | none => `(True)
   let doneName := hDone.join.map (·.getId) |>.getD `h_done_with
   let done' ← mkPropList #[doneTerm] #[some doneName] "done_with"
-  `(doElem| for $pat in $xs do
-    invariantGadget $invs'
-    onDoneGadget $done'
+  let pref := Lean.mkIdent `__pref
+  let suff := Lean.mkIdent `__suff
+  let cursorInv ← `(term|
+    Velvet2.Spec.rangeInvariantValue (fun $pat => $invs') $done' $suff:ident)
+  `(doElem| for $pat in $xs
+    invariant $pref $suff => $cursorInv
     do $body)
   | `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* decreasing $[$hm : ]? $m $[done_with $[$h_done : ]? $d]? do $body) => do
   let defaultLoopIdent := mkIdent `h_loop
   let loopIdent := hcond.getD defaultLoopIdent
-  let invs' ← mkPropList invs (optionalIdentNames ns) "invariant"
+  let invNames := optionalIdentNames ns
+  let invs' ← mkPropList invs invNames "invariant"
   let defaultDoneWith : TSyntax `term ← withRef cond do `(¬ $cond)
   let doneWith := d.getD defaultDoneWith
   let doneWithName := match h_done.join with
     | some id => id.getId
     | none => `h_done_with
-  let doneWithNamed ← mkPropList #[doneWith] #[some doneWithName] "done_with"
+  let exitedInvs ← mkPropList (invs.push doneWith) (invNames.push (some doneWithName)) "invariant"
   let measureName := hm.map (·.getId) |>.getD `decreasing
   let measureNameStr := Lean.Syntax.mkStrLit measureName.toString
   let measureNameTerm : TSyntax `term ←
@@ -247,8 +251,9 @@ macro_rules
     `(some (Lean.Syntax.atom Lean.SourceInfo.none $measureTextStr))
   let measureNamed : TSyntax `term ←
     `(Named.Measure.mk $measureNameTerm $measureStx $m)
-  `(doElem| repeat do
-    invariantGadget $invs'
-    decreasingGadget $measureNamed
-    onDoneGadget $doneWithNamed
-    if $loopIdent : $cond then $body else break)
+  let exited := Lean.mkIdent `__exited
+  `(doElem| while $loopIdent : $cond
+    invariant $exited =>
+      if $exited then $exitedInvs else $invs'
+    decreasing $measureNamed
+    do $body)

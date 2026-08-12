@@ -78,18 +78,32 @@ private def handleInvariantSubgoals (subgoals : List MVarId) : VCGenM (Array MVa
       others := others.push sg
   return others
 
-/-- Remove an outer `Named.mk` from a goal using the symbolic simplifier while preserving the
-existing Grind state. -/
-private def unwrapNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
-  let thm ← Sym.Simp.mkTheoremFromDecl ``Named.mk_eq
+private def simpDecls : Array Name := #[``Named.mk_eq]
+
+private def mkNamedSimpMethods : MetaM Sym.Simp.Methods := do
   let mut theorems : Sym.Simp.Theorems := {}
-  theorems := theorems.insert thm
-  let methods : Sym.Simp.Methods := { post := theorems.rewrite }
-  match ← Sym.simpGoal goal.mvarId methods with
+  for declName in simpDecls do
+    theorems := theorems.insert (← Sym.Simp.mkTheoremFromDecl declName)
+  return { post := theorems.rewrite }
+
+/-- If the target is an outer `Named.mk` (possibly behind assigned metavariables or at the head
+of an application), unwrap it with the symbolic simplifier and install its name as the goal tag.
+Returns the original goal when it is not named, and `none` when simplification closes it. -/
+private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
+  let rawTarget ← goal.mvarId.getType
+  let target ← instantiateMVarsS rawTarget
+  let some (name, _) ← Named.extract? target | return some goal
+  trace[Elab.Tactic.Do.vcgen]
+    "🏷 processNamedGoal {repr goal.mvarId}\nraw: {repr rawTarget}\npretty: {rawTarget}\ninstantiated: {target}"
+  -- Refresh the metavariable itself, then simplify that exact target. Simplifying `target`
+  -- separately and attaching its equality proof to the old raw target can leak context-local fvars.
+  let mvarId ← preprocessMVar goal.mvarId
+  let goal := { goal with mvarId }
+  match ← Sym.simpGoal mvarId (← mkNamedSimpMethods) with
   | .closed => return none
-  | .noProgress =>
-      throwError "Failed to unwrap named goal {goal.mvarId}"
+  | .noProgress => throwError "Failed to unwrap named goal {mvarId}"
   | .goal mvarId =>
+      mvarId.setTag name
       return some { goal with mvarId }
 
 /--
@@ -109,15 +123,7 @@ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
       pure mvarId
     else
       pure goal.mvarId
-  let emittedGoal := { goal with mvarId }
-  let target ← instantiateMVars (← mvarId.getType)
-  let emittedGoal ←
-    if let some (name, _) ← Named.extract? target then
-      let some emittedGoal ← unwrapNamedGoal emittedGoal | return
-      emittedGoal.mvarId.setTag name
-      pure emittedGoal
-    else
-      pure emittedGoal
+  let some emittedGoal ← processNamedGoal { goal with mvarId } | return
   emittedGoal.mvarId.setKind .syntheticOpaque
   modify fun s => { s with vcs := s.vcs.push emittedGoal }
 
@@ -135,7 +141,14 @@ public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Unit := do
     if goal.inconsistent then continue
     match ← solve s.scope goal.mvarId with
     | .stop _reason =>
-      emitVC goal
+      -- Normal Solve decomposition gets first refusal. Only when it stops do we normalize
+      -- generated concrete control flow. If this exposes a connective, re-enqueue the same Grind
+      -- state so the next Solve iteration can split it before final VC emission.
+      match ← Sym.simpGoal goal.mvarId (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
+      | .closed => continue
+      | .noProgress => emitVC goal
+      | .goal mvarId =>
+          worklist := worklist.push { goal := { goal with mvarId }, scope := s.scope }
     | .goals scope subgoals =>
       -- Handle invariant subgoals eagerly here, so that VC subgoals popped
       -- from the worklist later see the invariant MVar already assigned.
@@ -178,7 +191,13 @@ public partial def run (goal : Grind.Goal) (ctx : Context) (scope : VCGen.Scope)
   _ ← state.invariants.mapIdxM fun idx mv => do
     mv.setTag (Name.mkSimple ("inv" ++ toString (idx + 1)))
   _ ← state.vcs.mapIdxM fun idx g => do
-    g.mvarId.setTag (Name.mkSimple ("vc" ++ toString (idx + 1)) ++ (← g.mvarId.getTag).eraseMacroScopes)
+    let currentTag ← g.mvarId.getTag
+    let tag :=
+      if currentTag.isAnonymous then
+        Name.mkSimple ("vc" ++ toString (idx + 1))
+      else
+        currentTag.eraseMacroScopes
+    g.mvarId.setTag tag
   let vcs ← state.vcs.filterM (not <$> ·.mvarId.isAssigned)
   let unmatchedFrames := state.frameDB.entries.filterMap fun e =>
     if e.retired then none else some e.frameStx
