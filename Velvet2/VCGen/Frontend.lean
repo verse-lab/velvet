@@ -27,8 +27,7 @@ open Lean.Elab.Tactic.Do Lean.Elab.Tactic.Do.Internal.SpecAttr
 
 namespace Lean.Parser.Tactic
 
-@[tactic_alt Lean.Parser.Tactic.vcgenMacro]
-syntax (name := vcgenVendored) "vcgen_" optConfig
+syntax (name := vcgenVendoredTac) "vcgen_" optConfig
   (" [" withoutPosition((simpStar <|> simpErase <|> simpLemma),*,?) "] ")?
   (&" until " term)?
   (&" frames " withPosition((colGe frameAlt)+))?
@@ -36,6 +35,17 @@ syntax (name := vcgenVendored) "vcgen_" optConfig
   (&" simplifying_assumptions" (ppSpace colGt ident)? (" [" ident,* "]")?)?
   (&" with " vcgenDischarge)? : tactic
 
+namespace Grind
+
+syntax (name := vcgenVendoredGrindTac) "vcgen_" optConfig
+  (" [" withoutPosition((simpStar <|> simpErase <|> simpLemma),*,?) "] ")?
+  (&" until " term)?
+  (&" frames " withPosition((colGe frameAlt)+))?
+  (invariantAlts)?
+  (&" simplifying_assumptions" (ppSpace colGt ident)? (" [" ident,* "]")?)?
+  : grind
+
+end Grind
 end Lean.Parser.Tactic
 
 namespace Lean.Elab.Tactic.Do.Internal
@@ -456,7 +466,8 @@ private meta def parseArgs (stx : Syntax) (goal : MVarId) : TermElabM ParsedArgs
   return { config, ctx, scope, invariantAlts?, frameDB }
 
 /-- `vcgen` step inside `sym => …` blocks. -/
-meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun stx => do
+@[grind_tactic Lean.Parser.Tactic.Grind.vcgenVendoredGrindTac]
+public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun stx => do
   let goal ← Lean.Elab.Tactic.Grind.getMainGoal
   let args ← parseArgs stx goal.mvarId
   let result ← Lean.Elab.Tactic.Grind.liftGrindM do
@@ -495,16 +506,11 @@ private meta def elabVCGenDischargeVendored (w? : Option (TSyntax `vcgenDischarg
         m!"`vcgen … with` expects a `grind`-mode discharging step, not a general tactic"
           ++ MessageData.hint' m!"Examples: `vcgen … with finish`, `vcgen … with intro`."
 
-/-- Tactic-level `vcgen`. Reuses the grind-mode implementation by re-quoting the
-input as `Grind.vcgen …` and running it inside a `GrindTacticM` context built
-without `withProtectedMCtx`, so leftover `Grind.Goal`s flow back as the new tactic
-goals. The optional `with $g:grind` clause runs as `<;> $g` and lets the user-supplied
-grind step share an internalised E-graph with `vcgen`. -/
-private meta def elabVCGenVendoredCore (stx : Syntax) : TacticM Unit := withMainContext do
+
+public meta def elabVCGenVendoredCore : Tactic := fun stx => withMainContext do
   let `(tactic| vcgen_%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]? $[with $w:vcgenDischarge]?) := stx
     | throwUnsupportedSyntax
-  -- get the tactic after with ... (must be grind mode tactic ig?)
   let g? ← elabVCGenDischargeVendored w
   -- Without `with`, no downstream grind step will read the E-graph, so opt out of
   -- internalisation; `with` keeps the default `internalize := true`.
@@ -513,26 +519,23 @@ private meta def elabVCGenVendoredCore (stx : Syntax) : TacticM Unit := withMain
     | none   => do
         let off ← `(optConfig| -internalize)
         pure (Lean.Parser.Tactic.appendConfig off cfg)
-  let core ← `(tactic| vcgen_%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
+  let core ← `(grind| vcgen_%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]?)
-  trace[Elab.Tactic.Do.vcgen] "Core Tactic: {core}"
+  let step ← match g? with
+    | some g => `(grind| $core <;> $g)
+    | none   => pure core
   let goal ← getMainGoal
-  trace[Elab.Tactic.Do.vcgen] "Main Goal being vcgen'd: {goal}"
-
   -- `clean := false` keeps inaccessible binder names (no `exposeNames`), so users can
   -- still rename them with `case vcN h => …`.
   let params ← Grind.mkDefaultParams { clean := false }
-  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
-    evalSymVCGenVendored core
-    -- I guess here we could get all the goals we have (VCs?) and
-    -- throw errors for them (since we mostly store the syntax node in Prop)
-    if let some g := g? then
-      Grind.evalGrindTactic (← `(grind| skip <;> $g))
+  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) <|
+    Grind.evalGrindTactic step
   replaceMainGoal (state.goals.map (·.mvarId))
+
 
 /-- Run `vcgen_` transactionally so a failing `with` discharger cannot leak a partially assigned
 proof skeleton containing its still-open VC metavariables into the enclosing declaration. -/
-@[tactic Lean.Parser.Tactic.vcgenVendored]
+@[tactic Lean.Parser.Tactic.vcgenVendoredTac]
 public meta def elabVCGenVendored : Tactic := fun stx => do
   let saved ← saveState
   try

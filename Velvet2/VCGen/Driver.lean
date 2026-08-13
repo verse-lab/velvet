@@ -86,7 +86,7 @@ private def mkNamedSimpMethods : MetaM Sym.Simp.Methods := do
     theorems := theorems.insert (← Sym.Simp.mkTheoremFromDecl declName)
   return { post := theorems.rewrite }
 
-/-- If the target is an outer `Named.mk` (possibly behind assigned metavariables or at the head
+/-- If the target is an outer internal named atom (possibly behind assigned metavariables or at the head
 of an application), unwrap it with the symbolic simplifier and install its name as the goal tag.
 Returns the original goal when it is not named, and `none` when simplification closes it. -/
 private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
@@ -103,6 +103,15 @@ private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := d
   | .closed => return none
   | .noProgress => throwError "Failed to unwrap named goal {mvarId}"
   | .goal mvarId =>
+      -- Removing `Named.mk` can expose a fresh beta-redex when a named StateT/ReaderT
+      -- assertion is applied to its state/environment arguments. The worklist's final
+      -- normalization ran before this unwrapping, so normalize the exposed target once
+      -- more while retaining the inherited Grind state.
+      let mvarId ← match ← Sym.simpGoal mvarId
+          (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
+        | .closed => return none
+        | .noProgress => pure mvarId
+        | .goal mvarId => pure mvarId
       mvarId.setTag name
       return some { goal with mvarId }
 

@@ -28,28 +28,9 @@ do
 
 set_option maxHeartbeats 10000000
 
-/- set_option trace.Elab.Tactic.Do.vcgen true -/
 prove_correct isGreaterWithInvariants by
-  /- vcgen'' [isGreaterWithInvariants] invariants
-   - · fun
-   -   | .inl b => 0 ≤ b.snd ∧ b.snd ≤ a.size ∧
-   -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)
-   -   | .inr b => (0 ≤ b.snd ∧ b.snd ≤ a.size ∧
-   -       (b.fst = true ↔ ∀ j, j < b.snd → a[j]! < n)) ∧
-   -       a.size ≤ b.snd
-   - · fun b => a.size - b.snd -/
   vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
   all_goals sorry
-
-  /- vcgen' [isGreaterWithInvariants] <;> try grind
-   - · split_conjs; constructor
-   -   · grind
-   -   · next b h hbranch left right =>
-   -       intro hall
-   -       exfalso
-   -       apply hbranch
-   -       have hlt := hall b.snd (by omega)
-   -       simpa [getElem!_pos, h] using hlt -/
   
 
 
@@ -88,7 +69,7 @@ theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
         Named.mk `loop_done Option.none (a.size ≤ b.snd)
   · Std.Internal.Do.RepeatVariant.ofMeasure (Pred := Prop)
       (fun b => a.size - b.snd)
-  all_goals grind
+  with finish
 
 /- The same loop using Velvet's inline loop annotations. -/
 method isGreaterInlineAnnotations (n : Int) (a : Array Int)
@@ -113,8 +94,7 @@ do
   return ok
 
 prove_correct isGreaterInlineAnnotations by
-  vcgen_ [isGreaterInlineAnnotations]
-  all_goals grind
+  vcgen_ [isGreaterInlineAnnotations] with finish
 
 /- A finite range using Velvet's `for'` annotations and the bundled VCGen frontend. -/
 method scanRangeVCGen (n : Nat)
@@ -132,6 +112,47 @@ do
 prove_correct scanRangeVCGen by
   vcgen_ [scanRangeVCGen]
 
+/- Accumulate even contributions over a finite range. -/
+method sumDoubleRange (n : Nat)
+  returns (result : Nat)
+  requires precond: True
+  ensures result_even: result % 2 = 0
+do
+  let mut acc := 0
+  for' i in 0...n
+    invariant accumulator_even: acc % 2 = 0
+    done_with sum_done: acc % 2 = 0
+  do
+    acc := acc + 2 * i
+  return acc
+
+prove_correct sumDoubleRange by
+  vcgen_ [sumDoubleRange] with finish
+
+/- Track the most recently visited value while preserving a simple bound. -/
+method boundedRangeValues (n : Nat)
+  returns (result : Nat)
+  requires precond: True
+  ensures result_nonnegative: result ≥ 0
+do
+  let mut last := 0
+  for' i in 0...n
+    invariant last_nonnegative: last ≥ 0
+    done_with last_done: last ≥ 0
+  do
+    last := i
+  return last
+
+-- This for example requires me to grind separately, that probably means
+-- something is wrong with the grind ocntext as the proofs aren't going through
+-- with finish
+prove_correct boundedRangeValues by
+  vcgen_ [boundedRangeValues] with try finish
+  /- grind; grind; grind; grind -/
+  
+
+  
+
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
@@ -143,7 +164,7 @@ do
 
 
 prove_correct isGreaterWithInvariants' by
-  vcgen'' [isGreaterWithInvariants'] 
+  vcgen_ [isGreaterWithInvariants'] with finish
   --constructor
   --intros; grind
   --intros; expose_names
@@ -165,8 +186,8 @@ ensures True do
     return res
 
 -- Should this really verify?? Very weirddd (even when I change Int -> Nat)
-prove_correct foo' by
-  vcgen'' [foo']
+/- prove_correct foo' by
+ -   vcgen_ [foo'] -/
   
 
 method get_idx returns (res: Nat)
@@ -174,8 +195,8 @@ method get_idx returns (res: Nat)
     do
         return 1
 
-prove_correct get_idx by
-  vcgen'' [get_idx] with finish
+/- prove_correct get_idx by
+ -   vcgen_ [get_idx] with finish -/
 
 
 method isGreaterWithInvariants'' (n : Int) (a : Array Int)
@@ -250,6 +271,7 @@ theorem withdraw_correct : True := by
 set_option maxHeartbeats 10000000
 
 prove_correct isGreaterWithInvariants'' by
-    vcgen'' [isGreaterWithInvariants'']
-    all_goals sorry
+    vcgen_ [isGreaterWithInvariants''] with try finish
+    sorry
+
 

@@ -1,8 +1,6 @@
-import Velvet2.Named
 import Velvet2.VCGen.Frontend
-import Velvet2.VCGen'.Frontend
 
-open Lean Meta Elab Tactic Lean.Meta.Sym
+open Lean Meta Elab Tactic
 
 private def isAndType (type : Expr) : MetaM Bool := do
   let type ← whnfR (← instantiateMVars type)
@@ -27,7 +25,7 @@ private partial def splitAndGoals (goal : MVarId) : MetaM (List MVarId) := do
 
 /--
 `split_conjs` performs the cheap structural cleanup that often appears after
-`vcgen`: repeatedly `split at *`, destruct conjunctive hypotheses, and construct
+`vcgen_`: repeatedly `split at *`, destruct conjunctive hypotheses, and construct
 conjunctive goals. It also prunes immediate contradiction branches created by
 the splits.
 -/
@@ -36,81 +34,6 @@ elab "split_conjs" : tactic => do
   evalTactic (← `(tactic| all_goals try contradiction))
   let goals ← getGoals
   let goals ← liftMetaM <| goals.flatMapM fun goal => do
-    (← splitAndHyps goal).flatMapM
-      splitAndGoals
+    (← splitAndHyps goal).flatMapM splitAndGoals
   setGoals goals
   evalTactic (← `(tactic| all_goals try contradiction))
-
-syntax "vcgen' " "[" term,* "]" (" with " ident)? : tactic
-
-private partial def processNamedGoals (goal : MVarId) : SymM (List MVarId) :=
-  goal.withContext do
-    let target ← goal.getType
-    if let some target ← withReducible <| reduceRecMatcher? target then
-      return ← processNamedGoals (← goal.replaceTargetDefEq target)
-
-    match ← Named.processGoal goal with
-    | [processed] =>
-        if processed != goal then
-          return ← processNamedGoals processed
-        let target ← whnfR (← instantiateMVars target)
-        if target.isForall then
-          let (_, goal) ← goal.intros
-          return ← processNamedGoals goal
-        if target.isAppOfArity ``And 2 && Named.contains target then
-          return ← (← goal.constructor).flatMapM processNamedGoals
-        return [goal]
-    | processed =>
-        return ← processed.flatMapM processNamedGoals
-
-private def normalizePropLattice (goal : MVarId) : MetaM (List MVarId) :=
-  goal.withContext do
-    let mut theorems : SimpTheorems := {}
-    for declName in #[
-      ``Lean.Order.meet_apply,
-      ``Lean.Order.join_apply,
-      ``Lean.Order.himp_apply,
-      ``Lean.Order.top_apply,
-      ``Lean.Order.bot_apply,
-      ``Lean.Order.CompleteLattice.ofProp_apply,
-      ``Lean.Order.iInf_apply,
-      ``Lean.Order.iSup_apply,
-      ``Lean.Order.meet_prop_eq_and,
-      ``Lean.Order.join_prop_eq_or,
-      ``Lean.Order.himp_prop_eq_imp,
-      ``Lean.Order.top_prop_eq,
-      ``Lean.Order.bot_prop_eq,
-      ``Lean.Order.ofProp_prop_eq,
-      ``Lean.Order.iInf_prop_eq_forall,
-      ``Lean.Order.iSup_prop_eq_exists,
-      ``Lean.Order.le_prop_eq_imp
-    ] do
-      theorems ← theorems.addConst declName
-    let ctx ← Simp.mkContext
-      (config := { failIfUnchanged := false })
-      (simpTheorems := #[theorems])
-    let (result, _) ← simpGoal goal ctx
-      (fvarIdsToSimp := (← getLCtx).getFVarIds)
-    match result with
-    | none => return []
-    | some (_, goal) => return [goal]
-
-private def processNamedVCs (goals : List MVarId) : SymM (List MVarId) := do
-  let goals ← goals.flatMapM fun goal => liftMetaM (normalizePropLattice goal)
-  let goals ← goals.flatMapM Named.processHyp
-  goals.flatMapM processNamedGoals
-
-/--
-Expose names that became reachable after simplifying or splitting matches.
-Named hypotheses are unwrapped and renamed; named conjunctions of verification
-conditions are split; named targets are unwrapped and assigned matching case
-tags.
--/
-elab "name_vcs" : tactic => do
-  setGoals (← liftMetaM <| SymM.run <| processNamedVCs (← getGoals))
-
-elab "vcgen' " "[" args:term,* "]" _with:(" with " ident)? : tactic => do
-  let simpArgs ← args.getElems.mapM fun arg =>
-    `(Lean.Parser.Tactic.simpLemma| $arg:term)
-  evalTactic (← `(tactic| vcgen [$(Syntax.TSepArray.ofElems simpArgs),*]))
-  setGoals (← liftMetaM <| SymM.run <| processNamedVCs (← getGoals))

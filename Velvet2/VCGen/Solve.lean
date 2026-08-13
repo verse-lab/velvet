@@ -168,20 +168,31 @@ private def stripMeetTopPre? (goal : MVarId) (pre : Expr) : VCGenM (Option MVarI
     | throwError "Failed to cancel the `⊓ ⊤` precondition of {goal}"
   return some g
 
+/-- Apply a precondition-introduction rule and introduce its proposition through Velvet's
+Named-aware symbolic introduction path. This runs before the goal returns to the worklist and
+before Grind internalizes the fresh declaration. -/
+private def introPreNamed (rule : BackwardRule) (goal : MVarId) : VCGenM (MVarId × FVarId) := do
+  let .goals [goal] ← rule.applyChecked goal
+    | throwError "Failed to apply precondition intro rule to {goal}"
+  let goal ← _root_.Velvet2.VCGen.introsHygienic goal
+  let some decl := (← goal.withContext getLCtx).lastDecl
+    | throwError "Failed to intro the lifted precondition of {goal}"
+  return (goal, decl.fvarId)
+
 /-- Strategy 5: lift an embedded pure precondition `⌜φ⌝` into the local context, leaving `⊤`
 as the residual precondition. Runs before state-argument introduction, which would otherwise
 leave `⌜φ⌝` applied to the introduced arguments. Returns the new goal and the hypothesis. -/
 private def ofPropPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
   let_expr CompleteLattice.ofProp _l _inst φ := pre | return none
   if φ.isTrue then return none
-  return some (← introPre (← read).backwardRules.ofPropPreIntro goal)
+  return some (← introPreNamed (← read).backwardRules.ofPropPreIntro goal)
 
 /-- Strategy 5: lift the pure `φ` of a `⌜φ⌝ ⊓ P` precondition into the local context, leaving
 `P ⊑ rhs`. -/
 private def ofPropMeetPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
   let_expr Lean.Order.meet _l _inst lhs _rest := pre | return none
   let_expr CompleteLattice.ofProp _l' _inst' _φ := lhs | return none
-  return some (← introPre (← read).backwardRules.ofPropMeetPreIntro goal)
+  return some (← introPreNamed (← read).backwardRules.ofPropMeetPreIntro goal)
 
 /-- Strategy 5: eliminate an `iSup` precondition via `iSup_le`, leaving the pointwise entailment
 `∀ i, P i ⊑ rhs` for `∀`-introduction. -/
@@ -204,35 +215,24 @@ private def splitPropAndLe? (goal : MVarId) (α rhs : Expr) : VCGenM (Option (Li
   let .goals goals ← rule.applyChecked goal | return none
   return some goals
 
-/-- Backward rule used by `namedAndPreIntro?`: peel the left side of a conjunction from a bare
-`Prop` precondition while retaining the remainder as the residual precondition. -/
-private theorem namedAndPreIntroRule (p q rhs : Prop) :
-    (p → q ⊑ rhs) → (p ∧ q) ⊑ rhs :=
-  fun h hpq => h hpq.1 hpq.2
-
-/-- Peel one outer Named conjunct from a bare `Prop` precondition. For example,
-`(⟪a : A⟫ ∧ rest) ⊑ rhs` becomes `⟪a : A⟫ → rest ⊑ rhs`. The Named wrapper remains on the
-new binder so the regular forall-introduction pass assigns its user-facing name on the next
-worklist iteration. -/
-private def namedAndPreIntro? (goal : MVarId) (α pre : Expr) : VCGenM (Option MVarId) := do
-  unless α.isProp do return none
-  let_expr And lhs _rest := pre | return none
-  let some _ ← Named.extract? lhs | return none
-  let rule ← mkBackwardRuleFromDecl ``namedAndPreIntroRule
-  let .goals [g] ← rule.applyChecked goal
-    | throwError "Failed to peel the Named conjunction precondition of {goal}"
-  return some g
-
-/-- Definitionally normalize only the precondition operand of an entailment, leaving the RHS
-untouched. Returning to the worklist after this step lets the ordinary Named-conjunction strategy
-peel the newly exposed conjunction one component at a time. -/
+/-- Definitionally normalize generated concrete control flow in only the precondition operand.
+This exposes a selected loop branch before structural precondition rules run, without touching the
+RHS or rebuilding Grind state. -/
 private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVarId) := do
-  let pre' ← match ← Sym.simp pre (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
-    | .rfl .. => return none
-    | .step pre' _ .. => pure pre'
+  let .step pre' h .. ← Sym.simp pre (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods)
+    | return none
   let args := target.getAppArgs
-  let target' ← mkAppNS target.getAppFn (args.set! (args.size - 2) pre')
-  return some (← goal.replaceTargetDefEqFast target')
+  let preIdx := args.size - 2
+  let target' ← mkAppNS target.getAppFn (args.set! preIdx pre')
+  let some α := args[0]? | return none
+  let some inst := args[1]? | return none
+  let some rhs := args[3]? | return none
+  let uα ← Sym.getLevel α
+  -- `fun p => p ⊑ rhs`; use a bound variable so every operand remains a valid shared Sym term.
+  let congrFn := Expr.lam `pre α (mkApp4 target.getAppFn α inst (.bvar 0) rhs) .default
+  let targetEq := mkApp6 (mkConst ``congrArg [uα, .succ .zero])
+    α (mkSort .zero) pre pre' congrFn h
+  return some (← goal.replaceTargetEq target' targetEq)
 
 /-- Strategy 7: move a bare `Prop` precondition `φ ⊑ rhs` into the local context via
 `le_of_imp_top_le`, leaving `⊤ ⊑ rhs`. Runs after `True` and `⊤` preconditions are handled, so
@@ -269,23 +269,33 @@ introduce excess state arguments; drop a `True` precondition; lift a bare `Prop`
 Returns the updated scope, recording any lifted hypothesis. -/
 private def normalizePre? (scope : VCGen.Scope) (goal : MVarId) (α pre target : Expr) :
     VCGenM (Option (VCGen.Scope × List MVarId)) := do
+  trace[Elab.Tactic.Do.vcgen]
+    "🔎 normalizePre?: carrier:{indentExpr α}\nprecondition:{indentExpr pre}"
   if let some g ← reducePre? goal pre target then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected reducePre?"
     return some (scope, [g])
   if let some g ← stripMeetTopPre? goal pre then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected stripMeetTopPre?"
     return some (scope, [g])
   if let some (g, h) ← ofPropPreIntro? goal pre then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected ofPropPreIntro?"
     return some ({ scope with lastLiftedPre? := some h }, [g])
   if let some (g, h) ← ofPropMeetPreIntro? goal pre then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected ofPropMeetPreIntro?"
     return some ({ scope with lastLiftedPre? := some h }, [g])
   if let some g ← iSupPreIntro? goal pre then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected iSupPreIntro?"
     return some (scope, [g])
-  if let some goal' ← introsExcessArgs goal then return some (scope, [goal'])
+  if let some goal' ← introsExcessArgs goal then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected introsExcessArgs"
+    return some (scope, [goal'])
   if let some gs ← normalizePreToTop? goal pre target then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected normalizePreToTop?"
     return some (scope, gs)
-  if let some g ← namedAndPreIntro? goal α pre then
-    return some (scope, [g])
   if let some (g, h) ← barePreIntro? goal α pre then
+    trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: selected barePreIntro?"
     return some ({ scope with lastLiftedPre? := some h }, [g])
+  trace[Elab.Tactic.Do.vcgen] "🔎 normalizePre?: no strategy matched"
   return none
 
 /-- Replace the program in `goal`'s target with `prog` (which must be definitionally equal). -/

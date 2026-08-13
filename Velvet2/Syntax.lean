@@ -217,12 +217,12 @@ elab_rules : command
 
 macro_rules
   | `(doElem| for' $pat:term in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) => do
-  let invs' ← mkPropList invs (optionalIdentNames ns) "invariant"
+  let invs' ← mkAssertionList invs (optionalIdentNames ns) "invariant"
   let doneTerm ← match done with
     | some done => pure done
     | none => `(True)
   let doneName := hDone.join.map (·.getId) |>.getD `h_done_with
-  let done' ← mkPropList #[doneTerm] #[some doneName] "done_with"
+  let done' ← mkAssertionList #[doneTerm] #[some doneName] "done_with"
   let pref := Lean.mkIdent `__pref
   let suff := Lean.mkIdent `__suff
   let cursorInv ← `(term|
@@ -234,13 +234,13 @@ macro_rules
   let defaultLoopIdent := mkIdent `h_loop
   let loopIdent := hcond.getD defaultLoopIdent
   let invNames := optionalIdentNames ns
-  let invs' ← mkPropList invs invNames "invariant"
+  let invs' ← mkAssertionList invs invNames "invariant"
   let defaultDoneWith : TSyntax `term ← withRef cond do `(¬ $cond)
   let doneWith := d.getD defaultDoneWith
   let doneWithName := match h_done.join with
     | some id => id.getId
     | none => `h_done_with
-  let exitedInvs ← mkPropList (invs.push doneWith) (invNames.push (some doneWithName)) "invariant"
+  let exitedInvs ← mkAssertionList (invs.push doneWith) (invNames.push (some doneWithName)) "invariant"
   let measureName := hm.map (·.getId) |>.getD `decreasing
   let measureNameStr := Lean.Syntax.mkStrLit measureName.toString
   let measureNameTerm : TSyntax `term ←

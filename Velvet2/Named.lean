@@ -2,27 +2,75 @@ module
 
 prelude
 public import Lean.Elab.Tactic.Basic
+public meta import Lean.Elab.Term.TermElabM
 public import Lean.Meta.Tactic.Cases
 public import Lean.Meta.Tactic.Rename
 public import Lean.Meta.Tactic.Replace
-public import Lean.Meta.Sym.SymM
+public meta import Lean.Meta.Sym.SymM
+public import Std.Internal.Do.Order.Basic
 
-open Lean Meta Elab Lean.Meta.Sym
+open Lean Meta Elab Term Lean.Meta.Sym
 
 namespace Named
 
-/--
-Attach a user-facing name and source syntax to a value without changing its
-denotation. Verification tooling can inspect the wrapper before unfolding it.
--/
+/-- Attach a user-facing name and source syntax without changing a value's denotation. -/
 @[expose, grind .]
-public def mk {α : Sort u} (_name : Name) (_stx : Option Syntax) (value : α) : α :=
-  value
+public def mk {α : Sort u} (_name : Name) (_stx : Option Syntax) (value : α) : α := value
 
-/-- Local proof rule for explicitly removing a `Named.mk` wrapper without making it a global simp
-normalization rule. -/
 public theorem mk_eq {α : Sort u} (name : Name) (stx : Option Syntax) (value : α) :
     mk name stx value = value := rfl
+
+/-- Internal syntax used by loop-annotation generation. It inserts `CompleteLattice.ofProp` at the
+`Prop` leaf of an assertion, recursively underneath function binders. -/
+syntax (name := namedLoopClause) "named_loop_clause%[" term ", " term "] " term:max : term
+
+private meta partial def liftLoopClause (name stx value type : Expr) : TermElabM Expr := do
+  let type ← whnf type
+  if type.isProp then
+    let named ← mkAppM ``Named.mk #[name, stx, value]
+    let inst := Lean.mkConst ``Lean.Order.instCompleteLatticeProp_std
+    return mkApp3 (Lean.mkConst ``Lean.Order.CompleteLattice.ofProp [0]) (mkSort 0) inst named
+  match type with
+  | .forallE binderName domain body binderInfo =>
+      withLocalDecl binderName binderInfo domain fun x => do
+        let lifted ← liftLoopClause name stx (mkApp value x) (body.instantiate1 x)
+        mkLambdaFVars #[x] lifted
+  | _ =>
+      throwError "named loop assertion must return Prop, but has type{indentExpr type}"
+
+@[term_elab namedLoopClause]
+public meta def elabNamedLoopClause : TermElab := fun stx expectedType? => do
+  let `(named_loop_clause%[$nameStx, $sourceStx] $valueStx) := stx | throwUnsupportedSyntax
+  let name ← elabTerm nameStx none
+  let source ← elabTerm sourceStx none
+  let value ← elabTerm valueStx expectedType?
+  liftLoopClause name source value (← inferType value)
+
+/-- Internal pointwise meet used by loop-annotation generation. -/
+syntax (name := assertionMeet) "assertion_meet%[" term ", " term "]" : term
+
+private meta partial def meetAssertions (lhs rhs type : Expr) : TermElabM Expr := do
+  let type ← whnf type
+  if type.isProp then
+    let inst := Lean.mkConst ``Lean.Order.instCompleteLatticeProp_std
+    return mkApp4 (Lean.mkConst ``Lean.Order.meet [0]) (mkSort 0) inst lhs rhs
+  match type with
+  | .forallE binderName domain body binderInfo =>
+      withLocalDecl binderName binderInfo domain fun x => do
+        let lhs := (mkApp lhs x).headBeta
+        let rhs := (mkApp rhs x).headBeta
+        let meet ← meetAssertions lhs rhs (body.instantiate1 x)
+        mkLambdaFVars #[x] meet
+  | _ =>
+      throwError "loop assertion meet must return Prop, but has type{indentExpr type}"
+
+@[term_elab assertionMeet]
+public meta def elabAssertionMeet : TermElab := fun stx expectedType? => do
+  let `(assertion_meet%[$lhsStx, $rhsStx]) := stx | throwUnsupportedSyntax
+  let lhs ← elabTerm lhsStx expectedType?
+  let lhsType ← inferType lhs
+  let rhs ← elabTermEnsuringType rhsStx lhsType
+  meetAssertions lhs rhs lhsType
 
 /-- A named natural-number measure used to formulate decreasing obligations. -/
 public structure Measure where
@@ -30,7 +78,7 @@ public structure Measure where
   stx : Option Syntax
   value : Nat
 
-/-- Compact output syntax used by the `Named.mk` unexpander. -/
+/-- Compact output syntax used by the named-assertion unexpander. -/
 syntax:max "⟪" ident " : " term "⟫" : term
 
 /-- Attach a name and captured source syntax to a value. -/
@@ -46,7 +94,7 @@ macro_rules
         (some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
         $value)
 
-/-- Pretty-print `Named.mk` applications as `⟪name : value⟫`. -/
+/-- Pretty-print named proposition atoms as `⟪name : value⟫`. -/
 @[app_unexpander Named.mk, app_unexpander Named.Measure.mk]
 public meta def unexpandMk : Lean.PrettyPrinter.Unexpander
   | `($(_) $name $_stx $value) => do
@@ -64,10 +112,8 @@ public meta def unexpandMk : Lean.PrettyPrinter.Unexpander
       `(⟪ $ident : $value ⟫)
   | _ => throw ()
 
-/-- Extract the outer `Named.mk` annotation, following an application spine. -/
+/-- Extract a named proposition atom, following an application spine. -/
 public partial def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
-  -- We expect already instantiated..
-  /- let type ← instantiateMVars type -/
   match_expr type with
   | Named.mk _α name _stx value =>
       let some name := name.name?
@@ -85,7 +131,7 @@ public partial def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
 
 /-- Whether an expression is a named value or an `And` tree containing one. -/
 public partial def contains (type : Expr) : Bool :=
-  if type.isAppOf ``Named.mk then
+  if type.getAppFn.isConstOf ``Named.mk then
     true
   else if type.isAppOfArity ``And 2 then
     contains (type.getArg! 0) || contains (type.getArg! 1)
@@ -95,7 +141,7 @@ public partial def contains (type : Expr) : Bool :=
     | _ => false
 
 /--
-Unwrap and name every `Named.mk ... p` proposition in a goal's hypotheses.
+Unwrap and name every named proposition in a goal's hypotheses.
 Structural conjunctions are split only when they contain named propositions.
 -/
 public partial def processHyp (goal : MVarId) : SymM (List MVarId) :=
@@ -121,7 +167,7 @@ public partial def processHyp (goal : MVarId) : SymM (List MVarId) :=
     return [goal]
 
 /--
-Unwrap a `Named.mk ... p` target, changing it to `p` and setting the goal's case
+Unwrap a named target, changing it to its proposition and setting the goal's case
 tag to the encoded name.
 -/
 public def processGoal (goal : MVarId) : SymM (List MVarId) :=
@@ -158,6 +204,30 @@ public def mkPropList (ts : Array (TSyntax `term)) (names : Array (Option Name) 
     let mut result ← named lastIdx
     for i in List.range lastIdx |>.reverse do
       result ← `($(← named i) ∧ $result)
+    return result
+
+/-- Build a lattice meet tree whose leaves are individually named assertions. Unlike `mkPropList`,
+this supports function-valued assertion languages such as StateT and ReaderT predicates. -/
+public def mkAssertionList (ts : Array (TSyntax `term)) (names : Array (Option Name) := #[])
+    (pfx : String := "clause") : MacroM (TSyntax `term) := do
+  if ts.isEmpty then
+    let top := mkIdent ``Lean.Order.top
+    `(term| $top)
+  else
+    let named (i : Nat) : MacroM (TSyntax `term) := do
+      let name := match names[i]? with
+        | some (some name) => name.toString
+        | _ => s!"{pfx}{i + 1}"
+      let nameStr := Lean.Syntax.mkStrLit name
+      let nameTerm ← `(Lean.Name.mkSimple $nameStr)
+      let text := ts[i]!.raw.reprint.getD (toString (ts[i]!.raw.formatStx))
+      let textStr := Lean.Syntax.mkStrLit text
+      let stxTerm ← `(some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
+      `(named_loop_clause%[$nameTerm, $stxTerm] $(ts[i]!))
+    let lastIdx := ts.size - 1
+    let mut result ← named lastIdx
+    for i in List.range lastIdx |>.reverse do
+      result ← `(assertion_meet%[$(← named i), $result])
     return result
 
 end Named

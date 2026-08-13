@@ -30,9 +30,21 @@ private theorem prodSndMk {α : Type u} {β : Type v} (a : α) (b : β) :
 /-- Narrow methods for simplifying generated concrete control flow and projections. -/
 public def mkGeneratedControlSimpMethods : MetaM Sym.Simp.Methods := do
   let mut thms : Sym.Simp.Theorems := {}
-  for declName in #[``Sum.isRight_inl, ``Sum.isRight_inr, ``prodFstMk, ``prodSndMk] do
+  for declName in #[``Sum.isRight_inl, ``Sum.isRight_inr, ``prodFstMk, ``prodSndMk,
+      ``true_and, ``and_true,
+      ``Lean.Order.CompleteLattice.ofProp_apply_1,
+      ``Lean.Order.CompleteLattice.ofProp_apply_2,
+      ``Lean.Order.CompleteLattice.ofProp_apply_3,
+      ``Lean.Order.CompleteLattice.ofProp_apply_4,
+      ``Lean.Order.CompleteLattice.ofProp_apply_5] do
     thms := thms.insert (← Sym.Simp.mkTheoremFromDecl declName)
-  return { pre := Sym.Simp.simpControl, post := Sym.Simp.evalGround >> thms.rewrite }
+  return {
+    pre := fun e => do
+      let e' := e.headBeta
+      if isSameExpr e e' then Sym.Simp.simpControl e else
+        return .step e' (← mkAppM ``Eq.refl #[e']) (done := false)
+    post := Sym.Simp.evalGround >> thms.rewrite
+  }
 
 /--
 Introduce all leading binders of `goal` in one pass, naming the `i`-th binder `overrides[i]` when

@@ -1,6 +1,6 @@
 import Velvet2.Syntax
 import Velvet2.Tactics
-import Velvet2.VCGen'.Frontend
+import Velvet2.VCGen.Frontend
 
 open Std.Internal.Do
 
@@ -28,11 +28,7 @@ theorem countState_correct (n : Nat) :
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
       (⟨⟩ : EPost.Nil) := by
-  vcgen' [countState]
-  all_goals try simp_all
-  name_vcs
-  all_goals try simp_all
-  all_goals omega
+  vcgen_ [countState] with try finish
 
 /-- A `StateT Nat Option` program with assertions before and after mutation. -/
 def boundedIncrement (limit : Nat) : CounterOption Nat := do
@@ -47,8 +43,7 @@ theorem boundedIncrement_correct (limit : Nat) :
       (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1)
       True := by
-  vcgen' [boundedIncrement]
-  all_goals simp_all
+  vcgen_ [boundedIncrement] with finish
 
 /-- A finite-range loop over `StateT Nat Option`. -/
 def countRange (n : Nat) : CounterOption Nat := do
@@ -67,7 +62,7 @@ theorem countRange_correct (n : Nat) :
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
       True := by
-  vcgen' [countRange]
+  vcgen_ [countRange] with try finish
   case range_done =>
     rename_i initial h
     have hl := congrArg List.length h
@@ -78,7 +73,6 @@ theorem countRange_correct (n : Nat) :
     have hc := congrArg (fun xs => xs[0]?) h
     simp [Std.Rco.getElem?_toList_eq] at hc
     simp_all
-  case vc3 => simp_all
   case range_done =>
     rename_i initial pref current h b state
     have hl := congrArg List.length h
@@ -107,9 +101,8 @@ theorem checkedAdd_correct (delta : Nat) :
       (fun _ => True)
       (fun current s => s = current + delta)
       (⟨fun _ : String => True, True⟩ : EPost.Cons (String → Prop) Prop) := by
-  vcgen' [checkedAdd]
-  all_goals try simp_all
-  all_goals omega
+  vcgen_ [checkedAdd] with finish
+
 
 /-- A stateful loop that either reaches `target` or throws at `blocked`. -/
 def countUnlessBlocked (target blocked : Nat) : CounterExceptOption Nat := do
@@ -136,11 +129,7 @@ theorem countUnlessBlocked_correct (target blocked : Nat) :
       (fun result state => result = target ∧ state = target)
       (⟨fun error : String => error = "blocked", True⟩ :
         EPost.Cons (String → Prop) Prop) := by
-  vcgen' [countUnlessBlocked]
-  all_goals try simp_all
-  name_vcs
-  all_goals try simp_all
-  all_goals omega
+  vcgen_ [countUnlessBlocked] with finish
 
 /-- `StateT` outside `ReaderT`; assertions have shape `Nat → Nat → Prop`. -/
 abbrev ReaderCounter := StateT Nat (ReaderT Nat Id)
@@ -169,11 +158,7 @@ theorem countToReaderLimit_correct :
       (fun state limit => state ≤ limit)
       (fun result state limit => result = limit ∧ state = limit)
       (⟨⟩ : EPost.Nil) := by
-  vcgen' [countToReaderLimit]
-  all_goals try simp_all
-  name_vcs
-  all_goals try simp_all
-  all_goals omega
+  vcgen_ [countToReaderLimit] with finish
 
 /-- The triangular number `0 + 1 + ... + n`. -/
 def triangular : Nat → Nat
@@ -211,19 +196,12 @@ theorem addToReaderLimit_correct :
       (fun initial final limit =>
         initial ≤ limit ∧ final = initial + triangular limit)
       (⟨⟩ : EPost.Nil) := by
-  vcgen' [addToReaderLimit]
+  vcgen_ [addToReaderLimit] with try finish
   all_goals try simp_all [triangular]
-  name_vcs
   all_goals try simp_all
-  case additions_remaining => omega
   case accumulated_sum =>
     constructor
     · simp [Nat.add_assoc]
     · omega
-  case all_added =>
-    rename_i initial limit pre i state environment stopped
-    have hi : i = limit := by omega
-    subst i
-    simp
 
 end Velvet2.Examples.StateT

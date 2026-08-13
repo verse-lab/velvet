@@ -78,7 +78,7 @@ theorem forInLoopWithNamedInvariantAndVariant
     intro h
     subst mb
     have natRel (a b : Nat) : WellFoundedRelation.rel a b = (a < b) := rfl
-    simpa [Named.mk, loopMeasure,
+    simpa [Named.mk_eq, loopMeasure,
       Std.Internal.Do.RepeatVariant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
   unfold Std.Internal.Do.Gadget.forInLoopWithInvariantAndVariant
   exact Std.Internal.Do.Spec.forIn_loop loopMeasure inv einv step'

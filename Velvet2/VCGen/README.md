@@ -12,7 +12,5 @@ Their upstream location is
 unchanged except for the internal module edges: `Driver.lean` imports
 `Velvet2.VCGen.Solve`, and `Frontend.lean` imports `Velvet2.VCGen.Driver`.
 
-Unlike `Velvet2/VCGen'`, this copy keeps the upstream
-`Lean.Elab.Tactic.Do.Internal.VCGen` namespace and the upstream `vcgen` tactic
-name. Import `Velvet2.VCGen.Frontend` in place of Lean's internal frontend; do
-not import both frontend modules into the same module.
+This copy keeps the upstream `Lean.Elab.Tactic.Do.Internal.VCGen` namespace and
+exposes the bundled frontend as `vcgen_`. Import `Velvet2.VCGen.Frontend` to use it.
