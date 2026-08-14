@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# generate_vcgen_diff — write per-file diffs of this repo's Velvet2/VCGen
+# against the Lean toolchain's copy.
+#
+# Usage:
+#   generate_vcgen_diff [--full] [toolchain]
+#     --full    show the whole file (don't trim unchanged lines)
+#     toolchain # elan dir name, e.g. leanprover--lean4-nightly---nightly-2026-08-11
+#               # or a full path to a toolchain root; defaults to the active one
+#
+# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util.
+set -euo pipefail
+
+# Resolve the real location of this script (follow symlinks) so it works
+# even when invoked through a symlink on $PATH.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+REPO_ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+VCGEN_DIR="$REPO_ROOT/Velvet2/VCGen"
+DIFF_DIR="$REPO_ROOT/diffs"
+
+# Parse arguments: optional --full flag and/or a toolchain name/path.
+FULL=0
+TOOLCHAIN=""
+for arg in "$@"; do
+  case "$arg" in
+    --full|-f) FULL=1;;
+    *) TOOLCHAIN="$arg";;
+  esac
+done
+
+# Resolve the toolchain root.
+if [[ -z "$TOOLCHAIN" ]]; then
+  LEAN_BIN="$(elan which lean 2>/dev/null)" || {
+    echo "error: couldn't resolve active toolchain. Pass a toolchain name/path as an argument." >&2
+    exit 1
+  }
+  TOOLCHAIN="$(cd "$(dirname "$LEAN_BIN")/.." && pwd)"
+elif [[ ! -d "$TOOLCHAIN" ]]; then
+  TOOLCHAIN="$HOME/.elan/toolchains/$TOOLCHAIN"
+fi
+
+SRC="$TOOLCHAIN/src/lean/Lean/Elab/Tactic/Do/Internal/VCGen"
+[[ -d "$SRC" ]] || { echo "error: VCGen sources not found at $SRC" >&2; exit 1; }
+
+mkdir -p "$DIFF_DIR"
+
+for f in Driver Solve Frontend Util; do
+  src="$SRC/$f.lean"
+  dst="$VCGEN_DIR/$f.lean"
+  [[ -f "$src" ]] || { echo "warning: missing $src" >&2; continue; }
+  [[ -f "$dst" ]] || { echo "warning: missing $dst" >&2; continue; }
+
+  out="$DIFF_DIR/$f.diff"
+  if [[ $FULL -eq 1 ]]; then
+    CONTEXT=100000   # effectively the whole file
+  else
+    CONTEXT=3
+  fi
+  rc=0
+  diff -u -U "$CONTEXT" \
+    --label "a/Lean/Elab/Tactic/Do/Internal/VCGen/$f.lean" \
+    --label "b/Velvet2/VCGen/$f.lean" \
+    "$src" "$dst" > "$out" || rc=$?
+
+  case $rc in
+    0) echo "wrote $out (no differences)";;
+    1) echo "wrote $out ($(wc -l < "$out" | tr -d ' ') lines)";;
+    *) echo "error: diff failed for $f (exit $rc)" >&2; rm -f "$out";;
+  esac
+done

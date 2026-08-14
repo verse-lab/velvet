@@ -168,10 +168,8 @@ private def stripMeetTopPre? (goal : MVarId) (pre : Expr) : VCGenM (Option MVarI
     | throwError "Failed to cancel the `⊓ ⊤` precondition of {goal}"
   return some g
 
-/-- Apply a precondition-introduction rule and introduce its proposition through Velvet's
-Named-aware symbolic introduction path. This runs before the goal returns to the worklist and
-before Grind internalizes the fresh declaration. -/
-private def introPreNamed (rule : BackwardRule) (goal : MVarId) : VCGenM (MVarId × FVarId) := do
+-- This is basically introPre from Stdlib (in VCGen/Entails.lean) but the only difference is that we call our own introsHygienic
+private def introPre' (rule : BackwardRule) (goal : MVarId) : VCGenM (MVarId × FVarId) := do
   let .goals [goal] ← rule.applyChecked goal
     | throwError "Failed to apply precondition intro rule to {goal}"
   let goal ← _root_.Velvet2.VCGen.introsHygienic goal
@@ -185,14 +183,14 @@ leave `⌜φ⌝` applied to the introduced arguments. Returns the new goal and t
 private def ofPropPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
   let_expr CompleteLattice.ofProp _l _inst φ := pre | return none
   if φ.isTrue then return none
-  return some (← introPreNamed (← read).backwardRules.ofPropPreIntro goal)
+  return some (← introPre' (← read).backwardRules.ofPropPreIntro goal)
 
 /-- Strategy 5: lift the pure `φ` of a `⌜φ⌝ ⊓ P` precondition into the local context, leaving
 `P ⊑ rhs`. -/
 private def ofPropMeetPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
   let_expr Lean.Order.meet _l _inst lhs _rest := pre | return none
   let_expr CompleteLattice.ofProp _l' _inst' _φ := lhs | return none
-  return some (← introPreNamed (← read).backwardRules.ofPropMeetPreIntro goal)
+  return some (← introPre' (← read).backwardRules.ofPropMeetPreIntro goal)
 
 /-- Strategy 5: eliminate an `iSup` precondition via `iSup_le`, leaving the pointwise entailment
 `∀ i, P i ⊑ rhs` for `∀`-introduction. -/
@@ -202,22 +200,12 @@ private def iSupPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option MVarId) 
     | throwError "Failed to eliminate the `iSup` precondition of {goal}"
   return some g
 
-/-- Backward rule used by `splitPropAndLe?`: split a syntactic `And` on the RHS of a bare
-`Prop` entailment. `splitLatticeOp?` handles `Lean.Order.meet`, but generated invariants use the
-ordinary `And` constructor directly. -/
-private theorem propLeAndRule (p q r : Prop) :
-    p ⊑ q → p ⊑ r → p ⊑ (q ∧ r) :=
-  fun hq hr hp => ⟨hq hp, hr hp⟩
 
-private def splitPropAndLe? (goal : MVarId) (α rhs : Expr) : VCGenM (Option (List MVarId)) := do
-  unless α.isProp && rhs.isAppOfArity ``And 2 do return none
-  let rule ← mkBackwardRuleFromDecl ``propLeAndRule
-  let .goals goals ← rule.applyChecked goal | return none
-  return some goals
-
-/-- Definitionally normalize generated concrete control flow in only the precondition operand.
-This exposes a selected loop branch before structural precondition rules run, without touching the
-RHS or rebuilding Grind state. -/
+/-- Selectively normalize the precondition operand of `pre ⊑ rhs`: simplify generated concrete
+control flow (e.g. `(inl a).isRight ↦ false`, `(a, b).fst ↦ a`) to expose a selected loop branch,
+and collapse applied pure embeddings `(⌜p⌝ : σ₁ → σ₂ → Prop) s₁ s₂ ↦ p`. Each step's equality proof
+is transported through the entailment with `congrArg`/`replaceTargetEq` (not defEq — `ofProp_apply`
+is propositional), leaving the RHS and Grind state untouched. -/
 private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVarId) := do
   let .step pre' h .. ← Sym.simp pre (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods)
     | return none
@@ -610,7 +598,6 @@ public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := g
   -- Phase 3: shape the `rhs` (reduce an EPost projection, decompose a lattice connective or a
   -- forall, then discharge a residual entailment against the lifted hypothesis).
   if let some g ← reduceEPostHead? goal target α inst pre rhs then return .goals scope [g]
-  if let some gs ← splitPropAndLe? goal α rhs then return .goals scope gs
   if let some gs ← splitLatticeOp? goal rhs then return .goals scope gs
   if let some gs ← splitForallLe? goal rhs then return .goals scope gs
   if let some gs ← liftedHyp? scope goal α pre rhs then return .goals scope gs

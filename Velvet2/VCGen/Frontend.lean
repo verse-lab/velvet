@@ -190,6 +190,7 @@ program type is returned, so deep embeddings key on their own head. Returns `non
 exposes no program. -/
 public meta def inferProgType? (goalType : Expr) : MetaM (Option Expr) := withReducible do
   forallTelescopeReducing goalType fun _ body => do
+    let body := body.consumeMData
     let progTy? : Option Expr :=
       if let some info := isWPApp? body then
         some info.Prog
@@ -280,14 +281,10 @@ elaborator; we replicate that check here).
 -/
 private meta def parseInvariantMap (stx : Syntax) :
     TermElabM (Option (Std.HashMap Nat Syntax)) := do
-  let some altsStx := stx.getOptional? | do
-    trace[Elab.Tactic.Do.vcgen] "🧩 Frontend: no explicit `invariants` alternatives"
-    return none
+  let some altsStx := stx.getOptional? | return none
   -- The `invariants?` (suggest) form is handled separately by upstream's `elabInvariants`.
   match altsStx with
-  | `(invariantAlts| invariants? $_*) =>
-      trace[Elab.Tactic.Do.vcgen] "🧩 Frontend: `invariants?` suggestion mode"
-      return none
+  | `(invariantAlts| invariants? $_*) => return none
   | _ => pure ()
   let stx' : TSyntax ``invariantAlts := ⟨altsStx⟩
   match stx' with
@@ -298,14 +295,12 @@ private meta def parseInvariantMap (stx : Syntax) :
     for h : i in 0...alts.size do
       let alt := alts[i]
       match alt with
-      | `(invariantDotAlt| · $rhs) =>
+      | `(invariantDotAlt| · $_rhs) =>
         if dotOrCase matches .false then
           throwErrorAt alt "Alternation between labelled and bulleted invariants is not supported."
         dotOrCase := .true
         map := map.insert (i + 1) alt
-        trace[Elab.Tactic.Do.vcgen]
-          "🧩 Frontend: mapped positional alternative {i + 1} to inv{i + 1}: {rhs}"
-      | `(invariantCaseAlt| | $tag $_args* => $rhs) =>
+      | `(invariantCaseAlt| | $tag $_args* => $_rhs) =>
         if dotOrCase matches .true then
           throwErrorAt alt "Alternation between labelled and bulleted invariants is not supported."
         dotOrCase := .false
@@ -317,8 +312,6 @@ private meta def parseInvariantMap (stx : Syntax) :
         if map.contains n then
           throwErrorAt tag s!"Duplicate invariant alternative for `inv{n}`."
         map := map.insert n alt
-        trace[Elab.Tactic.Do.vcgen]
-          "🧩 Frontend: mapped labelled alternative `{tag}` to inv{n}: {rhs}"
       | _ => throwErrorAt alt "Expected `invariantDotAlt` or `invariantCaseAlt`."
     return some map
   | _ => return none
@@ -332,22 +325,13 @@ elaborated inline by `Driver.emitVC` (tracked in `inlineHandled`) are skipped, s
 we don't warn about alts that were already consumed there. -/
 private meta def elabRemainingInvariants (alts : Std.HashMap Nat Syntax)
     (invariants : Array MVarId) (inlineHandled : Std.HashSet Nat) : SymM Unit := do
-  trace[Elab.Tactic.Do.vcgen]
-    "🧩 Frontend post-pass: {invariants.size} invariant subgoal(s), {inlineHandled.size} handled eagerly"
   let mut handled := inlineHandled
   for h : i in 0...invariants.size do
     let n := i + 1
-    if handled.contains n then
-      trace[Elab.Tactic.Do.vcgen] "   inv{n}: skipping; already handled eagerly"
-      continue
-    let some _alt := alts[n]? | do
-      trace[Elab.Tactic.Do.vcgen] "   inv{n}: no user alternative in the post-pass"
-      continue
+    if handled.contains n then continue
+    let some _alt := alts[n]? | continue
     handled := handled.insert n
-    trace[Elab.Tactic.Do.vcgen] "   inv{n}: trying user alternative in the post-pass"
-    let success ← VCGen.elabInvariant alts n invariants[i]
-    trace[Elab.Tactic.Do.vcgen]
-      if success then "   ✓ post-pass assigned the invariant" else "   ✗ post-pass left the invariant open"
+    discard <| VCGen.elabInvariant alts n invariants[i]
   -- Warn on user-provided alts that matched no invariant goal (neither inline nor post-hoc).
   for (n, alt) in alts.toArray do
     unless handled.contains n do
@@ -472,8 +456,6 @@ public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun
   let args ← parseArgs stx goal.mvarId
   let result ← Lean.Elab.Tactic.Grind.liftGrindM do
     let result ← VCGen.run goal args.ctx args.scope args.config.stepLimit (frameDB := args.frameDB)
-    trace[Elab.Tactic.Do.vcgen]
-      "🧩 VCGen result: {result.invariants.size} invariant subgoal(s), {result.vcs.size} ordinary VC(s)"
     if let some alts := args.invariantAlts? then
       elabRemainingInvariants alts result.invariants result.inlineHandledInvariants
     return result
@@ -483,8 +465,6 @@ public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun
     runTacticM (goals := result.invariants.toList) <|
       elabInvariants stx[5] result.invariants (suggestInvariant (result.vcs.map (·.mvarId)))
   let invariants ← result.invariants.filterM (not <$> ·.isAssigned)
-  trace[Elab.Tactic.Do.vcgen]
-    "🧩 Returning {invariants.size} still-open invariant goal(s) to the tactic state"
   let newGoals ← Lean.Elab.Tactic.Grind.liftGrindM do
     let invGoals ← invariants.toList.mapM Grind.mkGoalCore
     return invGoals ++ result.vcs.toList

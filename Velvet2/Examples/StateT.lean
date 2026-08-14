@@ -33,8 +33,6 @@ method countState (n : Nat) returns (res: Nat) in CounterOption
     set i
   return i
 
-#print countState.spec
-#print countState
 prove_correct countState.spec by
   vcgen_ [countState] with finish
 
@@ -114,7 +112,6 @@ method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption
   assert state_increased : (fun s : Nat => s = current + delta)
   return current
 
-#print checkedAdd.spec
 prove_correct checkedAdd.spec by
   vcgen_ [checkedAdd] with finish
   /- all_goals omega -/
@@ -136,7 +133,7 @@ do
     done_with reached_target : (fun s : Nat => i = target ∧ s = target)
   do
     if i = blocked then
-      throw "block"
+      throw "blocked"
     i := i + 1
     set i
   return i
@@ -147,7 +144,7 @@ On success the loop reaches `target`. Since `StateT` is outside `ExceptT`, an
 exception has no resulting state, so its postcondition observes only the error.
 -/
 prove_correct countUnlessBlocked.spec by
-  vcgen_ [countUnlessBlocked]
+  vcgen_ [countUnlessBlocked] with finish
 
 
 

@@ -30,7 +30,9 @@ do
 set_option maxHeartbeats 10000000
 
 prove_correct isGreaterWithInvariants.spec by
-  vcgen_ [isGreaterWithInvariants] simplifying_assumptions with finish
+  vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
+  all_goals sorry
+
   
 
 

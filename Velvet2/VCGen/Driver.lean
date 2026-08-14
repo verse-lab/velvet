@@ -94,8 +94,6 @@ private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := d
   let target ← instantiateMVarsS rawTarget
   let some info ← Named.extractInfo? target | return some goal
   let name := info.name
-  trace[Elab.Tactic.Do.vcgen]
-    "🏷 processNamedGoal {repr goal.mvarId}\nraw: {repr rawTarget}\npretty: {rawTarget}\ninstantiated: {target}"
   -- Refresh the metavariable itself, then simplify that exact target. Simplifying `target`
   -- separately and attaching its equality proof to the old raw target can leak context-local fvars.
   let mvarId ← preprocessMVar goal.mvarId

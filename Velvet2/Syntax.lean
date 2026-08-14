@@ -116,7 +116,6 @@ elab_rules : command
       let postBody ← liftMacroM <| mkAssertionList ens ensNames
       let sigs ← liftMacroM <| mkSignalsList sig sigNames
       let post ← `(fun $retId => $postBody)
-      logInfo m!"{sigs}"
 
       let monadStack' <-
           if monadStack.isSome then `($monadStack.get! $retType:term)
