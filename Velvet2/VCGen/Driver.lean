@@ -92,7 +92,8 @@ Returns the original goal when it is not named, and `none` when simplification c
 private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
   let rawTarget ← goal.mvarId.getType
   let target ← instantiateMVarsS rawTarget
-  let some (name, _) ← Named.extract? target | return some goal
+  let some info ← Named.extractInfo? target | return some goal
+  let name := info.name
   trace[Elab.Tactic.Do.vcgen]
     "🏷 processNamedGoal {repr goal.mvarId}\nraw: {repr rawTarget}\npretty: {rawTarget}\ninstantiated: {target}"
   -- Refresh the metavariable itself, then simplify that exact target. Simplifying `target`
@@ -112,6 +113,11 @@ private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := d
         | .closed => return none
         | .noProgress => pure mvarId
         | .goal mvarId => pure mvarId
+      let mvarId ← match info.source? with
+        | none => pure mvarId
+        | some source =>
+            let target ← mvarId.getType
+            mvarId.replaceTargetDefEqFast (Named.annotateSourceRef target source)
       mvarId.setTag name
       return some { goal with mvarId }
 

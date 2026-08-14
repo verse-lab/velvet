@@ -490,6 +490,29 @@ public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun
     return invGoals ++ result.vcs.toList
   Lean.Elab.Tactic.Grind.replaceMainGoal newGoals
 
+/-- Apply a `with` discharger to every VC produced by `vcgen_`. This is the source-aware
+counterpart of Grind's `all_goals`: goals carrying named source metadata relocate a discharger
+failure to that annotation; unannotated goals use Grind's ordinary recovery path unchanged. -/
+private meta def dischargeVCGoals (g : TSyntax `grind) : Grind.GrindTacticM Unit := do
+  let goals ← Grind.getGoals
+  let mut goalsNew := #[]
+  for goal in goals do
+    unless ← goal.mvarId.isAssigned do
+      Grind.setGoals [goal]
+      let residual ← match Named.sourceRef? (← goal.mvarId.getType) with
+        | none =>
+            -- No source metadata: preserve the discharger's default behavior exactly.
+            Grind.evalGrindTactic g
+            Grind.getUnsolvedGoals
+        | some source =>
+            try
+              Grind.evalGrindTactic g
+              Grind.getUnsolvedGoals
+            catch ex =>
+              throwErrorAt source ex.toMessageData
+      goalsNew := goalsNew ++ residual
+  Grind.setGoals goalsNew.toList
+
 /-- Validate the optional `with` clause of `vcgen`. It must be a `grind`-mode step so it can share
 `vcgen`'s internalised E-graph; the `vcgenDischarge` category's `tactic` alternative is a catch-all
 that exists only so a non-`grind` step is reported here with a helpful error rather than a raw
@@ -521,15 +544,14 @@ public meta def elabVCGenVendoredCore : Tactic := fun stx => withMainContext do
         pure (Lean.Parser.Tactic.appendConfig off cfg)
   let core ← `(grind| vcgen_%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]?)
-  let step ← match g? with
-    | some g => `(grind| $core <;> $g)
-    | none   => pure core
   let goal ← getMainGoal
   -- `clean := false` keeps inaccessible binder names (no `exposeNames`), so users can
   -- still rename them with `case vcN h => …`.
   let params ← Grind.mkDefaultParams { clean := false }
-  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) <|
-    Grind.evalGrindTactic step
+  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
+    Grind.evalGrindTactic core
+    if let some g := g? then
+      dischargeVCGoals g
   replaceMainGoal (state.goals.map (·.mvarId))
 
 
@@ -541,7 +563,12 @@ public meta def elabVCGenVendored : Tactic := fun stx => do
   try
     elabVCGenVendoredCore stx
   catch ex =>
+    -- Grind recovery may already have logged a source-relocated diagnostic before
+    -- aborting. Roll back proof-state mutations transactionally, but retain those
+    -- diagnostics just as Grind's own `all_goals` recovery does.
+    let messages ← Core.getMessageLog
     saved.restore
+    Core.setMessageLog messages
     throw ex
 
 end Lean.Elab.Tactic.Do.Internal

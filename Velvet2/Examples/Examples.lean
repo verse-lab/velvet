@@ -8,6 +8,7 @@ import Velvet2.VCGen.Frontend
 method isGreaterWithInvariants (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
+  signals False
   ensures result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let mut ok := true
@@ -28,9 +29,8 @@ do
 
 set_option maxHeartbeats 10000000
 
-prove_correct isGreaterWithInvariants by
-  vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
-  all_goals sorry
+prove_correct isGreaterWithInvariants.spec by
+  vcgen_ [isGreaterWithInvariants] simplifying_assumptions with finish
   
 
 
@@ -75,6 +75,7 @@ theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
 method isGreaterInlineAnnotations (n : Int) (a : Array Int)
   returns (result : Bool)
   requires precond: True
+  signals False
   ensures postcond: result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let mut ok := true
@@ -93,13 +94,14 @@ do
     i := i + 1
   return ok
 
-prove_correct isGreaterInlineAnnotations by
+prove_correct isGreaterInlineAnnotations.spec by
   vcgen_ [isGreaterInlineAnnotations] with finish
 
 /- A finite range using Velvet's `for'` annotations and the bundled VCGen frontend. -/
 method scanRangeVCGen (n : Nat)
   returns (result : Unit)
   requires precond: True
+  signals False
   ensures postcond: True
 do
   for' i in 0...n
@@ -109,13 +111,14 @@ do
     pure ()
   return ()
 
-prove_correct scanRangeVCGen by
+prove_correct scanRangeVCGen.spec by
   vcgen_ [scanRangeVCGen]
 
 /- Accumulate even contributions over a finite range. -/
 method sumDoubleRange (n : Nat)
   returns (result : Nat)
   requires precond: True
+  signals False
   ensures result_even: result % 2 = 0
 do
   let mut acc := 0
@@ -126,13 +129,14 @@ do
     acc := acc + 2 * i
   return acc
 
-prove_correct sumDoubleRange by
+prove_correct sumDoubleRange.spec by
   vcgen_ [sumDoubleRange] with finish
 
 /- Track the most recently visited value while preserving a simple bound. -/
 method boundedRangeValues (n : Nat)
   returns (result : Nat)
   requires precond: True
+  signals False
   ensures result_nonnegative: result ≥ 0
 do
   let mut last := 0
@@ -146,7 +150,7 @@ do
 -- This for example requires me to grind separately, that probably means
 -- something is wrong with the grind ocntext as the proofs aren't going through
 -- with finish
-prove_correct boundedRangeValues by
+prove_correct boundedRangeValues.spec by
   vcgen_ [boundedRangeValues] with try finish
   /- grind; grind; grind; grind -/
   
@@ -156,6 +160,7 @@ prove_correct boundedRangeValues by
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
+  signals False
   ensures result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let res <- isGreaterWithInvariants n a
@@ -163,7 +168,7 @@ do
 
 
 
-prove_correct isGreaterWithInvariants' by
+prove_correct isGreaterWithInvariants'.spec by
   vcgen_ [isGreaterWithInvariants'] with finish
   --constructor
   --intros; grind
@@ -171,7 +176,7 @@ prove_correct isGreaterWithInvariants' by
   --have h' := h i (by grind)
   --grind
 
-#check isGreaterWithInvariants_correct
+#check isGreaterWithInvariants.spec.proof
 
 run_meta do
     let isRec <- Lean.Meta.isRecursiveDefinition `isGreaterWithInvariants
@@ -181,27 +186,30 @@ run_meta do
 method rec foo' (p: Int)
 returns (res: Int) 
 requires True
+signals False
 ensures True do
     let res <- foo' (p-1)
     return res
 
 -- Should this really verify?? Very weirddd (even when I change Int -> Nat)
-/- prove_correct foo' by
+/- prove_correct foo'.spec by
  -   vcgen_ [foo'] -/
   
 
 method get_idx returns (res: Nat)
+    signals False
     ensures res = 1
     do
         return 1
 
-/- prove_correct get_idx by
+/- prove_correct get_idx.spec by
  -   vcgen_ [get_idx] with finish -/
 
 
 method isGreaterWithInvariants'' (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
+  signals False
   ensures result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let mut ok := true
@@ -270,7 +278,7 @@ theorem withdraw_correct : True := by
 
 set_option maxHeartbeats 10000000
 
-prove_correct isGreaterWithInvariants'' by
+prove_correct isGreaterWithInvariants''.spec by
     vcgen_ [isGreaterWithInvariants''] with try finish
     sorry
 

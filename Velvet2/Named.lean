@@ -17,14 +17,31 @@ namespace Named
 @[expose, grind .]
 public def mk {α : Sort u} (_name : Name) (_stx : Option Syntax) (value : α) : α := value
 
+/-- Quote only the source range of `stx`. The resulting syntax object is suitable as an error
+reference without retaining or reconstructing the full annotation syntax tree. -/
+public meta def sourceRefTerm (stx : Syntax) : MacroM (TSyntax `term) := do
+  let some range := stx.getRange? | `(none)
+  let start : TSyntax `term := ⟨Syntax.mkNumLit (toString range.start.byteIdx)⟩
+  let stop : TSyntax `term := ⟨Syntax.mkNumLit (toString range.stop.byteIdx)⟩
+  `(some (Lean.Syntax.ofRange {
+      start := String.Pos.Raw.mk $start
+      stop := String.Pos.Raw.mk $stop }))
+
 public theorem mk_eq {α : Sort u} (name : Name) (stx : Option Syntax) (value : α) :
     mk name stx value = value := rfl
 
+open Lean.Order in
+/-- Pretty-print proposition embeddings using the standard `⌜P⌝` assertion notation. -/
+@[app_unexpander CompleteLattice.ofProp]
+public meta def unexpandOfProp : Lean.PrettyPrinter.Unexpander
+  | `($(_) $p) => `(⌜$p⌝)
+  | _ => throw ()
+
 /-- Internal syntax used by loop-annotation generation. It inserts `CompleteLattice.ofProp` at the
 `Prop` leaf of an assertion, recursively underneath function binders. -/
-syntax (name := namedLoopClause) "named_loop_clause%[" term ", " term "] " term:max : term
+syntax (name := namedClause) "named_clause%[" term ", " term "] " term:max : term
 
-private meta partial def liftLoopClause (name stx value type : Expr) : TermElabM Expr := do
+private meta partial def liftNamedClause (name stx value type : Expr) : TermElabM Expr := do
   let type ← whnf type
   if type.isProp then
     let named ← mkAppM ``Named.mk #[name, stx, value]
@@ -33,18 +50,18 @@ private meta partial def liftLoopClause (name stx value type : Expr) : TermElabM
   match type with
   | .forallE binderName domain body binderInfo =>
       withLocalDecl binderName binderInfo domain fun x => do
-        let lifted ← liftLoopClause name stx (mkApp value x) (body.instantiate1 x)
+        let lifted ← liftNamedClause name stx (mkApp value x) (body.instantiate1 x)
         mkLambdaFVars #[x] lifted
   | _ =>
       throwError "named loop assertion must return Prop, but has type{indentExpr type}"
 
-@[term_elab namedLoopClause]
+@[term_elab namedClause]
 public meta def elabNamedLoopClause : TermElab := fun stx expectedType? => do
-  let `(named_loop_clause%[$nameStx, $sourceStx] $valueStx) := stx | throwUnsupportedSyntax
+  let `(named_clause%[$nameStx, $sourceStx] $valueStx) := stx | throwUnsupportedSyntax
   let name ← elabTerm nameStx none
   let source ← elabTerm sourceStx none
   let value ← elabTerm valueStx expectedType?
-  liftLoopClause name source value (← inferType value)
+  liftNamedClause name source value (← inferType value)
 
 /-- Internal pointwise meet used by loop-annotation generation. -/
 syntax (name := assertionMeet) "assertion_meet%[" term ", " term "]" : term
@@ -87,12 +104,8 @@ syntax:max "named[" ident "] " term : term
 macro_rules
   | `(named[$name:ident] $value:term) => do
       let nameStr := Lean.Syntax.mkStrLit name.getId.toString
-      let text := value.raw.reprint.getD (toString value.raw.formatStx)
-      let textStr := Lean.Syntax.mkStrLit text
-      `(Named.mk
-        (Lean.Name.mkSimple $nameStr)
-        (some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
-        $value)
+      let source ← sourceRefTerm value.raw
+      `(Named.mk (Lean.Name.mkSimple $nameStr) $source $value)
 
 /-- Pretty-print named proposition atoms as `⟪name : value⟫`. -/
 @[app_unexpander Named.mk, app_unexpander Named.Measure.mk]
@@ -112,22 +125,62 @@ public meta def unexpandMk : Lean.PrettyPrinter.Unexpander
       `(⟪ $ident : $value ⟫)
   | _ => throw ()
 
-/-- Extract a named proposition atom, following an application spine. -/
-public partial def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
+/-- Expression-metadata key used to carry an annotation's source reference after `Named.mk`
+has been removed from an emitted VC target. -/
+public def sourceRefAnnotationKey : Name := `velvet.named.sourceRef
+
+public def annotateSourceRef (type : Expr) (source : Syntax) : Expr :=
+  .mdata (KVMap.empty.setSyntax sourceRefAnnotationKey source) type
+
+public partial def sourceRef? : Expr → Option Syntax
+  | .mdata data body =>
+      match data.find sourceRefAnnotationKey with
+      | some (.ofSyntax source) => some source
+      | _ => sourceRef? body
+  | _ => none
+
+/-- Metadata extracted from an application of `Named.mk`. -/
+public structure Info where
+  name : Name
+  source? : Option Syntax
+  value : Expr
+
+private def decodeRawPos? (e : Expr) : MetaM (Option String.Pos.Raw) := do
+  let e ← whnf e
+  let_expr String.Pos.Raw.mk n := e | return none
+  return (← getNatValue? n).map String.Pos.Raw.mk
+
+private def decodeSourceRef? (e : Expr) : MetaM (Option Syntax) := do
+  let e ← whnf e
+  match_expr e with
+  | Option.none _α => return none
+  | Option.some _α source =>
+      let_expr Syntax.ofRange range canonical := source | return none
+      unless canonical.isConstOf ``Bool.true do return none
+      let_expr Syntax.Range.mk start stop := range | return none
+      let some start ← decodeRawPos? start | return none
+      let some stop ← decodeRawPos? stop | return none
+      return some (Syntax.ofRange { start, stop })
+  | _ => return none
+
+/-- Extract a named proposition atom and its source reference, following an application spine. -/
+public partial def extractInfo? (type : Expr) : SymM (Option Info) := do
   match_expr type with
-  | Named.mk _α name _stx value =>
+  | Named.mk _α name source value =>
       let some name := name.name?
         | throwError "invalid Named.mk name: {name}"
-      return some (name, value)
+      return some { name, source? := ← decodeSourceRef? source, value }
   | _ =>
       match type with
-      | .mdata _ body =>
-          extract? body
+      | .mdata _ body => extractInfo? body
       | .app fn arg =>
-          let some (name, value) ← extract? fn
-            | return none
-          return some (name, (Expr.app value arg).headBeta)
+          let some info ← extractInfo? fn | return none
+          return some { info with value := (Expr.app info.value arg).headBeta }
       | _ => return none
+
+/-- Extract a named proposition atom, following an application spine. -/
+public def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
+  return (← extractInfo? type).map fun info => (info.name, info.value)
 
 /-- Whether an expression is a named value or an `And` tree containing one. -/
 public partial def contains (type : Expr) : Bool :=
@@ -179,55 +232,42 @@ public def processGoal (goal : MVarId) : SymM (List MVarId) :=
       return [goal]
     return [goal]
 
-/-- Build an `And` tree whose leaves are individually named propositions. -/
-public def mkPropList (ts : Array (TSyntax `term)) (names : Array (Option Name) := #[])
-    (pfx : String := "clause") : MacroM (TSyntax `term) := do
-  if ts.isEmpty then
-    `(term| True)
-  else
-    let namedMk := mkIdent ``Named.mk
-    let getName (i : Nat) : MacroM (TSyntax `term) := do
-      let name := match names[i]? with
-        | some (some name) => name.toString
-        | _ => s!"{pfx}{i + 1}"
-      let nameStr := Lean.Syntax.mkStrLit name
-      `(Lean.Name.mkSimple $nameStr)
-    let getStx (i : Nat) : MacroM (TSyntax `term) := do
-      let text := ts[i]!.raw.reprint.getD (toString (ts[i]!.raw.formatStx))
-      let textStr := Lean.Syntax.mkStrLit text
-      `(some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
-    let named (i : Nat) : MacroM (TSyntax `term) := do
-      let name ← getName i
-      let stx ← getStx i
-      `($namedMk ($name) ($stx) $(ts[i]!))
-    let lastIdx := ts.size - 1
-    let mut result ← named lastIdx
-    for i in List.range lastIdx |>.reverse do
-      result ← `($(← named i) ∧ $result)
-    return result
-
-/-- Build a lattice meet tree whose leaves are individually named assertions. Unlike `mkPropList`,
-this supports function-valued assertion languages such as StateT and ReaderT predicates. -/
-public def mkAssertionList (ts : Array (TSyntax `term)) (names : Array (Option Name) := #[])
-    (pfx : String := "clause") : MacroM (TSyntax `term) := do
+public meta def mkAssertionList (ts : Array (TSyntax `term)) (names : Array Name) : MacroM (TSyntax `term) := do
   if ts.isEmpty then
     let top := mkIdent ``Lean.Order.top
     `(term| $top)
   else
     let named (i : Nat) : MacroM (TSyntax `term) := do
-      let name := match names[i]? with
-        | some (some name) => name.toString
-        | _ => s!"{pfx}{i + 1}"
+      let name := names[i]!.toString
       let nameStr := Lean.Syntax.mkStrLit name
       let nameTerm ← `(Lean.Name.mkSimple $nameStr)
-      let text := ts[i]!.raw.reprint.getD (toString (ts[i]!.raw.formatStx))
-      let textStr := Lean.Syntax.mkStrLit text
-      let stxTerm ← `(some (Lean.Syntax.atom Lean.SourceInfo.none $textStr))
-      `(named_loop_clause%[$nameTerm, $stxTerm] $(ts[i]!))
+      let stxTerm ← sourceRefTerm ts[i]!.raw
+      `(named_clause%[$nameTerm, $stxTerm] $(ts[i]!))
     let lastIdx := ts.size - 1
     let mut result ← named lastIdx
     for i in List.range lastIdx |>.reverse do
       result ← `(assertion_meet%[$(← named i), $result])
     return result
+
+
+
+public meta def mkSignalsList (ts : Array (TSyntax `term)) (names : Array Name) : MacroM (TSyntax `term) := do
+  if ts.isEmpty then
+    `(term| ⟨⟩)
+  else
+    let named (i : Nat) : MacroM (TSyntax `term) := do
+      let name := names[i]!.toString
+      let nameStr := Lean.Syntax.mkStrLit name
+      let nameTerm ← `(Lean.Name.mkSimple $nameStr)
+      let stxTerm ← sourceRefTerm ts[i]!.raw
+      `(named_clause%[$nameTerm, $stxTerm] $(ts[i]!))
+    if ts.size == 1 then
+      named 0
+    else
+      let lastIdx := ts.size - 1
+      let mut result ← named lastIdx
+      for i in List.range lastIdx |>.reverse do
+        result ← `(⟨$(← named i), $result⟩)
+      return result
 
 end Named

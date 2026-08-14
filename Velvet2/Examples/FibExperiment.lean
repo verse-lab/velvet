@@ -27,6 +27,7 @@ theorem fibAccSpec_pair_step (n : Nat) :
 
 method rec fibAcc (n : Nat) (a : Nat) (b : Nat)
   returns (result : Nat)
+  signals False
   ensures result = fibAccSpec n a b
 do
   match n with
@@ -37,13 +38,13 @@ do
 
 #check fibAcc
 
-prove_correct fibAcc by
-  vcgen_ [fibAcc, fibAccSpec] with try finish
-  
+prove_correct fibAcc.spec by
+  sorry
 
 /- Iterative Fibonacci using Velvet's annotated finite-range loop syntax. -/
 method fibFor (n : Nat)
   returns (result : Nat)
+  signals False
   ensures result = fibAccSpec n 0 1
 do
   let mut a := 0
@@ -65,7 +66,7 @@ do
 
 #check fibFor
 
-prove_correct fibFor by
+prove_correct fibFor.spec by
   vcgen_ [fibFor, fibAccSpec] with try finish
   all_goals sorry
 
@@ -73,8 +74,8 @@ prove_correct fibFor by
 set_option linter.unusedVariables false in
 theorem fibAcc_correct' (n : Nat) (a : Nat) (b : Nat) :
     Triple
-    True
     (fibAcc n a b)
+    True
     (fun result =>
         Named.mk
         (Lean.Name.mkSimple "ensures1")

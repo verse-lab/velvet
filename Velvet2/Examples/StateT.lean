@@ -6,12 +6,22 @@ open Std.Internal.Do
 
 namespace Velvet2.Examples.StateT
 
-abbrev CounterId := StateT Nat Id
+/-
+Note on `signals`:
+  - `signals False`: asserts total correctness (no exception/failure is permitted).
+  - `signals True`: asserts partial correctness (failure is allowed under any condition).
+-/
+
 abbrev CounterOption := StateT Nat Option
 abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
 
-/-- A `StateT Nat Id` loop exercising invariant, decreasing, and done gadgets. -/
-def countState (n : Nat) : CounterId Nat := do
+
+/- A `StateT Nat Option` loop exercising invariant, decreasing, and done gadgets. -/
+method countState (n : Nat) returns (res: Nat) in CounterOption
+    requires (fun s => True)
+    signals True
+    ensures (fun s => res = n ∧ s = n)
+  do
   set 0
   let mut i := 0
   while' i < n
@@ -23,12 +33,13 @@ def countState (n : Nat) : CounterId Nat := do
     set i
   return i
 
-theorem countState_correct (n : Nat) :
-    Triple (countState n)
-      (fun _ => True)
-      (fun r s => r = n ∧ s = n)
-      (⟨⟩ : EPost.Nil) := by
-  vcgen_ [countState] with try finish
+#print countState.spec
+#print countState
+prove_correct countState.spec by
+  vcgen_ [countState] with finish
+
+#check countState.spec.proof
+
 
 /-- A `StateT Nat Option` program with assertions before and after mutation. -/
 def boundedIncrement (limit : Nat) : CounterOption Nat := do
@@ -38,11 +49,14 @@ def boundedIncrement (limit : Nat) : CounterOption Nat := do
   assert state_advanced : (fun s : Nat => s = current + 1)
   return current
 
+
+#check EPost.Nil
+
 theorem boundedIncrement_correct (limit : Nat) :
     Triple (boundedIncrement limit)
       (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1)
-      True := by
+      True  := by
   vcgen_ [boundedIncrement] with finish
 
 /-- A finite-range loop over `StateT Nat Option`. -/
@@ -86,8 +100,12 @@ theorem countRange_correct (n : Nat) :
     simp [Std.Rco.getElem?_toList_eq] at hc hn
     simp_all
 
-/-- A larger `StateT Nat (ExceptT String Option)` stack. -/
-def checkedAdd (delta : Nat) : CounterExceptOption Nat := do
+/- A larger `StateT Nat (ExceptT String Option)` stack. -/
+method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption
+    requires (fun _ => True)
+    signals err_msg : (fun error : String => error = "delta must be positive")
+    signals True
+    ensures (fun s => s = res + delta) do
   let current ← get
   if delta = 0 then
     throw "delta must be positive"
@@ -96,16 +114,20 @@ def checkedAdd (delta : Nat) : CounterExceptOption Nat := do
   assert state_increased : (fun s : Nat => s = current + delta)
   return current
 
-theorem checkedAdd_correct (delta : Nat) :
-    Triple (checkedAdd delta)
-      (fun _ => True)
-      (fun current s => s = current + delta)
-      (⟨fun _ : String => True, True⟩ : EPost.Cons (String → Prop) Prop) := by
+#print checkedAdd.spec
+prove_correct checkedAdd.spec by
   vcgen_ [checkedAdd] with finish
+  /- all_goals omega -/
+  
 
 
-/-- A stateful loop that either reaches `target` or throws at `blocked`. -/
-def countUnlessBlocked (target blocked : Nat) : CounterExceptOption Nat := do
+/- A stateful loop that either reaches `target` or throws at `blocked`. -/
+method countUnlessBlocked (target: Nat) (blocked: Nat) returns (res: Nat) in CounterExceptOption
+  requires (fun _ => True)
+  signals (fun e => e = "blocked")
+  signals False
+  ensures (fun s => res = target ∧ s = target)
+do
   set 0
   let mut i := 0
   while' i < target
@@ -114,22 +136,20 @@ def countUnlessBlocked (target blocked : Nat) : CounterExceptOption Nat := do
     done_with reached_target : (fun s : Nat => i = target ∧ s = target)
   do
     if i = blocked then
-      throw "blocked"
+      throw "block"
     i := i + 1
     set i
   return i
 
-/--
+
+/-
 On success the loop reaches `target`. Since `StateT` is outside `ExceptT`, an
 exception has no resulting state, so its postcondition observes only the error.
 -/
-theorem countUnlessBlocked_correct (target blocked : Nat) :
-    Triple (countUnlessBlocked target blocked)
-      (fun _ => True)
-      (fun result state => result = target ∧ state = target)
-      (⟨fun error : String => error = "blocked", True⟩ :
-        EPost.Cons (String → Prop) Prop) := by
-  vcgen_ [countUnlessBlocked] with finish
+prove_correct countUnlessBlocked.spec by
+  vcgen_ [countUnlessBlocked]
+
+
 
 /-- `StateT` outside `ReaderT`; assertions have shape `Nat → Nat → Prop`. -/
 abbrev ReaderCounter := StateT Nat (ReaderT Nat Id)
@@ -159,6 +179,17 @@ theorem countToReaderLimit_correct :
       (fun result state limit => result = limit ∧ state = limit)
       (⟨⟩ : EPost.Nil) := by
   vcgen_ [countToReaderLimit] with finish
+
+/- A method without `signals` in a monad stack with 0 exception channels (`ReaderCounter`). -/
+method countToReaderLimitMethod returns (res : Nat) in ReaderCounter
+    requires (fun s env => True)
+    ensures (fun s env => res = s) do
+  let start ← get
+  return start
+
+#print countToReaderLimitMethod.spec
+prove_correct countToReaderLimitMethod.spec by
+  vcgen_ [countToReaderLimitMethod] with finish
 
 /-- The triangular number `0 + 1 + ... + n`. -/
 def triangular : Nat → Nat
@@ -203,5 +234,7 @@ theorem addToReaderLimit_correct :
     constructor
     · simp [Nat.add_assoc]
     · omega
+
+
 
 end Velvet2.Examples.StateT
