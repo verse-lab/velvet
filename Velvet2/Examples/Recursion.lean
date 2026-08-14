@@ -2,6 +2,13 @@ import Velvet2.Syntax
 import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
+/-
+# Recursion and partial-correctness examples
+
+Recursive methods (`fibAcc`, `foo'`), `partial_fixpoint`, and the iterative `for'`
+counterpart (`fibFor`).
+-/
+
 open Std.Internal.Do
 
 @[grind]
@@ -25,6 +32,7 @@ theorem fibAccSpec_pair_step (n : Nat) :
   rw [← fibAccSpec_add]
   rfl
 
+/- Recursive Fibonacci, verified by structural induction on `n`. -/
 method rec fibAcc (n : Nat) (a : Nat) (b : Nat)
   returns (result : Nat)
   signals False
@@ -35,8 +43,6 @@ do
   | n' + 1 =>
       let result ← fibAcc n' b (a + b)
       return result
-
-#check fibAcc
 
 prove_correct fibAcc.spec by
   sorry
@@ -64,13 +70,12 @@ do
     i := i + 1
   return a
 
-#check fibFor
-
 prove_correct fibFor.spec by
   vcgen_ [fibFor, fibAccSpec] with try finish
   all_goals sorry
 
-
+/- `fibAcc`'s specification expressed as a `Triple` and discharged via the spec's
+partial-correctness theorem. -/
 set_option linter.unusedVariables false in
 theorem fibAcc_correct' (n : Nat) (a : Nat) (b : Nat) :
     Triple
@@ -96,9 +101,18 @@ theorem fibAcc_correct' (n : Nat) (a : Nat) (b : Nat) :
       vcgen_ [fibAcc, fibAccSpec]
       all_goals simp_all [fibAccSpec])
 
+/- A self-recursive method; partial correctness of a nonterminating program. -/
+method rec foo' (p : Int)
+  returns (res : Int)
+  requires True
+  signals False
+  ensures True do
+  let res <- foo' (p - 1)
+  return res
 
+-- Should this really verify?? Very weirddd (even when I change Int -> Nat)
+
+/- A `partial_fixpoint` for a nonterminating program. -/
 def f : Option Nat :=
-    f 
+  f
 partial_fixpoint
-
-#check f.partial_correctness

@@ -1,6 +1,9 @@
 import Velvet2.Ghost
 import Velvet2.Syntax
 import Velvet2.Tactics
-import Velvet2.Examples.Examples
-import Velvet2.Examples.FibExperiment
+import Velvet2.Examples.Loops
+import Velvet2.Examples.LoopsExplicitVCs
+import Velvet2.Examples.Recursion
+import Velvet2.Examples.Scratch
 import Velvet2.Examples.StateT
+import Velvet2.Examples.StateTExplicitVCs

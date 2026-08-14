@@ -236,9 +236,10 @@ private meta def elabSymSimpParts
     -- (the simproc elaborators only use `CoreM`/`MetaM` capabilities).
     throwError "named Sym.simp variants are not yet supported in `vcgen`; \
       use `vcgen simplifying_assumptions [thm₁, thm₂, ...]` with the default variant instead"
-  -- Loop state is represented as a (possibly nested) product by Lean's do elaborator.
-  -- Curry product-valued forall binders by default so the existing symbolic intro can
-  -- introduce the individual state components without cases or context shrinking.
+  -- Lean's `do` elaborator packs the mutable variables of a loop into a single (possibly
+  -- nested) product, so the loop body appears as `∀ state : σ₁ × … × σₙ, P state`. Curry it
+  -- with `Prod.forall` so the symbolic intro sees individual `σᵢ` binders instead of one
+  -- tuple, avoiding a `cases` and the context shrinking that would follow.
   let mut extraThms : Array Sym.Simp.Theorem :=
     #[← Sym.Simp.mkTheoremFromDecl ``Prod.forall]
   -- Resolve user-provided extra theorems (local hypotheses first, then global constants).

@@ -154,9 +154,12 @@ public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Unit := do
     if goal.inconsistent then continue
     match ← solve s.scope goal.mvarId with
     | .stop _reason =>
-      -- Normal Solve decomposition gets first refusal. Only when it stops do we normalize
-      -- generated concrete control flow. If this exposes a connective, re-enqueue the same Grind
-      -- state so the next Solve iteration can split it before final VC emission.
+      -- `solve` has finished decomposing everything it recognizes. Before emitting a
+      -- verification condition, clear any remaining *concrete* control flow that the
+      -- do-elaborator generated for loops (branch guards, tuple projections). If that
+      -- simplification exposes a connective `solve` can split, put the goal back on the
+      -- worklist so the split happens now; otherwise the goal is genuinely stuck and is
+      -- emitted as a VC.
       match ← Sym.simpGoal goal.mvarId (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
       | .closed => continue
       | .noProgress => emitVC goal

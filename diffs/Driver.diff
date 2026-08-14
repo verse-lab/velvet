@@ -1,0 +1,106 @@
+--- a/Lean/Elab/Tactic/Do/Internal/VCGen/Driver.lean
++++ b/Velvet2/VCGen/Driver.lean
+@@ -8,7 +8,8 @@
+ prelude
+ public import Lean.Elab.Tactic.Meta
+ public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
+-public import Lean.Elab.Tactic.Do.Internal.VCGen.Solve
++public import Velvet2.VCGen.Solve
++public import Velvet2.Named
+ public import Lean.Meta.Sym.Grind
+ 
+ open Lean Meta Elab Tactic Sym
+@@ -77,6 +78,47 @@
+       others := others.push sg
+   return others
+ 
++private def simpDecls : Array Name := #[``Named.mk_eq]
++
++private def mkNamedSimpMethods : MetaM Sym.Simp.Methods := do
++  let mut theorems : Sym.Simp.Theorems := {}
++  for declName in simpDecls do
++    theorems := theorems.insert (← Sym.Simp.mkTheoremFromDecl declName)
++  return { post := theorems.rewrite }
++
++/-- If the target is an outer internal named atom (possibly behind assigned metavariables or at the head
++of an application), unwrap it with the symbolic simplifier and install its name as the goal tag.
++Returns the original goal when it is not named, and `none` when simplification closes it. -/
++private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := do
++  let rawTarget ← goal.mvarId.getType
++  let target ← instantiateMVarsS rawTarget
++  let some info ← Named.extractInfo? target | return some goal
++  let name := info.name
++  -- Refresh the metavariable itself, then simplify that exact target. Simplifying `target`
++  -- separately and attaching its equality proof to the old raw target can leak context-local fvars.
++  let mvarId ← preprocessMVar goal.mvarId
++  let goal := { goal with mvarId }
++  match ← Sym.simpGoal mvarId (← mkNamedSimpMethods) with
++  | .closed => return none
++  | .noProgress => throwError "Failed to unwrap named goal {mvarId}"
++  | .goal mvarId =>
++      -- Removing `Named.mk` can expose a fresh beta-redex when a named StateT/ReaderT
++      -- assertion is applied to its state/environment arguments. The worklist's final
++      -- normalization ran before this unwrapping, so normalize the exposed target once
++      -- more while retaining the inherited Grind state.
++      let mvarId ← match ← Sym.simpGoal mvarId
++          (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
++        | .closed => return none
++        | .noProgress => pure mvarId
++        | .goal mvarId => pure mvarId
++      let mvarId ← match info.source? with
++        | none => pure mvarId
++        | some source =>
++            let target ← mvarId.getType
++            mvarId.replaceTargetDefEqFast (Named.annotateSourceRef target source)
++      mvarId.setTag name
++      return some { goal with mvarId }
++
+ /--
+ Called when decomposing the goal further did not succeed; in this case we emit a VC for the goal.
+ Invariant subgoals are handled separately by `handleInvariantSubgoals` directly inside `work`,
+@@ -94,8 +136,9 @@
+       pure mvarId
+     else
+       pure goal.mvarId
+-  mvarId.setKind .syntheticOpaque
+-  modify fun s => { s with vcs := s.vcs.push { goal with mvarId } }
++  let some emittedGoal ← processNamedGoal { goal with mvarId } | return
++  emittedGoal.mvarId.setKind .syntheticOpaque
++  modify fun s => { s with vcs := s.vcs.push emittedGoal }
+ 
+ private structure WorkItem where
+   goal : Grind.Goal
+@@ -111,7 +154,17 @@
+     if goal.inconsistent then continue
+     match ← solve s.scope goal.mvarId with
+     | .stop _reason =>
+-      emitVC goal
++      -- `solve` has finished decomposing everything it recognizes. Before emitting a
++      -- verification condition, clear any remaining *concrete* control flow that the
++      -- do-elaborator generated for loops (branch guards, tuple projections). If that
++      -- simplification exposes a connective `solve` can split, put the goal back on the
++      -- worklist so the split happens now; otherwise the goal is genuinely stuck and is
++      -- emitted as a VC.
++      match ← Sym.simpGoal goal.mvarId (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
++      | .closed => continue
++      | .noProgress => emitVC goal
++      | .goal mvarId =>
++          worklist := worklist.push { goal := { goal with mvarId }, scope := s.scope }
+     | .goals scope subgoals =>
+       -- Handle invariant subgoals eagerly here, so that VC subgoals popped
+       -- from the worklist later see the invariant MVar already assigned.
+@@ -154,7 +207,13 @@
+   _ ← state.invariants.mapIdxM fun idx mv => do
+     mv.setTag (Name.mkSimple ("inv" ++ toString (idx + 1)))
+   _ ← state.vcs.mapIdxM fun idx g => do
+-    g.mvarId.setTag (Name.mkSimple ("vc" ++ toString (idx + 1)) ++ (← g.mvarId.getTag).eraseMacroScopes)
++    let currentTag ← g.mvarId.getTag
++    let tag :=
++      if currentTag.isAnonymous then
++        Name.mkSimple ("vc" ++ toString (idx + 1))
++      else
++        currentTag.eraseMacroScopes
++    g.mvarId.setTag tag
+   let vcs ← state.vcs.filterM (not <$> ·.mvarId.isAssigned)
+   let unmatchedFrames := state.frameDB.entries.filterMap fun e =>
+     if e.retired then none else some e.frameStx

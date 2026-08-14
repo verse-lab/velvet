@@ -203,9 +203,10 @@ private def iSupPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option MVarId) 
 
 /-- Selectively normalize the precondition operand of `pre ⊑ rhs`: simplify generated concrete
 control flow (e.g. `(inl a).isRight ↦ false`, `(a, b).fst ↦ a`) to expose a selected loop branch,
-and collapse applied pure embeddings `(⌜p⌝ : σ₁ → σ₂ → Prop) s₁ s₂ ↦ p`. Each step's equality proof
-is transported through the entailment with `congrArg`/`replaceTargetEq` (not defEq — `ofProp_apply`
-is propositional), leaving the RHS and Grind state untouched. -/
+and peel applied pure embeddings one state argument at a time (`(⌜p⌝ : σ₂ → Prop) s₂ ↦ ⌜p⌝`) so the
+bare `⌜p⌝` reaches `ofPropPreIntro?` on a later worklist iteration. Each step's equality proof is
+transported through the entailment with `congrArg`/`replaceTargetEq` (not defEq — `ofProp_apply` is
+propositional), leaving the RHS and Grind state untouched. -/
 private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVarId) := do
   let .step pre' h .. ← Sym.simp pre (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods)
     | return none
@@ -228,12 +229,7 @@ private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVar
 private def barePreIntro? (goal : MVarId) (α pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
   unless α.isProp do return none
   if pre.isAppOf ``Lean.Order.top then return none
-  let .goals [goal] ← (← read).backwardRules.propPreIntro.applyChecked goal
-    | throwError "Failed to apply precondition intro rule to {goal}"
-  let goal ← _root_.Velvet2.VCGen.introsHygienic goal
-  let some decl := (← goal.withContext getLCtx).lastDecl
-    | throwError "Failed to intro the lifted precondition of {goal}"
-  return some (goal, decl.fvarId)
+  return some (← introPre' (← read).backwardRules.propPreIntro goal)
 
 /-- Strategy 7: replace a `True` precondition by `⊤` via `true_le_of_top_le`, or reduce a lifted
 `⊤ s₁ … sₙ` precondition (the bare top applied to the state arguments introduced by
@@ -551,10 +547,7 @@ The function performs the following steps in order:
 -/
 public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := goal.withContext do
   if ← outOfFuel then return .stop .outOfFuel
-  -- Spec application can assign metavariables nested inside the next program (for example the
-  -- loop body `f () b`). Instantiate the complete target before inspecting its WP shape so an
-  -- assigned body headed by `ite` is visible to `wpMatch?`.
-  let target ← instantiateMVarsS (← goal.getType)
+  let target ← goal.getType
   trace[Elab.Tactic.Do.vcgen] "🎯 Goal: {goal}"
   trace[Elab.Tactic.Do.vcgen] "🎯 TargetType: {target}"
 
