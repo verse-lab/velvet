@@ -1,4 +1,5 @@
 import Velvet2.Ghost
+import Velvet2.Loop
 import Velvet2.Syntax
 import Velvet2.Tactics
 import Velvet2.Examples.Loops

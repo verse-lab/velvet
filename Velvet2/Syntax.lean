@@ -1,5 +1,6 @@
 import Velvet2.Specs
 import Velvet2.Named
+import Velvet2.Loop
 import Velvet2.Elab.Types
 import Velvet2.Elab.SyntaxDecls
 import Velvet2.Elab.Util

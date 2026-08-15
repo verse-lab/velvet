@@ -79,4 +79,4 @@ do
 #check threeChannelsProd
 
 prove_correct threeChannelsProd.spec by
-  vcgen_ [threeChannelsProd] with finish
+  vcgen_ [threeChannelsProd]

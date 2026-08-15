@@ -181,9 +181,8 @@ do
 prove_correct partialCount.spec by
   vcgen_ [partialCount] with finish
 
-/- A genuinely non-terminating `while'` loop omits `decreasing`; it only elaborates under partial
-correctness. Its spec is not yet discharged by `vcgen_` (Std's loop spec still requires a
-`RepeatVariant` for the no-measure case), so we only check that it compiles. -/
+/- A genuinely non-terminating `while'` loop omits `decreasing`; it is only valid under partial
+correctness, and its spec is discharged by our least-fixed-point loop rule. -/
 set_option velvet.semantics.termination "partial" in
 method spin returns (res : Nat)
   requires True
@@ -195,4 +194,37 @@ method spin returns (res : Nat)
     i := i + 1
   return 0
 
-#check spin
+prove_correct spin.spec by
+  vcgen_ [spin] with finish
+
+/- A terminating loop that omits `decreasing`: the invariant plus the exit condition still pins
+the result, so partial correctness proves the same postcondition without a measure. -/
+set_option velvet.semantics.termination "partial" in
+method partialCountNoMeasure (n : Nat) returns (res : Nat)
+  requires True
+  ensures res = n
+do
+  let mut i := 0
+  while' i < n
+    invariant i_le : i ≤ n
+  do
+    i := i + 1
+  return i
+
+prove_correct partialCountNoMeasure.spec by
+  vcgen_ [partialCountNoMeasure] with finish
+
+/- A non-terminating loop still maintains a meaningful invariant. -/
+set_option velvet.semantics.termination "partial" in
+method partialTick returns (res : Nat)
+  requires True
+  ensures True do
+  let mut i := 0
+  while' True
+    invariant i_nonneg : i ≥ 0
+  do
+    i := i + 1
+  return i
+
+prove_correct partialTick.spec by
+  vcgen_ [partialTick] with finish

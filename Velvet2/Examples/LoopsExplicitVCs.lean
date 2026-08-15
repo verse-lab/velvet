@@ -87,3 +87,17 @@ theorem partialCount_explicit : partialCount.spec := by
   case i_le => grind
   case i_le => grind
   case h_done_with => grind
+
+theorem partialCountNoMeasure_explicit : partialCountNoMeasure.spec := by
+  unfold partialCountNoMeasure.spec
+  vcgen_ [partialCountNoMeasure]
+  case i_le => grind
+  case ensures1 => grind
+  case i_le => grind
+  case i_le => grind
+  case h_done_with => grind
+
+theorem partialTick_explicit : partialTick.spec := by
+  unfold partialTick.spec
+  vcgen_ [partialTick]
+  case i_nonneg => grind

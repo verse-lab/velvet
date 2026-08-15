@@ -243,6 +243,8 @@ do
 prove_correct idNoBinders.spec by
   vcgen_ [idNoBinders] with finish
 
+#print idNoBinders.spec
+
 /- Total correctness over `StateT Nat Option` is expressed with a bare `signals False`;
 the state still needs binders in `requires`/`ensures`. -/
 method stateOptionTotal returns (res : Nat) in CounterOption
