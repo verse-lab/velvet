@@ -114,7 +114,7 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
         ($sigs))
     let specCmd ← `(command|
       set_option linter.unusedVariables false in
-      def $specId := $statement)
+      abbrev $specId := $statement)
     return (defCmd, specCmd, statement)
   elabCommand defCmd
   elabCommand specCmd
@@ -146,13 +146,14 @@ elab_rules : command
       ensuresClauses := ensuresClauses
     }
 
-/-- Prove a method contract such as `foo.spec`, producing the registered theorem
-`foo.spec.proof`. The contract definition owns the complete quantified `Triple`; this command only
-unfolds and proves that proposition. -/
+/-- Prove a method contract with `prove_correct foo`, producing the registered theorem
+`foo.spec.proof`. The contract (`foo.spec`, an `abbrev`) owns the complete quantified `Triple`;
+this command only unfolds and proves that proposition. -/
 @[incremental]
 elab_rules : command
   | `(command| prove_correct $specId:ident by $proof:tacticSeq) => do
-    let declName ← liftCoreM <| realizeGlobalConstNoOverload specId
+    let specIdent := mkIdentFrom specId (specId.getId ++ `spec)
+    let declName ← liftCoreM <| realizeGlobalConstNoOverload specIdent
     let info ← liftCoreM <| getConstInfo declName
     unless (← liftTermElabM <| whnf info.type).isProp do
       /- Fires when `prove_correct` targets a non-proposition, e.g. `prove_correct Nat.add by ...`. -/
@@ -161,13 +162,13 @@ elab_rules : command
     let some statement := methodSpecExt.getState (← getEnv) |>.get? declName
       | throwErrorAt specId "no method contract metadata found for `{declName}`"
     let statement : Term := ⟨statement⟩
-    let proofId := mkIdentFrom specId (specId.getId ++ `proof)
+    let proofId := mkIdentFrom specId (specId.getId ++ `spec ++ `proof)
     let thmCmd ← `(command|
       open scoped Std.Internal.Do Lean.Order in
       set_option linter.unusedVariables false in
       @[spec] theorem $proofId : $statement :=
-        show $specId from by
-          unfold $specId
+        show $specIdent from by
+          unfold $specIdent
           ($proof))
     elabCommand thmCmd
 

@@ -37,7 +37,7 @@ do
 #print isGreaterWithInvariants.spec
 
     
-prove_correct isGreaterWithInvariants.spec by
+prove_correct isGreaterWithInvariants by
   vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
   all_goals sorry
 
@@ -98,7 +98,7 @@ do
     i := i + 1
   return ok
 
-prove_correct isGreaterInlineAnnotations.spec by
+prove_correct isGreaterInlineAnnotations by
   vcgen_ [isGreaterInlineAnnotations] with finish
 
 /- A finite range using Velvet's `for'` annotations and the bundled VCGen frontend. -/
@@ -114,7 +114,7 @@ do
     pure ()
   return ()
 
-prove_correct scanRangeVCGen.spec by
+prove_correct scanRangeVCGen by
   vcgen_ [scanRangeVCGen]
 
 /- Accumulate even contributions over a finite range. -/
@@ -131,7 +131,7 @@ do
     acc := acc + 2 * i
   return acc
 
-prove_correct sumDoubleRange.spec by
+prove_correct sumDoubleRange by
   vcgen_ [sumDoubleRange] with finish
 
 /- Track the most recently visited value while preserving a simple bound. -/
@@ -148,7 +148,7 @@ do
     last := i
   return last
 
-prove_correct boundedRangeValues.spec by
+prove_correct boundedRangeValues by
   vcgen_ [boundedRangeValues] with try finish
 
 /- Method-call composition: delegates to `isGreaterWithInvariants`. -/
@@ -160,7 +160,7 @@ do
   let res <- isGreaterWithInvariants n a
   return res
 
-prove_correct isGreaterWithInvariants'.spec by
+prove_correct isGreaterWithInvariants' by
   vcgen_ [isGreaterWithInvariants'] with finish
 
 /- Partial correctness: a terminating `while'` loop still carries a `decreasing` measure and
@@ -178,7 +178,7 @@ do
     i := i + 1
   return i
 
-prove_correct partialCount.spec by
+prove_correct partialCount by
   vcgen_ [partialCount] with finish
 
 /- A genuinely non-terminating `while'` loop omits `decreasing`; it is only valid under partial
@@ -194,7 +194,7 @@ method spin returns (res : Nat)
     i := i + 1
   return 0
 
-prove_correct spin.spec by
+prove_correct spin by
   vcgen_ [spin] with finish
 
 /- A terminating loop that omits `decreasing`: the invariant plus the exit condition still pins
@@ -211,7 +211,7 @@ do
     i := i + 1
   return i
 
-prove_correct partialCountNoMeasure.spec by
+prove_correct partialCountNoMeasure by
   vcgen_ [partialCountNoMeasure] with finish
 
 /- A non-terminating loop still maintains a meaningful invariant. -/
@@ -226,5 +226,5 @@ method partialTick returns (res : Nat)
     i := i + 1
   return i
 
-prove_correct partialTick.spec by
+prove_correct partialTick by
   vcgen_ [partialTick] with finish

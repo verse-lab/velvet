@@ -33,7 +33,7 @@ method countState (n : Nat) returns (res: Nat) in CounterOption
     set i
   return i
 
-prove_correct countState.spec by
+prove_correct countState by
   vcgen_ [countState] with finish
 
 #check countState.spec.proof
@@ -112,7 +112,7 @@ method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption
   assert state_increased : (fun s : Nat => s = current + delta)
   return current
 
-prove_correct checkedAdd.spec by
+prove_correct checkedAdd by
   vcgen_ [checkedAdd] with finish
   /- all_goals omega -/
   
@@ -143,7 +143,7 @@ do
 On success the loop reaches `target`. Since `StateT` is outside `ExceptT`, an
 exception has no resulting state, so its postcondition observes only the error.
 -/
-prove_correct countUnlessBlocked.spec by
+prove_correct countUnlessBlocked by
   vcgen_ [countUnlessBlocked] with finish
 
 
@@ -185,7 +185,7 @@ method countToReaderLimitMethod returns (res : Nat) in ReaderCounter
   return start
 
 #print countToReaderLimitMethod.spec
-prove_correct countToReaderLimitMethod.spec by
+prove_correct countToReaderLimitMethod by
   vcgen_ [countToReaderLimitMethod] with finish
 
 /-- The triangular number `0 + 1 + ... + n`. -/
@@ -240,7 +240,7 @@ do
   return 1
 
 #check idNoBinders
-prove_correct idNoBinders.spec by
+prove_correct idNoBinders by
   vcgen_ [idNoBinders] with finish
 
 #print idNoBinders.spec
@@ -256,7 +256,7 @@ do
   return 0
 
 #check stateOptionTotal
-prove_correct stateOptionTotal.spec by
+prove_correct stateOptionTotal by
   vcgen_ [stateOptionTotal] with finish
 
 

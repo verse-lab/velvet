@@ -27,7 +27,7 @@ do
 #guard_msgs in
 #check maybeFail
 
-prove_correct maybeFail.spec by
+prove_correct maybeFail by
   vcgen_ [maybeFail] with finish
 
 /- One signal, returning `String`: `ExceptT String Option String`. -/
@@ -44,7 +44,7 @@ do
 #guard_msgs in
 #check maybeFailString
 
-prove_correct maybeFailString.spec by
+prove_correct maybeFailString by
   vcgen_ [maybeFailString] with finish
 
 /- Two signals, returning `Int`: `ExceptT String (ExceptT Nat Option) Int`. -/
@@ -60,7 +60,7 @@ do
 #guard_msgs in
 #check twoChannelsInt
 
-prove_correct twoChannelsInt.spec by
+prove_correct twoChannelsInt by
   vcgen_ [twoChannelsInt] with finish
 
 /- Three signals, returning a product:
@@ -78,5 +78,5 @@ do
 #guard_msgs in
 #check threeChannelsProd
 
-prove_correct threeChannelsProd.spec by
+prove_correct threeChannelsProd by
   vcgen_ [threeChannelsProd]

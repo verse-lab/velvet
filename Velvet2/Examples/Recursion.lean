@@ -43,7 +43,7 @@ do
       let result ← fibAcc n' b (a + b)
       return result
 
-prove_correct fibAcc.spec by
+prove_correct fibAcc by
   sorry
 
 /- Iterative Fibonacci using Velvet's annotated finite-range loop syntax. -/
@@ -68,7 +68,7 @@ do
     i := i + 1
   return a
 
-prove_correct fibFor.spec by
+prove_correct fibFor by
   vcgen_ [fibFor, fibAccSpec] with try finish
   all_goals sorry
 
