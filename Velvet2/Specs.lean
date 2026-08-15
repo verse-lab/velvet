@@ -8,6 +8,27 @@ open Std.Internal.Do
 
 variable {m : Type u → Type v} {Pred EPred : Type u}
 
+theorem triple_from_option_spec {α β : Type}
+    {f : α → Option β} {a : α} {pre : Prop} {post : β → Prop}
+    (h : ∀ (r : β), f a = some r → pre → post r) :
+    Triple (f a) pre (fun r => post r) (True : Prop) := by
+  apply Std.Internal.Do.Triple.intro
+  intro hpre
+  show (f a).elim True post
+  cases hfa : f a with
+  | none => trivial
+  | some r => exact h r hfa hpre
+
+theorem triple_to_option_spec {β : Type} {pre : Prop} {post : β → Prop}
+    {x : Option β}
+    (h : Triple x pre (fun r => post r) (True : Prop)) :
+    ∀ r, x = some r → pre → post r := by
+  intro r hx hpre
+  rcases h with ⟨hwp⟩
+  have hwp := hwp hpre
+  subst hx
+  exact hwp
+
 /-- A runtime no-op that introduces an assertion into verification conditions. -/
 def assertGadget [Monad m] [Assertion Pred] [Assertion EPred]
     [WPMonad m Pred EPred] (_assertion : Pred) : m PUnit := pure ⟨⟩

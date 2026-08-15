@@ -53,10 +53,12 @@ private meta partial def liftNamedClause (name stx value type : Expr) : TermElab
         let lifted ← liftNamedClause name stx (mkApp value x) (body.instantiate1 x)
         mkLambdaFVars #[x] lifted
   | _ =>
+      /- Fires when a named loop assertion does not end in `Prop` after following its function
+         binders, e.g. `named_clause%[n, s] (fun _ => (1 : Nat))`. -/
       throwError "named loop assertion must return Prop, but has type{indentExpr type}"
 
 @[term_elab namedClause]
-public meta def elabNamedLoopClause : TermElab := fun stx expectedType? => do
+public meta def elabNamedClause : TermElab := fun stx expectedType? => do
   let `(named_clause%[$nameStx, $sourceStx] $valueStx) := stx | throwUnsupportedSyntax
   let name ← elabTerm nameStx none
   let source ← elabTerm sourceStx none
@@ -79,6 +81,8 @@ private meta partial def meetAssertions (lhs rhs type : Expr) : TermElabM Expr :
         let meet ← meetAssertions lhs rhs (body.instantiate1 x)
         mkLambdaFVars #[x] meet
   | _ =>
+      /- Fires when pointwise-meeting loop assertions that are not `Prop`-valued, e.g.
+         `assertion_meet%[(fun _ => (1 : Nat)), (fun _ => True)]`. -/
       throwError "loop assertion meet must return Prop, but has type{indentExpr type}"
 
 @[term_elab assertionMeet]
@@ -167,6 +171,8 @@ private def decodeSourceRef? (e : Expr) : MetaM (Option Syntax) := do
 public partial def extractInfo? (type : Expr) : SymM (Option Info) := do
   match_expr type with
   | Named.mk _α name source value =>
+      /- Fires when a `Named.mk` wraps a non-literal name, e.g. one built by a computed `Name`
+         rather than `Lean.Name.mkSimple "..."`. -/
       let some name := name.name?
         | throwError "invalid Named.mk name: {name}"
       return some { name, source? := ← decodeSourceRef? source, value }
@@ -181,56 +187,6 @@ public partial def extractInfo? (type : Expr) : SymM (Option Info) := do
 /-- Extract a named proposition atom, following an application spine. -/
 public def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
   return (← extractInfo? type).map fun info => (info.name, info.value)
-
-/-- Whether an expression is a named value or an `And` tree containing one. -/
-public partial def contains (type : Expr) : Bool :=
-  if type.getAppFn.isConstOf ``Named.mk then
-    true
-  else if type.isAppOfArity ``And 2 then
-    contains (type.getArg! 0) || contains (type.getArg! 1)
-  else
-    match type with
-    | .app fn _ => contains fn
-    | _ => false
-
-/--
-Unwrap and name every named proposition in a goal's hypotheses.
-Structural conjunctions are split only when they contain named propositions.
--/
-public partial def processHyp (goal : MVarId) : SymM (List MVarId) :=
-  goal.withContext do
-    for localDecl in ← getLCtx do
-      if localDecl.isImplementationDetail then
-        continue
-      let type ← instantiateMVars localDecl.type
-      if let some type ← withReducible <| reduceRecMatcher? type then
-        let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId type
-        return ← processHyp goal
-      if let some (name, prop) ← extract? type then
-        let goal ← goal.rename localDecl.fvarId name
-        let goal ← goal.replaceLocalDeclDefEq localDecl.fvarId prop
-        return ← processHyp goal
-      let type ← whnfR type
-      if type.isAppOfArity ``And 2 && contains (type.getArg! 0) && contains (type.getArg! 1) then
-        let subgoals ← goal.cases localDecl.fvarId
-        let mut results := []
-        for subgoal in subgoals do
-          results := results ++ (← processHyp subgoal.mvarId)
-        return results
-    return [goal]
-
-/--
-Unwrap a named target, changing it to its proposition and setting the goal's case
-tag to the encoded name.
--/
-public def processGoal (goal : MVarId) : SymM (List MVarId) :=
-  goal.withContext do
-    let target ← goal.getType
-    if let some (name, prop) ← extract? target then
-      let goal ← goal.replaceTargetDefEq prop
-      goal.setTag name
-      return [goal]
-    return [goal]
 
 public meta def mkAssertionList (ts : Array (TSyntax `term)) (names : Array Name) : MacroM (TSyntax `term) := do
   if ts.isEmpty then

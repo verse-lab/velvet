@@ -43,7 +43,6 @@ theorem withdraw_correct : True := by
   trivial
 
 method get_idx returns (res : Nat)
-  signals False
   ensures res = 1
   do
     return 1

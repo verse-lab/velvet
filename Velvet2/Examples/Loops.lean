@@ -16,7 +16,6 @@ set_option maxHeartbeats 10000000
 method isGreaterWithInvariants (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
-  signals False
   ensures result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let mut ok := true
@@ -35,6 +34,9 @@ do
     i := i + 1
   return ok
 
+#print isGreaterWithInvariants.spec
+
+    
 prove_correct isGreaterWithInvariants.spec by
   vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
   all_goals sorry
@@ -78,7 +80,6 @@ theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
 method isGreaterInlineAnnotations (n : Int) (a : Array Int)
   returns (result : Bool)
   requires precond: True
-  signals False
   ensures postcond: result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let mut ok := true
@@ -104,7 +105,6 @@ prove_correct isGreaterInlineAnnotations.spec by
 method scanRangeVCGen (n : Nat)
   returns (result : Unit)
   requires precond: True
-  signals False
   ensures postcond: True
 do
   for' i in 0...n
@@ -121,7 +121,6 @@ prove_correct scanRangeVCGen.spec by
 method sumDoubleRange (n : Nat)
   returns (result : Nat)
   requires precond: True
-  signals False
   ensures result_even: result % 2 = 0
 do
   let mut acc := 0
@@ -139,7 +138,6 @@ prove_correct sumDoubleRange.spec by
 method boundedRangeValues (n : Nat)
   returns (result : Nat)
   requires precond: True
-  signals False
   ensures result_nonnegative: result ≥ 0
 do
   let mut last := 0
@@ -157,7 +155,6 @@ prove_correct boundedRangeValues.spec by
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
-  signals False
   ensures result = true ↔ (∀ i : Nat, i < a.size → a[i]! < n)
 do
   let res <- isGreaterWithInvariants n a
@@ -165,3 +162,37 @@ do
 
 prove_correct isGreaterWithInvariants'.spec by
   vcgen_ [isGreaterWithInvariants'] with finish
+
+/- Partial correctness: a terminating `while'` loop still carries a `decreasing` measure and
+is fully provable. -/
+set_option velvet.semantics.termination "partial" in
+method partialCount (n : Nat) returns (res : Nat)
+  requires True
+  ensures res = n
+do
+  let mut i := 0
+  while' i < n
+    invariant i_le : i ≤ n
+    decreasing remaining : n - i
+  do
+    i := i + 1
+  return i
+
+prove_correct partialCount.spec by
+  vcgen_ [partialCount] with finish
+
+/- A genuinely non-terminating `while'` loop omits `decreasing`; it only elaborates under partial
+correctness. Its spec is not yet discharged by `vcgen_` (Std's loop spec still requires a
+`RepeatVariant` for the no-measure case), so we only check that it compiles. -/
+set_option velvet.semantics.termination "partial" in
+method spin returns (res : Nat)
+  requires True
+  ensures True do
+  let mut i := 0
+  while' True
+    invariant True
+  do
+    i := i + 1
+  return 0
+
+#check spin

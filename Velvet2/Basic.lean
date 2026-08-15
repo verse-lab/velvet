@@ -5,5 +5,7 @@ import Velvet2.Examples.Loops
 import Velvet2.Examples.LoopsExplicitVCs
 import Velvet2.Examples.Recursion
 import Velvet2.Examples.Scratch
+import Velvet2.Examples.AutomaticExceptionInference
+import Velvet2.Examples.ErrorMsgs
 import Velvet2.Examples.StateT
 import Velvet2.Examples.StateTExplicitVCs

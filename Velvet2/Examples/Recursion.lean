@@ -35,7 +35,6 @@ theorem fibAccSpec_pair_step (n : Nat) :
 /- Recursive Fibonacci, verified by structural induction on `n`. -/
 method rec fibAcc (n : Nat) (a : Nat) (b : Nat)
   returns (result : Nat)
-  signals False
   ensures result = fibAccSpec n a b
 do
   match n with
@@ -50,7 +49,6 @@ prove_correct fibAcc.spec by
 /- Iterative Fibonacci using Velvet's annotated finite-range loop syntax. -/
 method fibFor (n : Nat)
   returns (result : Nat)
-  signals False
   ensures result = fibAccSpec n 0 1
 do
   let mut a := 0
@@ -102,10 +100,10 @@ theorem fibAcc_correct' (n : Nat) (a : Nat) (b : Nat) :
       all_goals simp_all [fibAccSpec])
 
 /- A self-recursive method; partial correctness of a nonterminating program. -/
+set_option velvet.semantics.termination "partial" in
 method rec foo' (p : Int)
   returns (res : Int)
   requires True
-  signals False
   ensures True do
   let res <- foo' (p - 1)
   return res

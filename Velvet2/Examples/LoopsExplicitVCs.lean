@@ -75,5 +75,15 @@ theorem isGreaterWithInvariants'_explicit : isGreaterWithInvariants'.spec := by
   unfold isGreaterWithInvariants'.spec
   vcgen_ [isGreaterWithInvariants']
   case size_gt_0 => grind
-  case signals1 => grind
+  case termination_semantics => grind
   case ensures1 => grind
+
+theorem partialCount_explicit : partialCount.spec := by
+  unfold partialCount.spec
+  vcgen_ [partialCount]
+  case i_le => grind
+  case ensures1 => grind
+  case remaining => grind
+  case i_le => grind
+  case i_le => grind
+  case h_done_with => grind

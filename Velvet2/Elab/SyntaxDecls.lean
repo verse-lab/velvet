@@ -1,0 +1,35 @@
+import Lean.Parser
+import Lean.Elab.Command
+import Std.Internal.Do
+
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do
+
+declare_syntax_cat velvBinder
+syntax "(" ident (" : " term)? ")" : velvBinder
+
+declare_syntax_cat velvSpecTerm
+syntax (atomic(velvBinder+ ", " termBeforeDo) <|> termBeforeDo) : velvSpecTerm
+
+syntax "method " ("rec ")? ident bracketedBinder* " returns " "(" ident " : " term ")" (" in " term)?
+  (" requires " (atomic(ident " : "))? velvSpecTerm)* (" signals " (atomic(ident " : "))? velvSpecTerm)*
+  (" ensures " (atomic(ident " : "))? velvSpecTerm)* " do " doSeq : command
+
+syntax "prove_correct " ident " by " tacticSeq : command
+
+syntax "while' " (atomic(ident " : "))? termBeforeDo
+  (" invariant " (atomic(ident " : "))? termBeforeDo)*
+  (" decreasing " (atomic(ident " : ")? termBeforeDo ))?
+  (" done_with " (atomic(ident " : ")? termBeforeDo  ("by " tacticSeq)?))?
+  " do " doSeq : doElem
+
+/--
+A finite range loop with inline state invariants. Like Lean's built-in `for`,
+the collection controls termination; the initial version supports one binder
+and one collection, including closed-open ranges such as `start...stop`.
+-/
+syntax "for' " term " in " termBeforeDo
+  (" invariant " (atomic(ident " : "))? termBeforeDo)*
+  (" done_with " (atomic(ident " : "))? termBeforeDo)?
+  " do " doSeq : doElem
+
+syntax "assert" (atomic(ident " : ")) term : term
