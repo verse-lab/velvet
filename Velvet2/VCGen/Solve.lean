@@ -10,6 +10,7 @@ public import Init.Data.Sum.Basic
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
 public import Lean.Elab.Tactic.Do.Internal.VCGen.RuleCache
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Entails
+public import Velvet2.VCGen.HypNaming
 public import Velvet2.VCGen.Util
 public import Lean.Meta.Sym.InstantiateS
 import Lean.Meta.Sym.InferType
@@ -339,7 +340,9 @@ private def wpMatch? (goal : MVarId) (info : WPApp) :
     | .goal g' => simpGoals := simpGoals.push g'
     | .noProgress => simpGoals := simpGoals.push g
     | .closed => continue
-  return some simpGoals.toList
+  -- return a wrapped result to handle naming of ite/dite/matcher correctly.
+  -- examples at `Velvet2/VCGen/IteNaming.lean`.
+  return some (← Velvet2.VCGen.nameSplitBranchHyps splitInfo simpGoals.toList)
 
 /-- Strategy 11c: zeta-unfold a local let-bound fvar used as the program head. -/
 private def wpFVarZeta? (goal : MVarId) (info : WPApp) :

@@ -1,6 +1,6 @@
 --- a/Lean/Elab/Tactic/Do/Internal/VCGen/Solve.lean
 +++ b/Velvet2/VCGen/Solve.lean
-@@ -6,9 +6,11 @@
+@@ -6,9 +6,12 @@
  module
  
  prelude
@@ -8,11 +8,12 @@
  public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
  public import Lean.Elab.Tactic.Do.Internal.VCGen.RuleCache
  public import Lean.Elab.Tactic.Do.Internal.VCGen.Entails
++public import Velvet2.VCGen.HypNaming
 +public import Velvet2.VCGen.Util
  public import Lean.Meta.Sym.InstantiateS
  import Lean.Meta.Sym.InferType
  import Lean.Meta.Sym.InstantiateMVarsS
-@@ -68,7 +70,7 @@
+@@ -68,7 +71,7 @@
      | .closed => return some []
      | .goal goal' => pure (goal', true)
      | .noProgress => pure (goal, false)
@@ -21,7 +22,7 @@
    if !simped && goal' == goal then
      throwError "Failed to intro forall target {goal}"
    return some [goal']
-@@ -91,7 +93,7 @@
+@@ -91,7 +94,7 @@
      return some (← goal.replaceTargetDefEqFast (← Sym.instantiateRevBetaS body #[val]))
    else
      trace[Elab.Tactic.Do.vcgen] "let-intro: {name}"
@@ -30,7 +31,7 @@
  
  /-- Strategy 3: unfold a `Triple` target into the underlying lattice entailment. -/
  private def tripleUnfold? (goal : MVarId) (target : Expr) : VCGenM (Option MVarId) := do
-@@ -166,20 +168,29 @@
+@@ -166,20 +169,29 @@
      | throwError "Failed to cancel the `⊓ ⊤` precondition of {goal}"
    return some g
  
@@ -62,7 +63,7 @@
  
  /-- Strategy 5: eliminate an `iSup` precondition via `iSup_le`, leaving the pointwise entailment
  `∀ i, P i ⊑ rhs` for `∀`-introduction. -/
-@@ -189,13 +200,36 @@
+@@ -189,13 +201,36 @@
      | throwError "Failed to eliminate the `iSup` precondition of {goal}"
    return some g
  
@@ -100,7 +101,7 @@
  
  /-- Strategy 7: replace a `True` precondition by `⊤` via `true_le_of_top_le`, or reduce a lifted
  `⊤ s₁ … sₙ` precondition (the bare top applied to the state arguments introduced by
-@@ -219,19 +253,33 @@
+@@ -219,19 +254,33 @@
  Returns the updated scope, recording any lifted hypothesis. -/
  private def normalizePre? (scope : VCGen.Scope) (goal : MVarId) (α pre target : Expr) :
      VCGenM (Option (VCGen.Scope × List MVarId)) := do
@@ -135,7 +136,18 @@
    return none
  
  /-- Replace the program in `goal`'s target with `prog` (which must be definitionally equal). -/
-@@ -500,16 +548,31 @@
+@@ -291,7 +340,9 @@
+     | .goal g' => simpGoals := simpGoals.push g'
+     | .noProgress => simpGoals := simpGoals.push g
+     | .closed => continue
+-  return some simpGoals.toList
++  -- return a wrapped result to handle naming of ite/dite/matcher correctly.
++  -- examples at `Velvet2/VCGen/IteNaming.lean`.
++  return some (← Velvet2.VCGen.nameSplitBranchHyps splitInfo simpGoals.toList)
+ 
+ /-- Strategy 11c: zeta-unfold a local let-bound fvar used as the program head. -/
+ private def wpFVarZeta? (goal : MVarId) (info : WPApp) :
+@@ -500,16 +551,31 @@
  public def solve (scope : VCGen.Scope) (goal : MVarId) : VCGenM SolveResult := goal.withContext do
    if ← outOfFuel then return .stop .outOfFuel
    let target ← goal.getType
@@ -175,7 +187,7 @@
  
    let_expr PartialOrder.rel α inst pre rhs := target
      | return .stop (.noEntailment target)
-@@ -517,7 +580,9 @@
+@@ -517,7 +583,9 @@
    -- Phase 2: close reflexive goals, then drive `pre` toward `⊤`, lifting any pure content so a
    -- later spec application sees a `⊤` precondition.
    if let some gs ← rfl? goal then return .goals scope gs
