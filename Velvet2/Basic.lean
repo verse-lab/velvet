@@ -10,3 +10,5 @@ import Velvet2.Examples.AutomaticExceptionInference
 import Velvet2.Examples.ErrorMsgs
 import Velvet2.Examples.StateT
 import Velvet2.Examples.StateTExplicitVCs
+import Velvet2.Examples.IntrinsicVerification
+import Velvet2.Examples.MemAlloc

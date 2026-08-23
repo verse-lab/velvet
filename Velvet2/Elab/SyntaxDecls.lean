@@ -1,6 +1,7 @@
 import Lean.Parser
 import Lean.Elab.Command
 import Std.Internal.Do
+import Velvet2.Ghost
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do
 
@@ -33,3 +34,8 @@ syntax "for' " term " in " termBeforeDo
   " do " doSeq : doElem
 
 syntax "assert" (atomic(ident " : ")) term : term
+
+macro "let" "ghost" x:ident ":=" value:term : doElem =>
+  `(doElem| let mut $x := _root_.Ghost.mk $value)
+
+syntax (name := ghostReassign) "*" ident " := " term : doElem

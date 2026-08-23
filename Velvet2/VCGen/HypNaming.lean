@@ -4,7 +4,9 @@ prelude
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
 public import Lean.Elab.Tactic.Do.Internal.VCGen.Util
 public import Lean.Elab.Tactic.Do.VCGen.Split
+public import Lean.Meta.Sym.AbstractS
 public import Lean.Meta.Sym.AlphaShareBuilder
+public import Lean.Meta.Sym.InstantiateS
 public import Velvet2.Named
 
 open Lean Meta Sym Sym.Internal
@@ -38,10 +40,18 @@ private def usableName? (n : Name) : Option Name :=
 
 /-- Reflect a `Name` as an expression that `Lean.Expr.name?` (and hence `Named.extract?`)
 can decode. -/
-private def mkNameLit : Name → Expr
-  | .anonymous => mkConst ``Lean.Name.anonymous
-  | .str p s => mkApp2 (mkConst ``Lean.Name.str) (mkNameLit p) (mkStrLit s)
-  | .num p i => mkApp2 (mkConst ``Lean.Name.num) (mkNameLit p) (mkNatLit i)
+
+def mkInstOfNatNatS (n : Expr) : SymM Expr := do
+  mkAppS (<- mkConstS ``instOfNatNat) n
+
+def mkNatLitCoreS (n : Expr) : SymM Expr := do
+  mkAppS₃  (<- mkConstS ``OfNat.ofNat [Level.zero]) (<- mkConstS ``Nat) n (<-mkInstOfNatNatS n)
+
+private def mkNameLit (nm: Name  ) : SymM Expr := do
+   match nm with
+  | .anonymous => mkConstS ``Lean.Name.anonymous
+  | .str p s => mkAppS₂ (<- mkConstS ``Lean.Name.str) (<- mkNameLit p) (<- mkLitS (Literal.strVal s ))
+  | .num p i => mkAppS₂ (<- mkConstS ``Lean.Name.num) (<- mkNameLit p) (<- mkNatLitCoreS (<- mkLitS (Literal.natVal i)))
 
 /-- The guard name of an `ite`/`dite` split, shared by both branches. `none` for matchers, whose
 binders name themselves. -/
@@ -58,7 +68,7 @@ private def guardName? (splitInfo : SplitInfo) : Option Name :=
 
 /-- Generate a name for hypothesis which comes from a constructor equation. Given a hypothesis
 x = .ctor arg1 ..., return a name `h_ctor`. -/
-private def ctorEqName? (dom : Expr) : MetaM (Option Name) := do
+private def ctorEqName? (dom : Expr) : SymM (Option Name) := do
   let_expr Eq _α lhs rhs := dom | return none
   for side in [rhs, lhs] do
     let .const declName _ := side.getAppFn | continue
@@ -69,15 +79,15 @@ private def ctorEqName? (dom : Expr) : MetaM (Option Name) := do
 
 /-- `Named.mk name none dom`, which is definitionally `dom`. `none` when `dom` is already
 annotated, or is not a type and so has no binder to name. -/
-private def mkNamedDomain? (name : Name) (dom : Expr) : MetaM (Option Expr) := do
+private def mkNamedDomain? (name : Name) (dom : Expr) : SymM (Option Expr) := do
   if dom.isAppOfArity ``Named.mk 4 then return none
   let .sort v ← whnf (← inferType dom) | return none
-  let noneStx := mkApp (mkConst ``Option.none [Level.zero]) (mkConst ``Lean.Syntax)
-  return some <| mkApp4 (mkConst ``Named.mk [.succ v]) (mkSort v) (mkNameLit name) noneStx dom
+  let noneStx <- mkAppS (<- mkConstS ``Option.none [Level.zero]) (<- mkConstS ``Lean.Syntax)
+  return some <| (<- mkAppS₄  (<- mkConstS ``Named.mk [.succ v]) (<- mkSortS v) (<- mkNameLit name) noneStx dom)
 
 
 /-- The name for the binder `binderName : dom`, or `none` to leave it inaccessible. -/
-private def nameFor : Option Name → Name → Expr → MetaM (Option Name)
+private def nameFor : Option Name → Name → Expr → SymM (Option Name)
   | .some name, _, _ => return some name
   | .none, binderName, dom => do
       if let some name := usableName? binderName then return some name
@@ -88,18 +98,19 @@ Rebuild the leading `∀` telescope of `type`, annotating each binder's domain w
 Second argument flags whether anything changed.
 -/
 private partial def annotateBinders (naming : Option Name) (type : Expr) :
-    MetaM (Expr × Bool) := do
+    SymM (Expr × Bool) := do
   let .forallE binderName dom body binderInfo := type | return (type, false)
   let dom? ← match ← nameFor naming binderName dom with
     | none => pure none
     | some name => mkNamedDomain? name dom
   withLocalDecl binderName binderInfo (dom?.getD dom) fun x => do
-    let body := body.instantiate1 x
+    let x ← mkFVarS x.fvarId!
+    let body ← instantiateS body #[x]
     let (body, changed) ← match naming with
       | .some _ => pure (body, false)
       | .none => annotateBinders naming body
     if dom?.isNone && !changed then return (type, false)
-    return (← mkForallFVars #[x] body, true)
+    return (← mkForallFVarsS #[x] body, true)
 
 /-- `annotateBinders` applied to `goal`'s target. `goal` is returned unchanged when no binder was
 annotated, which keeps the target's sharing intact. -/
@@ -107,7 +118,7 @@ private def annotateLeadingBinders (goal : MVarId) (naming : Option Name) : VCGe
   goal.withContext do
     let target ← goal.getType
     unless target.isForall do return goal
-    let (target, changed) ← liftMetaM <| annotateBinders naming target
+    let (target, changed) ← annotateBinders naming target
     unless changed do return goal
     goal.replaceTargetDefEqFast (← shareCommon target)
 

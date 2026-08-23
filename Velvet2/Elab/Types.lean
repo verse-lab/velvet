@@ -38,7 +38,7 @@ structure MethodElabContext where
   signalsClauses : Array AssertionInfo
   ensuresClauses : Array AssertionInfo
 
-/-- Persisted direct statement of a generated `methodName.spec` contract. -/
+/-- Persisted direct statement of a generated `methodName.spec_triple` contract. -/
 structure MethodSpecEntry where
   name : Name
   statement : Syntax

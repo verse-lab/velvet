@@ -6,6 +6,9 @@ namespace Velvet2.Examples.HypNaming
 
 open Std.Internal.Do
 
+/- Keep SymM's maximal-sharing assertions enabled for these regression examples. -/
+set_option sym.debug true
+
 /- `if` naming -/
 method maxOf (a : Nat) (b : Nat) returns (res : Nat)
   ensures a ≤ res ∧ b ≤ res ∧ (a = res ∨ b = res)

@@ -12,8 +12,8 @@ open Std.Internal.Do
 
 namespace Velvet2.Examples.StateT
 
-theorem countState_explicit : countState.spec := by
-  unfold countState.spec
+theorem countState_explicit : countState.spec_triple := by
+  unfold countState.spec_triple
   vcgen_ [countState]
   case state_tracks => grind
   case ensures1 => grind
@@ -56,13 +56,13 @@ theorem countRange_explicit (n : Nat) :
     simp [Std.Rco.getElem?_toList_eq] at hc hn
     simp_all
 
-theorem checkedAdd_explicit : checkedAdd.spec := by
-  unfold checkedAdd.spec
+theorem checkedAdd_explicit : checkedAdd.spec_triple := by
+  unfold checkedAdd.spec_triple
   vcgen_ [checkedAdd]
   case positive_delta => grind
 
-theorem countUnlessBlocked_explicit : countUnlessBlocked.spec := by
-  unfold countUnlessBlocked.spec
+theorem countUnlessBlocked_explicit : countUnlessBlocked.spec_triple := by
+  unfold countUnlessBlocked.spec_triple
   vcgen_ [countUnlessBlocked]
   case progress => grind
   case ensures1 => grind
@@ -83,8 +83,8 @@ theorem countToReaderLimit_explicit :
   case reader_progress => grind
   case reader_done => grind
 
-theorem countToReaderLimitMethod_explicit : countToReaderLimitMethod.spec := by
-  unfold countToReaderLimitMethod.spec
+theorem countToReaderLimitMethod_explicit : countToReaderLimitMethod.spec_triple := by
+  unfold countToReaderLimitMethod.spec_triple
   vcgen_ [countToReaderLimitMethod]
 
 theorem addToReaderLimit_explicit :

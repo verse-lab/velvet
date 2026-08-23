@@ -32,3 +32,9 @@ register_option velvet.semantics.termination : VelvetSemanticsTermination := {
   defValue := .totalCorrectness
   descr := "Termination semantics for `method`: `total` (default) or `partial`."
 }
+
+/-- Whether `method` should automatically verify itself during elaboration by running `prove_correct <name> by vcgen_ [<name>] with finish`. -/
+register_option velvet.verifyDuringElab : Bool := {
+  defValue := false
+  descr := "Automatically verify method specifications during elaboration using `vcgen_ with finish`."
+}

@@ -34,7 +34,7 @@ do
     i := i + 1
   return ok
 
-#print isGreaterWithInvariants.spec
+#print isGreaterWithInvariants.spec_triple
 
     
 prove_correct isGreaterWithInvariants by
@@ -100,6 +100,9 @@ do
 
 prove_correct isGreaterInlineAnnotations by
   vcgen_ [isGreaterInlineAnnotations] with finish
+
+  
+
 
 /- A finite range using Velvet's `for'` annotations and the bundled VCGen frontend. -/
 method scanRangeVCGen (n : Nat)
@@ -228,3 +231,26 @@ method partialTick returns (res : Nat)
 
 prove_correct partialTick by
   vcgen_ [partialTick] with finish
+
+set_option velvet.semantics.termination "partial" in
+method partialTick' returns (res : Nat)
+  requires True
+  ensures True do
+  let mut i := 0
+  let ghost ctr := 0
+  while' True
+    invariant i_nonneg : i ≥ 0
+    invariant ghost_ctr : ctr.reveal = i
+  do
+    i := i + 1;
+    *ctr := ctr + 1
+  return i
+
+prove_correct partialTick' by
+  vcgen_ [partialTick'] with finish
+  
+
+def foo : Ghost String := do
+    let f: Ghost String := Ghost.mk "f"
+    pure "g"
+

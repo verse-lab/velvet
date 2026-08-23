@@ -38,8 +38,8 @@ theorem isGreaterNativeWhile_correct_explicit (n : Int) (a : Array Int) :
   case vc6 => grind
   case vc7 => grind
 
-theorem isGreaterInlineAnnotations_explicit : isGreaterInlineAnnotations.spec := by
-  unfold isGreaterInlineAnnotations.spec
+theorem isGreaterInlineAnnotations_explicit : isGreaterInlineAnnotations.spec_triple := by
+  unfold isGreaterInlineAnnotations.spec_triple
   vcgen_ [isGreaterInlineAnnotations]
   case idx_bounded => grind
   case ok_iff_prefix => grind
@@ -57,29 +57,29 @@ theorem isGreaterInlineAnnotations_explicit : isGreaterInlineAnnotations.spec :=
   case ok_iff_prefix => grind
   case loop_done => grind
 
-theorem sumDoubleRange_explicit : sumDoubleRange.spec := by
-  unfold sumDoubleRange.spec
+theorem sumDoubleRange_explicit : sumDoubleRange.spec_triple := by
+  unfold sumDoubleRange.spec_triple
   vcgen_ [sumDoubleRange]
   case result_even => grind
   case sum_done => grind
   case accumulator_even => grind
 
-theorem boundedRangeValues_explicit : boundedRangeValues.spec := by
-  unfold boundedRangeValues.spec
+theorem boundedRangeValues_explicit : boundedRangeValues.spec_triple := by
+  unfold boundedRangeValues.spec_triple
   vcgen_ [boundedRangeValues]
   case result_nonnegative => grind
   case last_done => grind
   case last_nonnegative => grind
 
-theorem isGreaterWithInvariants'_explicit : isGreaterWithInvariants'.spec := by
-  unfold isGreaterWithInvariants'.spec
+theorem isGreaterWithInvariants'_explicit : isGreaterWithInvariants'.spec_triple := by
+  unfold isGreaterWithInvariants'.spec_triple
   vcgen_ [isGreaterWithInvariants']
   case size_gt_0 => grind
   case termination_semantics => grind
   case ensures1 => grind
 
-theorem partialCount_explicit : partialCount.spec := by
-  unfold partialCount.spec
+theorem partialCount_explicit : partialCount.spec_triple := by
+  unfold partialCount.spec_triple
   vcgen_ [partialCount]
   case i_le => grind
   case ensures1 => grind
@@ -88,8 +88,8 @@ theorem partialCount_explicit : partialCount.spec := by
   case i_le => grind
   case h_done_with => grind
 
-theorem partialCountNoMeasure_explicit : partialCountNoMeasure.spec := by
-  unfold partialCountNoMeasure.spec
+theorem partialCountNoMeasure_explicit : partialCountNoMeasure.spec_triple := by
+  unfold partialCountNoMeasure.spec_triple
   vcgen_ [partialCountNoMeasure]
   case i_le => grind
   case ensures1 => grind
@@ -97,7 +97,7 @@ theorem partialCountNoMeasure_explicit : partialCountNoMeasure.spec := by
   case i_le => grind
   case h_done_with => grind
 
-theorem partialTick_explicit : partialTick.spec := by
-  unfold partialTick.spec
+theorem partialTick_explicit : partialTick.spec_triple := by
+  unfold partialTick.spec_triple
   vcgen_ [partialTick]
   case i_nonneg => grind

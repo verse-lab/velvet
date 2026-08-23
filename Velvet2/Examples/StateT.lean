@@ -15,6 +15,7 @@ Note on `signals`:
 abbrev CounterOption := StateT Nat Option
 abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
 
+#check instMonadLiftT
 
 /- A `StateT Nat Option` loop exercising invariant, decreasing, and done gadgets. -/
 method countState (n : Nat) returns (res: Nat) in CounterOption
@@ -36,7 +37,7 @@ method countState (n : Nat) returns (res: Nat) in CounterOption
 prove_correct countState by
   vcgen_ [countState] with finish
 
-#check countState.spec.proof
+#check countState.spec
 
 
 /-- A `StateT Nat Option` program with assertions before and after mutation. -/
@@ -184,7 +185,7 @@ method countToReaderLimitMethod returns (res : Nat) in ReaderCounter
   let start ← get
   return start
 
-#print countToReaderLimitMethod.spec
+#print countToReaderLimitMethod.spec_triple
 prove_correct countToReaderLimitMethod by
   vcgen_ [countToReaderLimitMethod] with finish
 
@@ -243,7 +244,7 @@ do
 prove_correct idNoBinders by
   vcgen_ [idNoBinders] with finish
 
-#print idNoBinders.spec
+#print idNoBinders.spec_triple
 
 /- Total correctness over `StateT Nat Option` is expressed with a bare `signals False`;
 the state still needs binders in `requires`/`ensures`. -/

@@ -20,6 +20,7 @@ public meta import Lean.Meta.Sym.Simp.Rewrite
 public meta import Lean.Meta.Sym.Simp.Simproc
 public meta import Lean.Elab.Tactic.Grind.Main
 public meta import Lean.Elab.Tactic.Grind.Basic
+public meta import Velvet2.VCGen.Progress
 import Lean.Meta.Sym.ProofInstInfo
 
 open Lean Parser Meta Elab Tactic Sym
@@ -474,25 +475,63 @@ public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun
 /-- Apply a `with` discharger to every VC produced by `vcgen_`. This is the source-aware
 counterpart of Grind's `all_goals`: goals carrying named source metadata relocate a discharger
 failure to that annotation; unannotated goals use Grind's ordinary recovery path unchanged. -/
-private meta def dischargeVCGoals (g : TSyntax `grind) : Grind.GrindTacticM Unit := do
+private meta def dischargeVCGoals (g : TSyntax `grind) (declName? : Option Name := none) : Grind.GrindTacticM Unit := do
   let goals ← Grind.getGoals
+  let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
+  let total := activeGoals.length
+  let opts ← liftMetaM getOptions
+  let showProgress := opts.getBool `velvet.showProgress true
+  let mut tracker := Velvet2.VCGen.ProgressTracker.init declName? total showProgress
   let mut goalsNew := #[]
+  let mut idx := 0
+
   for goal in goals do
-    unless ← goal.mvarId.isAssigned do
-      Grind.setGoals [goal]
-      let residual ← match Named.sourceRef? (← goal.mvarId.getType) with
-        | none =>
-            -- No source metadata: preserve the discharger's default behavior exactly.
-            Grind.evalGrindTactic g
-            Grind.getUnsolvedGoals
-        | some source =>
-            try
-              Grind.evalGrindTactic g
-              Grind.getUnsolvedGoals
-            catch ex =>
-              throwErrorAt source ex.toMessageData
-      goalsNew := goalsNew ++ residual
+    if ← goal.mvarId.isAssigned then
+      continue
+    idx := idx + 1
+    let tag ← goal.mvarId.getTag
+    let tagStr := if tag.isAnonymous then s!"vc{idx}" else tag.eraseMacroScopes.toString
+
+    Grind.setGoals [goal]
+    let residual ← match Named.sourceRef? (← goal.mvarId.getType) with
+      | none =>
+          -- No source metadata: preserve the discharger's default behavior exactly.
+          Grind.evalGrindTactic g
+          Grind.getUnsolvedGoals
+      | some source =>
+        try
+          Grind.evalGrindTactic g
+          Grind.getUnsolvedGoals
+        catch ex =>
+          throwErrorAt source ex.toMessageData
+
+    let isSolved := residual.isEmpty && (← goal.mvarId.isAssigned)
+    if isSolved then
+      tracker := tracker.onSolved idx tagStr
+    else
+      tracker := tracker.onUnsolved idx tagStr
+
+    goalsNew := goalsNew ++ residual
+
+  liftMetaM tracker.onFinish
   Grind.setGoals goalsNew.toList
+
+/-- Report generated VCs when no `with` discharger is specified. -/
+private meta def reportGeneratedGoals (declName? : Option Name := none) : Grind.GrindTacticM Unit := do
+  let goals ← Grind.getGoals
+  let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
+  let total := activeGoals.length
+  let opts ← liftMetaM getOptions
+  let showProgress := opts.getBool `velvet.showProgress true
+  let tracker := Velvet2.VCGen.ProgressTracker.init declName? total showProgress
+  let mut tags := #[]
+  let mut idx := 0
+  for goal in activeGoals do
+    idx := idx + 1
+    let tag ← goal.mvarId.getTag
+    let tagStr := if tag.isAnonymous then s!"vc{idx}" else tag.eraseMacroScopes.toString
+    tags := tags.push tagStr
+  liftMetaM <| tracker.onGenerated tags.toList
 
 /-- Validate the optional `with` clause of `vcgen`. It must be a `grind`-mode step so it can share
 `vcgen`'s internalised E-graph; the `vcgenDischarge` category's `tactic` alternative is a catch-all
@@ -529,10 +568,13 @@ public meta def elabVCGenVendoredCore : Tactic := fun stx => withMainContext do
   -- `clean := false` keeps inaccessible binder names (no `exposeNames`), so users can
   -- still rename them with `case vcN h => …`.
   let params ← Grind.mkDefaultParams { clean := false }
+  let declName? ← Term.getDeclName?
   let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
     Grind.evalGrindTactic core
     if let some g := g? then
-      dischargeVCGoals g
+      dischargeVCGoals g declName?
+    else
+      reportGeneratedGoals declName?
   replaceMainGoal (state.goals.map (·.mvarId))
 
 

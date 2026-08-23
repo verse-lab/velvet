@@ -4,6 +4,10 @@ import Velvet2.Elab.Util
 import Velvet2.Named
 import Velvet2.Specs
 import Lean.Parser
+import Lean.Elab.Do
+import Lean.Elab.BuiltinDo.Let
+import Velvet2.Ghost
+import Velvet2.VCGen.Frontend
 import Lean.Elab.Command
 import Std.Internal.Do
 import Std.Internal.Do.WP.Basic
@@ -13,6 +17,9 @@ import Std.Internal.Do.Triple.Gadget
 import Std.Internal.Do.Triple.SpecLemmas
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
+open Lean Meta Elab
+open Lean.Parser.Term
+open Lean.Elab.Do
 
 private def addMethodSpecEntry (state : Std.HashMap Name Syntax) (entry : MethodSpecEntry) :=
   state.insert entry.name entry.statement
@@ -22,6 +29,42 @@ initialize methodSpecExt : SimplePersistentEnvExtension MethodSpecEntry (Std.Has
     addEntryFn := addMethodSpecEntry
     addImportedFn := fun entries =>
       mkStateFromImportedEntries addMethodSpecEntry {} entries }
+
+namespace GhostUtils
+
+private structure GhostLocal where
+  source : Ident
+  binder : Ident
+  fvarId : FVarId
+
+private def isGhostType (type : Expr) : MetaM Bool := do
+  return (← whnf type).isAppOf ``Ghost
+
+private def liftGhostLocals (rhs : Term) : DoElabM Term := do
+  let rewrite : Syntax → StateT (Array GhostLocal) DoElabM (Option Syntax) := fun stx => do
+    unless stx.isIdent do return none
+    let source : Ident := ⟨stx⟩
+    let some decl := (← getLCtx).findFromUserName? source.getId | return none
+    unless ← isGhostType decl.type do return none
+    if let some ghostLocal := (← get).find? (·.fvarId == decl.fvarId) then
+      return some ghostLocal.binder.raw
+    let binder ← Lean.Elab.Term.mkFreshIdent source
+    modify (·.push ⟨source, binder, decl.fvarId⟩)
+    return some binder.raw
+  let (rhs, locals) ← (rhs.raw.replaceM rewrite).run #[]
+  let mut result ← `(Ghost.mk $(⟨rhs⟩):term)
+  for ghostLocal in locals.reverse do
+    result ← `($(ghostLocal.source) >>= fun $(ghostLocal.binder) => $result)
+  return result
+
+private def alreadyGhost (rhs : Term) (expectedType : Expr) : DoElabM Bool :=
+  Lean.Elab.withoutModifyingStateWithInfoAndMessages do
+    return (← Lean.Elab.Term.commitIfNoErrors? do
+      discard <| Lean.Elab.Term.elabTermEnsuringType rhs (some expectedType)
+      Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing).isSome
+
+end GhostUtils
+
 
 /-- Walk a `do` body and require every `while'` loop to carry a `decreasing` clause. -/
 private partial def checkWhilePrimeTermination (stx : Syntax) : CommandElabM Unit := do
@@ -105,7 +148,7 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
         `(command|
           set_option linter.unusedVariables false in
           def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body))
-    let specId := mkIdentFrom ctx.name (ctx.name.getId ++ `spec)
+    let specId := mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple)
     let statement ← `(term|
       ∀ $binderStxs*, Std.Internal.Do.Triple
         ($(ctx.name) $ids*)
@@ -118,8 +161,15 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
     return (defCmd, specCmd, statement)
   elabCommand defCmd
   elabCommand specCmd
-  let specName ← liftCoreM <| realizeGlobalConstNoOverload (mkIdentFrom ctx.name (ctx.name.getId ++ `spec))
+  let specName ← liftCoreM <| realizeGlobalConstNoOverload (mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple))
   modifyEnv (methodSpecExt.addEntry · { name := specName, statement := statement })
+  let verifyDuringElab := (← getOptions).getBool `velvet.verifyDuringElab false
+  if verifyDuringElab then
+    let lem : TSyntax `Lean.Parser.Tactic.simpLemma ← `(Lean.Parser.Tactic.simpLemma| $(ctx.name):ident)
+    let proveCmd ← `(command|
+      prove_correct $(ctx.name) by
+        vcgen_ [$lem] with finish)
+    elabCommand proveCmd
 
 set_option linter.unusedVariables false in
 elab_rules : command
@@ -147,12 +197,12 @@ elab_rules : command
     }
 
 /-- Prove a method contract with `prove_correct foo`, producing the registered theorem
-`foo.spec.proof`. The contract (`foo.spec`, an `abbrev`) owns the complete quantified `Triple`;
+`foo.spec`. The generated abbreviation `foo.spec_triple` owns the complete quantified `Triple`;
 this command only unfolds and proves that proposition. -/
 @[incremental]
 elab_rules : command
   | `(command| prove_correct $specId:ident by $proof:tacticSeq) => do
-    let specIdent := mkIdentFrom specId (specId.getId ++ `spec)
+    let specIdent := mkIdentFrom specId (specId.getId ++ `spec_triple)
     let declName ← liftCoreM <| realizeGlobalConstNoOverload specIdent
     let info ← liftCoreM <| getConstInfo declName
     unless (← liftTermElabM <| whnf info.type).isProp do
@@ -162,7 +212,7 @@ elab_rules : command
     let some statement := methodSpecExt.getState (← getEnv) |>.get? declName
       | throwErrorAt specId "no method contract metadata found for `{declName}`"
     let statement : Term := ⟨statement⟩
-    let proofId := mkIdentFrom specId (specId.getId ++ `spec ++ `proof)
+    let proofId := mkIdentFrom specId (specId.getId ++ `spec)
     let thmCmd ← `(command|
       open scoped Std.Internal.Do Lean.Order in
       set_option linter.unusedVariables false in
@@ -227,3 +277,29 @@ macro_rules
         invariant $exited =>
           if $exited then $exitedInvs else $invs'
         do $body)
+
+
+@[doElem_control_info ghostReassign]
+def controlInfoGhostReassign : ControlInfoHandler := fun stx => do
+  let `(doElem| *$x:ident := $_rhs) := stx
+    | throwUnsupportedSyntax
+  return { reassigns := {x.getId} }
+
+@[doElem_elab ghostReassign]
+def elabGhostReassign : DoElab := fun stx cont => do
+  let `(doElem| *$x:ident := $rhs) := stx
+    | throwUnsupportedSyntax
+  let original ← `(doReassign| $x:ident := $rhs)
+  let original : DoElem := ⟨original.raw⟩
+
+  let some decl := (← getLCtx).findFromUserName? x.getId
+    | throwUnsupportedSyntax
+  unless ← GhostUtils.isGhostType decl.type do
+    throwUnsupportedSyntax -- "*<lhs> := <rhs> syntax is only supported when <lhs> is a ghost type"
+
+  if ← GhostUtils.alreadyGhost rhs decl.type then
+    Lean.Elab.Do.elabDoReassign original cont
+  else
+    let rhs ← GhostUtils.liftGhostLocals rhs
+    let stx ← `(doReassign| $x:ident := $rhs)
+    Lean.Elab.Do.elabDoReassign ⟨stx.raw⟩ cont
