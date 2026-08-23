@@ -1,6 +1,5 @@
 import Velvet2.Syntax
 import Velvet2.Ghost
-import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
 /-!
@@ -8,7 +7,7 @@ import Velvet2.VCGen.Frontend
 
 Demonstrating intrinsic verification in Velvet: with `set_option velvet.verifyDuringElab true`,
 each `method` declaration is verified automatically during elaboration by `vcgen_ with finish`,
-producing the verified `spec.proof` theorem without requiring a separate `prove_correct` block.
+producing the verified `spec` theorem without requiring a separate `prove_correct` block.
 -/
 
 namespace Velvet2.Examples.IntrinsicVerification

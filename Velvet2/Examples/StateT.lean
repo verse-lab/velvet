@@ -1,16 +1,9 @@
 import Velvet2.Syntax
-import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
 open Std.Internal.Do
 
 namespace Velvet2.Examples.StateT
-
-/-
-Note on `signals`:
-  - `signals False`: asserts total correctness (no exception/failure is permitted).
-  - `signals True`: asserts partial correctness (failure is allowed under any condition).
--/
 
 abbrev CounterOption := StateT Nat Option
 abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
@@ -62,9 +55,8 @@ theorem boundedIncrement_correct (limit : Nat) :
 def countRange (n : Nat) : CounterOption Nat := do
   set 0
   let mut count := 0
-  for' i in 0...n
-    invariant range_state : (fun s : Nat => s = i ∧ count = i)
-    done_with range_done : (fun s : Nat => s = n ∧ count = n)
+  for i in List.range n
+    invariant pref _ s => s = pref.length ∧ count = pref.length
   do
     count := i + 1
     set count
@@ -76,28 +68,17 @@ theorem countRange_correct (n : Nat) :
       (fun r s => r = n ∧ s = n)
       True := by
   vcgen_ [countRange] with try finish
-  case range_done =>
-    rename_i initial h
-    have hl := congrArg List.length h
-    simp at hl
-    simp_all
-  case range_state =>
-    rename_i initial current tail h
-    have hc := congrArg (fun xs => xs[0]?) h
-    simp [Std.Rco.getElem?_toList_eq] at hc
-    simp_all
-  case range_done =>
-    rename_i initial pref current h b state
-    have hl := congrArg List.length h
-    have hc := congrArg (fun xs => xs[pref.length]?) h
-    simp [Std.Rco.getElem?_toList_eq] at hl hc
-    simp_all
-  case range_state =>
-    rename_i initial pref current next tail h b state
-    have hc := congrArg (fun xs => xs[pref.length]?) h
-    have hn := congrArg (fun xs => xs[pref.length + 1]?) h
-    simp [Std.Rco.getElem?_toList_eq] at hc hn
-    simp_all
+  case vc3 =>
+    rename_i pre current suffix eq count state inv
+    have hc := congrArg (fun xs => xs[pre.length]?) eq
+    simp at hc
+    rw [List.getElem?_eq_some_iff] at hc
+    rcases hc with ⟨bound, hc⟩
+    have hcur : pre.length = current := by simpa using hc
+    simp [hcur]
+
+
+
 
 /- A larger `StateT Nat (ExceptT String Option)` stack. -/
 method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption

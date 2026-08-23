@@ -1,21 +1,7 @@
 import Velvet2.Syntax
-import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
 open Std.Internal.Do
-
-/-!
-# Memory Allocator
-
-A port of the Loom memory-allocator case study to `velvet2`. The program
-maintains a free list threaded through a `next : addr → addr` link function and
-removes the first block that is large enough for the requested size.
-
-The original (`velvet-dev/Velvet/Examples/MemAlloc.lean`) used Loom's implicit
-state-with-choice monad, Mathlib tactics, and SMT solvers. Here the state is an
-explicit record threaded through a plain `Option` program, and the proofs use
-`velvet2`'s `vcgen_` plus core Lean tactics.
--/
 
 namespace Velvet2.Examples.MemAlloc
 

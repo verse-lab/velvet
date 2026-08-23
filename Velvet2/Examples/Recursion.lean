@@ -1,15 +1,23 @@
 import Velvet2.Syntax
-import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
-/-
-# Recursion and partial-correctness examples
-
-Recursive methods (`fibAcc`, `foo'`), `partial_fixpoint`, and the iterative `for'`
-counterpart (`fibFor`).
--/
-
 open Std.Internal.Do
+
+method rec countUp (n : Nat)
+  returns (res : Nat)
+  ensures res_eq: res = n
+do
+  match n with
+  | .zero => pure 0
+  | .succ k =>
+    let b ← countUp k
+    pure (Nat.succ b)
+
+prove_correct countUp by
+  intro n
+  induction n with
+  | zero => rw [countUp.eq_1]; vcgen_
+  | succ k ih => rw [countUp.eq_2]; vcgen_ [ih] with finish
 
 @[grind]
 def fibAccSpec : Nat → Nat → Nat → Nat
@@ -44,22 +52,23 @@ do
       return result
 
 prove_correct fibAcc by
-  sorry
+  intro n a b
+  induction n generalizing a b with
+  | zero => rw [fibAcc.eq_1]; vcgen_ with finish
+  | succ k ih => rw [fibAcc.eq_2]; vcgen_ [ih] with finish
 
-/- Iterative Fibonacci using Velvet's annotated finite-range loop syntax. -/
-method fibFor (n : Nat)
+/- Iterative Fibonacci using Velvet's annotated `while'` loop syntax. -/
+method fibWhile (n : Nat)
   returns (result : Nat)
-  ensures result = fibAccSpec n 0 1
+  ensures result_eq: result = fibAccSpec n 0 1
 do
   let mut a := 0
   let mut b := 1
   let mut i := 0
-  assert hi : i = 0
-  for' j in 0...n
-    invariant cursor_index : i = j
-    invariant fib_values :
-      a = fibAccSpec i 0 1 ∧ b = fibAccSpec i 1 1
-    invariant index_bound : i ≤ n
+  while' i < n
+    invariant fib_state :
+      a = fibAccSpec i 0 1 ∧ b = fibAccSpec i 1 1 ∧ i ≤ n
+    decreasing remaining : n - i
     done_with fib_done : i = n ∧ a = fibAccSpec n 0 1
   do
     let next := a + b
@@ -68,49 +77,5 @@ do
     i := i + 1
   return a
 
-prove_correct fibFor by
-  vcgen_ [fibFor, fibAccSpec] with try finish
-  all_goals sorry
-
-/- `fibAcc`'s specification expressed as a `Triple` and discharged via the spec's
-partial-correctness theorem. -/
-set_option linter.unusedVariables false in
-theorem fibAcc_correct' (n : Nat) (a : Nat) (b : Nat) :
-    Triple
-    (fibAcc n a b)
-    True
-    (fun result =>
-        Named.mk
-        (Lean.Name.mkSimple "ensures1")
-        none
-        (result = fibAccSpec n a b))
-    (True : Prop) := by
-    apply triple_from_option_spec
-    apply fibAcc.partial_correctness
-
-    intro fibAcc_ih ih_fibAcc_raw
-
-    have ih_fibAcc :=
-        fun n a b => triple_from_option_spec (ih_fibAcc_raw n a b)
-
-    intro n a b
-
-    exact triple_to_option_spec (by
-      vcgen_ [fibAcc, fibAccSpec]
-      all_goals simp_all [fibAccSpec])
-
-/- A self-recursive method; partial correctness of a nonterminating program. -/
-set_option velvet.semantics.termination "partial" in
-method rec foo' (p : Int)
-  returns (res : Int)
-  requires True
-  ensures True do
-  let res <- foo' (p - 1)
-  return res
-
--- Should this really verify?? Very weirddd (even when I change Int -> Nat)
-
-/- A `partial_fixpoint` for a nonterminating program. -/
-def f : Option Nat :=
-  f
-partial_fixpoint
+prove_correct fibWhile by
+  vcgen_ [fibWhile, fibAccSpec] with finish

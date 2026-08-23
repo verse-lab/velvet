@@ -29,32 +29,20 @@ theorem boundedIncrement_explicit (limit : Nat) :
   case within_limit => grind
   case vc2 => grind
 
+-- TODO: VCs with vc<num> are bad, and are coming due to for loops, need to fix them.
 theorem countRange_explicit (n : Nat) :
     Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) True := by
   vcgen_ [countRange]
-  case range_done =>
-    rename_i initial h
-    have hl := congrArg List.length h
-    simp at hl
-    simp_all
-  case range_state =>
-    rename_i initial current tail h
-    have hc := congrArg (fun xs => xs[0]?) h
-    simp [Std.Rco.getElem?_toList_eq] at hc
-    simp_all
-  case vc3 => grind
-  case range_done =>
-    rename_i initial pref current h b state
-    have hl := congrArg List.length h
-    have hc := congrArg (fun xs => xs[pref.length]?) h
-    simp [Std.Rco.getElem?_toList_eq] at hl hc
-    simp_all
-  case range_state =>
-    rename_i initial pref current next tail h b state
-    have hc := congrArg (fun xs => xs[pref.length]?) h
-    have hn := congrArg (fun xs => xs[pref.length + 1]?) h
-    simp [Std.Rco.getElem?_toList_eq] at hc hn
-    simp_all
+  case vc1 => grind
+  case vc2 => grind
+  case vc3 =>
+    rename_i pre current suffix eq count state inv
+    have hc := congrArg (fun xs => xs[pre.length]?) eq
+    simp at hc
+    rw [List.getElem?_eq_some_iff] at hc
+    rcases hc with ⟨bound, hc⟩
+    have hcur : pre.length = current := by simpa using hc
+    simp [hcur]
 
 theorem checkedAdd_explicit : checkedAdd.spec_triple := by
   unfold checkedAdd.spec_triple

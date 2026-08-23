@@ -1,33 +1,9 @@
 import Velvet2.Named
 import Std.Internal.Do
-import Std.Internal.Do.WP.Basic
-import Std.Internal.Do.Triple.Basic
-import Std.Internal.Do.Triple.SpecLemmas
 
 open Std.Internal.Do
 
 variable {m : Type u → Type v} {Pred EPred : Type u}
-
-theorem triple_from_option_spec {α β : Type}
-    {f : α → Option β} {a : α} {pre : Prop} {post : β → Prop}
-    (h : ∀ (r : β), f a = some r → pre → post r) :
-    Triple (f a) pre (fun r => post r) (True : Prop) := by
-  apply Std.Internal.Do.Triple.intro
-  intro hpre
-  show (f a).elim True post
-  cases hfa : f a with
-  | none => trivial
-  | some r => exact h r hfa hpre
-
-theorem triple_to_option_spec {β : Type} {pre : Prop} {post : β → Prop}
-    {x : Option β}
-    (h : Triple x pre (fun r => post r) (True : Prop)) :
-    ∀ r, x = some r → pre → post r := by
-  intro r hx hpre
-  rcases h with ⟨hwp⟩
-  have hwp := hwp hpre
-  subst hx
-  exact hwp
 
 /-- A runtime no-op that introduces an assertion into verification conditions. -/
 def assertGadget [Monad m] [Assertion Pred] [Assertion EPred]
@@ -54,13 +30,14 @@ theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
       (h := meet_himp_le))
 
 /--
-Velvet's named specialization of Lean's native annotated-repeat-loop gadget. The program carries
-its invariant and variant as explicit gadget arguments, while this wrapper specification converts
-the `Named.Measure` payload to Lean's ordinary natural-number repeat variant and restores the name
-on the generated strict-decrease proposition.
+Metadata adapter for Lean's native annotated-repeat-loop gadget. `while'` passes its natural-number
+measure as `Named.Measure` solely to retain the clause name and source location. This specification
+strips that metadata, delegates the loop proof to the stdlib `Spec.forIn_loop`, and restores the
+metadata only around the generated strict-decrease proposition. It does not define separate loop
+semantics.
 -/
 @[spec 1200]
-theorem forInLoopWithNamedInvariantAndVariant
+theorem whileLoopWithNamedMeasure
     {m : Type u → Type v} {Pred EPred : Type u}
     [Monad m] [Lean.Order.MonadTail m]
     [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -103,122 +80,5 @@ theorem forInLoopWithNamedInvariantAndVariant
       Std.Internal.Do.RepeatVariant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
   unfold Std.Internal.Do.Gadget.forInLoopWithInvariantAndVariant
   exact Std.Internal.Do.Spec.forIn_loop loopMeasure inv einv step'
-
-/-- Select the current-element invariant or the final assertion from a native collection-loop
-cursor. Keeping this selection behind a stable head symbol lets the range wrapper specification
-recover Velvet's two named clauses without inspecting the executable loop body. -/
-def rangeInvariantValue (inv : α → Pred) (done : Pred) (suff : List α) : Pred :=
-  match suff with
-  | [] => done
-  | cur :: _ => inv cur
-
-open Std Std.PRange in
-/-- Named specialization of Lean's native collection-loop gadget for closed-open ranges, yielding
-separate, match-free initialization, last-element, and successor VCs. The initial assertion is a
-meet of guarded empty/nonempty obligations; after lattice normalization these become ordinary
-implications rather than a match on `xs.toList`.
-
-The step premises use distinct transparent wrappers because reusing one wrapper spec in both local
-cursor contexts can make VCGen's cached unfolding rule retain a free variable from the first
-context. -/
-@[spec 1200]
-theorem forInRcoWithNamedInvariant {m : Type u → Type v} {Pred EPred : Type u}
-    [Monad m] [LawfulMonad m] [Assertion Pred]
-    [∀ a : Pred, Lean.Order.PreservesSup (Lean.Order.meet a)]
-    [Assertion EPred] [WPMonad m Pred EPred]
-    {α β : Type u}
-    [LE α] [LT α] [DecidableLT α] [UpwardEnumerable α] [Rxo.IsAlwaysFinite α]
-    [LawfulUpwardEnumerable α] [LawfulUpwardEnumerableLE α]
-    [LawfulUpwardEnumerableLT α]
-    {xs : Rco α} {init : β}
-    {inv : α → β → Pred} {done : β → Pred}
-    {f : α → β → m (ForInStep β)} {einv : EPred}
-    (last : ∀ pref cur (_h : xs.toList = pref ++ [cur]) b,
-      Std.Internal.Do.Triple (f cur b)
-        (inv cur b)
-        (fun r => match r with
-          | .yield b' => done b'
-          | .done b' => done b')
-        einv)
-    (more : ∀ pref cur next tail (_h : xs.toList = pref ++ cur :: next :: tail) b,
-      Std.Internal.Do.Triple (f cur b)
-        (inv cur b)
-        (fun r => match r with
-          | .yield b' => inv next b'
-          | .done b' => done b')
-        einv) :
-    Std.Internal.Do.Triple
-      (Std.Internal.Do.Gadget.forInPureWithInvariant xs init f
-        (fun _pref suff b => rangeInvariantValue (fun cur => inv cur b) (done b) suff))
-      ((⌜xs.toList = []⌝ ⇨ done init) ⊓
-        ⨅ cur, ⨅ tail, ⌜xs.toList = cur :: tail⌝ ⇨ inv cur init)
-      (fun b => done b)
-      einv := by
-  let cursorInv : Std.Internal.Do.Invariant α β Pred := fun _pref suff b =>
-    rangeInvariantValue (fun cur => inv cur b) (done b) suff
-  have step : ∀ (pref : List α) (cur : α) (suff : List α)
-      (h : xs.toList = pref ++ cur :: suff) (b : β),
-      Std.Internal.Do.Triple (f cur b)
-        (cursorInv pref (cur :: suff) b)
-        (fun r => match r with
-          | .yield b' => cursorInv (pref ++ [cur]) suff b'
-          | .done b' => cursorInv xs.toList [] b')
-        einv := by
-    intro pref cur suff h b
-    cases suff with
-    | nil => simpa [cursorInv, rangeInvariantValue] using last pref cur h b
-    | cons next tail => simpa [cursorInv, rangeInvariantValue] using more pref cur next tail h b
-  have rangeEq : (forIn xs init f : m β) = forIn xs.toList init f := by
-    calc
-      forIn xs init f = forIn' xs init (fun a _ b => f a b) :=
-        (forIn'_eq_forIn xs init (fun a _ b => f a b) f (by intros; rfl)).symm
-      _ = forIn' xs.toList init (fun a _ b => f a b) :=
-        Std.Rco.forIn'_eq_forIn'_toList
-      _ = forIn xs.toList init f :=
-        forIn'_eq_forIn xs.toList init (fun a _ b => f a b) f (by intros; rfl)
-  have loop : Std.Internal.Do.Triple
-      (Std.Internal.Do.Gadget.forInPureWithInvariant xs init f cursorInv)
-      (match xs.toList with
-        | [] => done init
-        | cur :: _ => inv cur init)
-      (fun b => done b)
-      einv := by
-    unfold Std.Internal.Do.Gadget.forInPureWithInvariant
-    simpa [cursorInv, rangeInvariantValue, rangeEq] using
-      (Std.Internal.Do.Spec.forIn_list
-        (xs := xs.toList)
-        (init := init)
-        (f := f)
-        (inv := cursorInv)
-        (epost := einv)
-        step)
-  apply Std.Internal.Do.Triple.intro
-  apply Lean.Order.PartialOrder.rel_trans (y := match xs.toList with
-    | [] => done init
-    | cur :: _ => inv cur init)
-  · have topHimpLe (x : Pred) : ((⊤ : Pred) ⇨ x) ⊑ x := by
-      apply Lean.Order.PartialOrder.rel_trans
-        (y := (⊤ : Pred) ⊓ ((⊤ : Pred) ⇨ x))
-      · exact Lean.Order.le_meet _ _ _ (Lean.Order.le_top _) Lean.Order.PartialOrder.rel_refl
-      · exact Lean.Order.meet_himp_le
-    have himpOfTrueLe (p : Prop) (hp : p) (x : Pred) : (⌜p⌝ ⇨ x) ⊑ x := by
-      simpa [Lean.Order.CompleteLattice.ofProp, hp] using topHimpLe x
-    cases hxs : xs.toList with
-    | nil =>
-      apply Lean.Order.PartialOrder.rel_trans (Lean.Order.meet_le_left _ _)
-      simpa [hxs] using himpOfTrueLe (xs.toList = []) hxs (done init)
-    | cons cur tail =>
-      change
-        ((⌜cur :: tail = []⌝ ⇨ done init) ⊓
-          ⨅ cur', ⨅ tail', ⌜cur :: tail = cur' :: tail'⌝ ⇨ inv cur' init) ⊑ inv cur init
-      apply Lean.Order.PartialOrder.rel_trans (Lean.Order.meet_le_right _ _)
-      apply Lean.Order.PartialOrder.rel_trans
-        (Lean.Order.iInf_le
-          (fun cur' : α => ⨅ tail', ⌜cur :: tail = cur' :: tail'⌝ ⇨ inv cur' init) cur)
-      apply Lean.Order.PartialOrder.rel_trans
-        (Lean.Order.iInf_le
-          (fun tail' : List α => ⌜cur :: tail = cur :: tail'⌝ ⇨ inv cur init) tail)
-      exact himpOfTrueLe _ rfl _
-  · exact loop.le_wp
 
 end Velvet2.Spec

@@ -1,5 +1,4 @@
 import Velvet2.Syntax
-import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
 open Std.Internal.Do
@@ -131,40 +130,17 @@ theorem addTriple_explicit : addTriple.spec_triple := by
 
 /-! ## Scenario 4: a lift stdlib does not provide — `Option` → `ExceptT String _`
 
-There is no `MonadLift Option (ExceptT ε m)` instance anywhere in core/Std:
-stdlib cannot decide what `none` should become (which error message?). Defining
-that mapping is precisely the freedom a custom lift affords — here we turn a
-failed `Option` into the exception `"Lifted from Option"` — but it also means
-the *user* owns the vcgen-facing contract for lifted calls. Two definitions are
-needed:
+Two definitions are needed:
 
-1. The `MonadLift` instance itself (a semantic decision).
+1. The `MonadLift` instance itself .
 2. A `@[spec]` theorem of the same shape as stdlib's `Spec.monadLift_*`
    family, encoding those semantics as a weakest-precondition transformation.
-
-Piece 2 is not optional. Without it, vcgen refuses to decompose the lifted call:
-
-```text
-No spec applicable to program MonadLift.monadLift (monadLift (bump n✝)) in monad
-ExceptT String Option. Candidates were [Std.Internal.Do.Spec.monadLift_ExceptT].
-```
-
-stdlib's spec is listed as a candidate but its backward rule fails to apply,
-because its statement pins the canonical `MonadLift m (ExceptT ε m)` instance —
-a deliberately safe mismatch rather than a silent reuse of the wrong semantics.
-
-(For a monad that is not built from transformers at all, there is a piece 0: a
-`WPMonad m Pred EPred` instance interpreting programs into predicate
-transformers, plus `Assertion` instances for the lattice. See
-`Std/Internal/Do/WP/Basic.lean` for the `Id`/`Option`/transformer instances to
-model after.)
 -/
 
 -- The error message raised when a lifted `Option` computation fails.
 def optionLiftError : String := "Lifted from Option"
 
--- Piece 1: the lift itself: `none ↦ throw "Lifted from Option"` — a genuine
--- exception carrying the diagnostic message, not an inner failure.
+-- Piece 1: the lift itself: `none ↦ throw "Lifted from Option"` 
 instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
     MonadLift Option (ExceptT String m) where
   monadLift x :=
@@ -173,16 +149,6 @@ instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
       | some a => pure (Except.ok a)
       | none => pure (Except.error optionLiftError))
 
-/-- Piece 2: the vcgen-facing contract for lifted-call nodes, mirroring
-`Std.Internal.Do.Spec.monadLift_ExceptT` but for our instance.
-
-`Option`'s WP is pinned to the `Prop` lattice (`Option.instWPMonad : WPMonad
-Option Prop Prop`), so the source failure postcondition is interpreted *at* the
-chosen error payload: the premise says the lifted call behaves as if a source
-failure raises `optionLiftError` satisfying `eh optionLiftError` — exactly the
-semantics of piece 1. The Triple is proved from the instance's actual `match`, so
-instance and spec cannot drift apart. With the inner monad fixed to `Option`,
-both sides compute and the proof is two `rfl`-entailments. -/
 @[spec]
 theorem triple_monadLift_option_exceptTString
     {α : Type} (x : Option α) (post : α → Prop) (eh : String → Prop) (etail : Prop) :
@@ -209,8 +175,6 @@ do
 prove_correct outerSafe by
   vcgen_ [outerSafe] with finish
 
-/-- Explicit discharge: `'requires1'` surfaces from B's precondition through the
-custom lift exactly as in scenario 1; `'vc2'` is A's total-correctness signal. -/
 theorem outerSafe_explicit : outerSafe.spec_triple := by
   unfold outerSafe.spec_triple
   vcgen_ [outerSafe]

@@ -1,6 +1,6 @@
 --- a/Lean/Elab/Tactic/Do/Internal/VCGen/Frontend.lean
 +++ b/Velvet2/VCGen/Frontend.lean
-@@ -6,24 +6,48 @@
+@@ -6,24 +6,49 @@
  module
  
  prelude
@@ -31,11 +31,12 @@
 +public meta import Lean.Meta.Sym.Simp.Simproc
 +public meta import Lean.Elab.Tactic.Grind.Main
 +public meta import Lean.Elab.Tactic.Grind.Basic
++public meta import Velvet2.VCGen.Progress
  import Lean.Meta.Sym.ProofInstInfo
  
  open Lean Parser Meta Elab Tactic Sym
  open Lean.Elab.Tactic.Do Lean.Elab.Tactic.Do.Internal.SpecAttr
-+
+ 
 +namespace Lean.Parser.Tactic
 +
 +syntax (name := vcgenVendoredTac) "vcgen_" optConfig
@@ -55,14 +56,14 @@
 +  (invariantAlts)?
 +  (&" simplifying_assumptions" (ppSpace colGt ident)? (" [" ident,* "]")?)?
 +  : grind
- 
++
 +end Grind
 +end Lean.Parser.Tactic
 +
  namespace Lean.Elab.Tactic.Do.Internal
  
  /-!
-@@ -33,18 +57,20 @@
+@@ -33,10 +58,12 @@
  -/
  
  /-- A local helper for running config elaborators in TermElabM. -/
@@ -71,12 +72,12 @@
    x.run { elaborator := `mvcgen } |>.run' { goals }
  
  namespace VCGen
- 
-+open _root_.Lean.Elab.Tactic.Do.Internal.VCGen
 +
++open _root_.Lean.Elab.Tactic.Do.Internal.VCGen
+ 
  /--
  Parse the optional `[...]` argument list for `vcgen`, partitioning entries into
- spec theorems and simp lemmas. Follows the same approach as
+@@ -44,7 +71,7 @@
  `Lean.Elab.Tactic.Do.VCGen.mkContext`: each entry is first tried as a spec theorem,
  and on failure falls back to a simp/unfold lemma processed via `mkSimpContext`.
  -/
@@ -85,7 +86,7 @@
      TermElabM (VCGen.Context × VCGen.Scope) := do
    let mut specThms ← getSpecTheorems
    let mut simpStuff := #[]
-@@ -148,7 +174,7 @@
+@@ -148,7 +175,7 @@
  rather than a deep-embedding program type with a bespoke `WP`. The `Pred`/`EPred` `outParam`s are left
  as metavariables for instance search to fill; instance search runs at default transparency, while the
  caller reduces types at reducible transparency. -/
@@ -94,7 +95,7 @@
    try
      let wpm ← mkConstWithFreshMVarLevels ``Std.Internal.Do.WPMonad
      let (args, _, _) ← forallMetaTelescopeReducing (← inferType wpm)
-@@ -162,7 +188,7 @@
+@@ -162,7 +189,7 @@
  with `m` a `WPMonad`, the monad `m` is returned (frameprocs are keyed by monad); otherwise the whole
  program type is returned, so deep embeddings key on their own head. Returns `none` when the goal
  exposes no program. -/
@@ -103,7 +104,7 @@
    forallTelescopeReducing goalType fun _ body => do
      let body := body.consumeMData
      let progTy? : Option Expr :=
-@@ -186,7 +212,7 @@
+@@ -186,7 +213,7 @@
  ignored at runtime. As more options gain implementation support, drop their checks
  here. Options with implemented semantics (`trivial`, `elimLets`, `stepLimit`,
  `invariants?`) are silently accepted. -/
@@ -112,7 +113,7 @@
    let default : VCGen.Config := {}
    if config.leave != default.leave then
      logWarning "vcgen: the `leave` config option is currently ignored."
-@@ -196,7 +222,7 @@
+@@ -196,7 +223,7 @@
  Supports the anonymous (default) variant. Named variants require a public
  `elabSimpMethods` API in `Lean.Elab.Tactic.Grind.Sym` (see TODO below).
  -/
@@ -121,7 +122,7 @@
      (variantId? : Option (TSyntax `ident))
      (extraIds? : Option (Array (TSyntax `ident)))
      : MetaM Sym.Simp.Methods := do
-@@ -210,8 +236,13 @@
+@@ -210,8 +237,13 @@
      -- (the simproc elaborators only use `CoreM`/`MetaM` capabilities).
      throwError "named Sym.simp variants are not yet supported in `vcgen`; \
        use `vcgen simplifying_assumptions [thm₁, thm₂, ...]` with the default variant instead"
@@ -137,7 +138,7 @@
    if let some ids := extraIds? then
      let lctx ← getLCtx
      for id in ids do
-@@ -230,8 +261,9 @@
+@@ -230,8 +262,9 @@
      post := post >> thms.rewrite
    return { pre, post }
  
@@ -149,7 +150,7 @@
    let variantId? := if simpClause[1].getNumArgs != 0 then some ⟨simpClause[1][0]⟩ else none
    let extraIds? := if simpClause[2].getNumArgs != 0
      then some (simpClause[2][1].getSepArgs.map (⟨·⟩)) else none
-@@ -248,7 +280,7 @@
+@@ -248,7 +281,7 @@
  forms (one or the other is enforced by the `dotOrCase` flag in the upstream
  elaborator; we replicate that check here).
  -/
@@ -158,7 +159,7 @@
      TermElabM (Option (Std.HashMap Nat Syntax)) := do
    let some altsStx := stx.getOptional? | return none
    -- The `invariants?` (suggest) form is handled separately by upstream's `elabInvariants`.
-@@ -292,13 +324,13 @@
+@@ -292,13 +325,13 @@
  tags consecutively), and elaborate the matching alt. Invariants that were already
  elaborated inline by `Driver.emitVC` (tracked in `inlineHandled`) are skipped, so
  we don't warn about alts that were already consumed there. -/
@@ -174,7 +175,7 @@
      handled := handled.insert n
      discard <| VCGen.elabInvariant alts n invariants[i]
    -- Warn on user-provided alts that matched no invariant goal (neither inline nor post-hoc).
-@@ -317,7 +349,7 @@
+@@ -317,7 +350,7 @@
  /-- Build a `Sym.Pattern` from `e` by abstracting the metavariables `xs` into pattern variables.
  `checkTypeMask?` is `none` because `until` holes appear as function arguments, whose types the
  enclosing application already constrains. -/
@@ -183,7 +184,7 @@
    let pattern := e.abstract xs
    let mut varTypes := #[]
    for h : i in [0:xs.size] do
-@@ -332,7 +364,7 @@
+@@ -332,7 +365,7 @@
  /-- Run a program-pattern elaboration in the goal context: ignore type-class failures, disable `sorry`
  elaboration, and restore the meta state afterwards while keeping info trees so hovers work on the
  pattern. Shared by `elabUntilPattern` and `elabFrameDB`. -/
@@ -192,7 +193,7 @@
    Term.withoutModifyingElabMetaStateWithInfo <|
    withTheReader Term.Context ({ · with ignoreTCFailures := true }) <|
    Term.withoutErrToSorry k
-@@ -340,7 +372,7 @@
+@@ -340,7 +373,7 @@
  /-- Elaborate a program pattern term `p` against the program monad `m` (expected type `m _`, so
  overloaded heads resolve), returning its pattern variables (the collected metavariables: holes and
  synthetic holes) and the resulting `Sym.Pattern`. -/
@@ -201,7 +202,7 @@
    -- A monad `m : Type → Type` expects the program at `m _` so its overloaded head resolves; a
    -- deep-embedding program type is already saturated and is used directly.
    let expectedTy ← if (← inferType progTy).isArrow
-@@ -351,7 +383,7 @@
+@@ -351,7 +384,7 @@
  
  /-- Build an `until` pattern (holes `_` allowed, as in `conv in $t`) against the goal program type
  `progTy` as expected type, so overloaded heads resolve. The holes become pattern variables. -/
@@ -210,7 +211,7 @@
    withPatternElab <| withRef p do
      return (← elabProgPattern progTy p).2
  
-@@ -359,7 +391,7 @@
+@@ -359,7 +392,7 @@
  alternative's program pattern (a head applied to binder/`_` arguments) is elaborated at `progTy`; a
  named binder `x` becomes a synthetic hole `?x` so its name can be recovered and bound to the matched
  argument when the frame term is elaborated in `solve`. -/
@@ -219,7 +220,7 @@
    withPatternElab do
      let mut tree : DiscrTree Nat := .empty
      let mut entries : Array FrameEntry := #[]
-@@ -384,10 +416,9 @@
+@@ -384,10 +417,9 @@
      return { tree, entries }
  
  /-- Parse `vcgen` arguments. -/
@@ -232,7 +233,7 @@
    let config ← runTacticM <| elabConfig stx[1]
    warnIgnoredConfig config
    -- `elimLets` defaults to `false` in `vcgen` (vs. `true` in upstream `mvcgen`):
-@@ -420,8 +451,8 @@
+@@ -420,8 +452,8 @@
    return { config, ctx, scope, invariantAlts?, frameDB }
  
  /-- `vcgen` step inside `sym => …` blocks. -/
@@ -243,32 +244,70 @@
    let goal ← Lean.Elab.Tactic.Grind.getMainGoal
    let args ← parseArgs stx goal.mvarId
    let result ← Lean.Elab.Tactic.Grind.liftGrindM do
-@@ -440,11 +471,34 @@
+@@ -440,11 +472,72 @@
      return invGoals ++ result.vcs.toList
    Lean.Elab.Tactic.Grind.replaceMainGoal newGoals
  
 +/-- Apply a `with` discharger to every VC produced by `vcgen_`. This is the source-aware
 +counterpart of Grind's `all_goals`: goals carrying named source metadata relocate a discharger
 +failure to that annotation; unannotated goals use Grind's ordinary recovery path unchanged. -/
-+private meta def dischargeVCGoals (g : TSyntax `grind) : Grind.GrindTacticM Unit := do
++private meta def dischargeVCGoals (g : TSyntax `grind) (declName? : Option Name := none) : Grind.GrindTacticM Unit := do
 +  let goals ← Grind.getGoals
++  let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
++  let total := activeGoals.length
++  let opts ← liftMetaM getOptions
++  let showProgress := opts.getBool `velvet.showProgress true
++  let mut tracker := Velvet2.VCGen.ProgressTracker.init declName? total showProgress
 +  let mut goalsNew := #[]
++  let mut idx := 0
++
 +  for goal in goals do
-+    unless ← goal.mvarId.isAssigned do
-+      Grind.setGoals [goal]
-+      let residual ← match Named.sourceRef? (← goal.mvarId.getType) with
-+        | none =>
-+            -- No source metadata: preserve the discharger's default behavior exactly.
-+            Grind.evalGrindTactic g
-+            Grind.getUnsolvedGoals
-+        | some source =>
-+            try
-+              Grind.evalGrindTactic g
-+              Grind.getUnsolvedGoals
-+            catch ex =>
-+              throwErrorAt source ex.toMessageData
-+      goalsNew := goalsNew ++ residual
++    if ← goal.mvarId.isAssigned then
++      continue
++    idx := idx + 1
++    let tag ← goal.mvarId.getTag
++    let tagStr := if tag.isAnonymous then s!"vc{idx}" else tag.eraseMacroScopes.toString
++
++    Grind.setGoals [goal]
++    let residual ← match Named.sourceRef? (← goal.mvarId.getType) with
++      | none =>
++          -- No source metadata: preserve the discharger's default behavior exactly.
++          Grind.evalGrindTactic g
++          Grind.getUnsolvedGoals
++      | some source =>
++        try
++          Grind.evalGrindTactic g
++          Grind.getUnsolvedGoals
++        catch ex =>
++          throwErrorAt source ex.toMessageData
++
++    let isSolved := residual.isEmpty && (← goal.mvarId.isAssigned)
++    if isSolved then
++      tracker := tracker.onSolved idx tagStr
++    else
++      tracker := tracker.onUnsolved idx tagStr
++
++    goalsNew := goalsNew ++ residual
++
++  liftMetaM tracker.onFinish
 +  Grind.setGoals goalsNew.toList
++
++/-- Report generated VCs when no `with` discharger is specified. -/
++private meta def reportGeneratedGoals (declName? : Option Name := none) : Grind.GrindTacticM Unit := do
++  let goals ← Grind.getGoals
++  let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
++  let total := activeGoals.length
++  let opts ← liftMetaM getOptions
++  let showProgress := opts.getBool `velvet.showProgress true
++  let tracker := Velvet2.VCGen.ProgressTracker.init declName? total showProgress
++  let mut tags := #[]
++  let mut idx := 0
++  for goal in activeGoals do
++    idx := idx + 1
++    let tag ← goal.mvarId.getTag
++    let tagStr := if tag.isAnonymous then s!"vc{idx}" else tag.eraseMacroScopes.toString
++    tags := tags.push tagStr
++  liftMetaM <| tracker.onGenerated tags.toList
 +
  /-- Validate the optional `with` clause of `vcgen`. It must be a `grind`-mode step so it can share
  `vcgen`'s internalised E-graph; the `vcgenDischarge` category's `tactic` alternative is a catch-all
@@ -279,7 +318,7 @@
      TacticM (Option (TSyntax `grind)) :=
    match w? with
    | none   => return none
-@@ -456,17 +510,12 @@
+@@ -456,17 +549,12 @@
          m!"`vcgen … with` expects a `grind`-mode discharging step, not a general tactic"
            ++ MessageData.hint' m!"Examples: `vcgen … with finish`, `vcgen … with intro`."
  
@@ -301,7 +340,7 @@
    -- Without `with`, no downstream grind step will read the E-graph, so opt out of
    -- internalisation; `with` keeps the default `internalize := true`.
    let cfg ← match g? with
-@@ -474,17 +523,33 @@
+@@ -474,17 +562,36 @@
      | none   => do
          let off ← `(optConfig| -internalize)
          pure (Lean.Parser.Tactic.appendConfig off cfg)
@@ -317,10 +356,13 @@
    let params ← Grind.mkDefaultParams { clean := false }
 -  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) <|
 -    Grind.evalGrindTactic step
++  let declName? ← Term.getDeclName?
 +  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
 +    Grind.evalGrindTactic core
 +    if let some g := g? then
-+      dischargeVCGoals g
++      dischargeVCGoals g declName?
++    else
++      reportGeneratedGoals declName?
    replaceMainGoal (state.goals.map (·.mvarId))
  
 +

@@ -57,19 +57,20 @@ theorem isGreaterInlineAnnotations_explicit : isGreaterInlineAnnotations.spec_tr
   case ok_iff_prefix => grind
   case loop_done => grind
 
+-- TODO: Anything that has vc<num> has bad VCs and need fixing. Mostly an issue with for loops
 theorem sumDoubleRange_explicit : sumDoubleRange.spec_triple := by
   unfold sumDoubleRange.spec_triple
   vcgen_ [sumDoubleRange]
+  case vc1 => grind
   case result_even => grind
-  case sum_done => grind
-  case accumulator_even => grind
+  case vc3 => grind
 
 theorem boundedRangeValues_explicit : boundedRangeValues.spec_triple := by
   unfold boundedRangeValues.spec_triple
   vcgen_ [boundedRangeValues]
+  case vc1 => grind
   case result_nonnegative => grind
-  case last_done => grind
-  case last_nonnegative => grind
+  case vc3 => grind
 
 theorem isGreaterWithInvariants'_explicit : isGreaterWithInvariants'.spec_triple := by
   unfold isGreaterWithInvariants'.spec_triple

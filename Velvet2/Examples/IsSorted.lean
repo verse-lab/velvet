@@ -1,0 +1,59 @@
+import Velvet2.Syntax
+import Velvet2.VCGen.Frontend
+
+open Std.Internal.Do
+
+/-- Adjacency propagates to global sortedness by transitivity. -/
+theorem adjacent_to_global_sorted (a : Array Int) :
+    (∀ k, k < a.size - 1 → a[k]! ≤ a[k + 1]!) →
+    (∀ i j, i < j → j < a.size → a[i]! ≤ a[j]!) := by
+  intro h_adjacent i j
+  induction j with
+  | zero => intro h _; omega
+  | succ j ih =>
+    intro hij hjlt
+    by_cases h : i = j
+    · subst h
+      exact h_adjacent _ (by omega)
+    · have h1 := ih (by omega) (by omega)
+      have h2 := h_adjacent j (by omega)
+      omega
+
+set_option velvet.semantics.termination "partial" in
+method isSorted (a : Array Int)
+  returns (sorted : Bool)
+  requires size_gt_0: a.size > 0
+  ensures sorted_iff: sorted = true ↔
+    (∀ i j, i < j → j < a.size → a[i]! ≤ a[j]!)
+do
+  let mut sorted := true
+  let mut i : Nat := 0
+  while' loop_cond: i < a.size - 1 ∧ sorted = true
+    invariant idx_bounded: i ≤ a.size - 1
+    invariant ok_prefix: sorted = true → (∀ k, k < i → a[k]! ≤ a[k + 1]!)
+    invariant found_inversion: sorted = false → ∃ k, k < a.size - 1 ∧ a[k]! > a[k + 1]!
+    done_with done: i = a.size - 1 ∨ sorted = false
+  do
+    if a[i]! > a[i + 1]! then
+      sorted := false
+    else
+      sorted := sorted
+    i := i + 1
+  return sorted
+
+prove_correct isSorted by
+  vcgen_ [isSorted] with try finish
+  case sorted_iff =>
+    rename_i arr sorted i
+    refine ⟨fun hs => ?_, fun hglob => ?_⟩
+    · have hi : i = arr.size - 1 := by
+        rcases done with h | hf
+        · exact h
+        · exact absurd hs (by rw [hf]; simp)
+      exact adjacent_to_global_sorted arr (fun k hk => ok_prefix hs k (by omega))
+    · cases heq : sorted with
+      | false =>
+          obtain ⟨k, hk, hgt⟩ := found_inversion heq
+          have hle := hglob k (k + 1) (by omega) (by omega)
+          exact absurd hgt (by omega)
+      | true => rfl

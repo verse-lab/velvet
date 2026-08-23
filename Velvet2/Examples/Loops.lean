@@ -1,18 +1,10 @@
 import Velvet2.Syntax
 import Velvet2.Ghost
-import Velvet2.Tactics
 import Velvet2.VCGen.Frontend
 
-/-
-# Loop examples
-
-`while'`/`for'` annotated loops and Lean's native `while`, exercising invariants,
-decreasing variants, `done_with` gadgets, and the `with finish` discharger.
--/
 
 set_option maxHeartbeats 10000000
 
-/- `while'` with full annotations: invariant, decreasing variant, and `done_with`. -/
 method isGreaterWithInvariants (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
@@ -38,8 +30,17 @@ do
 
     
 prove_correct isGreaterWithInvariants by
-  vcgen_ [isGreaterWithInvariants] simplifying_assumptions with try finish
-  all_goals sorry
+  vcgen_ [isGreaterWithInvariants] with try finish
+  case inv_ok =>
+    rename_i n arr ok b
+    have hb : b < arr.size := by have := sz_invariant.2; have := loop_cond; omega
+    have hget : arr[b]! < n → arr[b] < n := by
+      intro h
+      rw [getElem!_def] at h
+      rw [show arr[b]? = some (arr[b]'hb) from by simp [hb]] at h
+      simpa using h
+    refine ⟨fun h => h.elim, fun h => ?_⟩
+    exact if_cond (hget (h b (by omega)))
 
 /- The same loop written with Lean's ordinary `while` syntax. -/
 def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
@@ -102,9 +103,6 @@ prove_correct isGreaterInlineAnnotations by
   vcgen_ [isGreaterInlineAnnotations] with finish
 
   
-
-
-/- A finite range using Velvet's `for'` annotations and the bundled VCGen frontend. -/
 method scanRangeVCGen (n : Nat)
   returns (result : Unit)
   requires precond: True
@@ -117,8 +115,12 @@ do
     pure ()
   return ()
 
+-- TODO: not quite good, VC ends up with some internal details.
 prove_correct scanRangeVCGen by
-  vcgen_ [scanRangeVCGen]
+  vcgen_ [scanRangeVCGen] with finish
+
+
+
 
 /- Accumulate even contributions over a finite range. -/
 method sumDoubleRange (n : Nat)
@@ -134,6 +136,7 @@ do
     acc := acc + 2 * i
   return acc
 
+-- TODO: not quite good, VC ends up with some internal details.
 prove_correct sumDoubleRange by
   vcgen_ [sumDoubleRange] with finish
 
@@ -151,8 +154,9 @@ do
     last := i
   return last
 
+-- TODO: not quite good, VC ends up with some internal details.
 prove_correct boundedRangeValues by
-  vcgen_ [boundedRangeValues] with try finish
+  vcgen_ [boundedRangeValues] with finish
 
 /- Method-call composition: delegates to `isGreaterWithInvariants`. -/
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
@@ -249,8 +253,3 @@ method partialTick' returns (res : Nat)
 prove_correct partialTick' by
   vcgen_ [partialTick'] with finish
   
-
-def foo : Ghost String := do
-    let f: Ghost String := Ghost.mk "f"
-    pure "g"
-
