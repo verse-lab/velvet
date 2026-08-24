@@ -32,15 +32,11 @@ do
 prove_correct isGreaterWithInvariants by
   vcgen_ [isGreaterWithInvariants] with try finish
   case inv_ok =>
-    rename_i n arr ok b
-    have hb : b < arr.size := by have := sz_invariant.2; have := loop_cond; omega
-    have hget : arr[b]! < n → arr[b] < n := by
-      intro h
-      rw [getElem!_def] at h
-      rw [show arr[b]? = some (arr[b]'hb) from by simp [hb]] at h
-      simpa using h
-    refine ⟨fun h => h.elim, fun h => ?_⟩
-    exact if_cond (hget (h b (by omega)))
+    rename_i n a ok i
+    refine ⟨fun h => False.elim h, fun h => ?_⟩
+    have this := h i (by omega)
+    rw [getElem!_pos a i (by omega)] at this
+    exact if_cond this
 
 /- The same loop written with Lean's ordinary `while` syntax. -/
 def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
@@ -115,14 +111,14 @@ do
     pure ()
   return ()
 
--- TODO: not quite good, VC ends up with some internal details.
 prove_correct scanRangeVCGen by
   vcgen_ [scanRangeVCGen] with finish
 
 
 
 
-/- Accumulate even contributions over a finite range. -/
+/- Accumulate even contributions over a finite range.
+Demonstrates pure state invariant: invariant holds at entry, step, and exit without `done_with`. -/
 method sumDoubleRange (n : Nat)
   returns (result : Nat)
   requires precond: True
@@ -131,12 +127,10 @@ do
   let mut acc := 0
   for' i in 0...n
     invariant accumulator_even: acc % 2 = 0
-    done_with sum_done: acc % 2 = 0
   do
     acc := acc + 2 * i
   return acc
 
--- TODO: not quite good, VC ends up with some internal details.
 prove_correct sumDoubleRange by
   vcgen_ [sumDoubleRange] with finish
 
@@ -149,14 +143,84 @@ do
   let mut last := 0
   for' i in 0...n
     invariant last_nonnegative: last ≥ 0
-    done_with last_done: last ≥ 0
   do
     last := i
   return last
 
--- TODO: not quite good, VC ends up with some internal details.
 prove_correct boundedRangeValues by
   vcgen_ [boundedRangeValues] with finish
+
+/- Loop over two mutable variables simultaneously.
+Demonstrates cursor-dependent invariant with explicit `done_with` exit clause. -/
+method twoVar (n : Nat) returns (r : Nat)
+  ensures r_eq: r = n
+do
+  let mut x := 0
+  let mut y := 0
+  for' i in List.range n
+    invariant xy: x = i ∧ y = i
+    done_with d: x = n ∧ y = n
+  do
+    x := x + 1
+    y := y + 1
+  return x
+
+theorem twoVar_correct : twoVar.spec_triple := by
+  unfold twoVar.spec_triple
+  vcgen_ [twoVar] with try finish
+  case xy =>
+    rename_i cur rest h
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_head h
+    omega
+  case xy =>
+    rename_i pref cur next rest h b
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_next h
+    omega
+  case d =>
+    rename_i pref cur h b
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_last h
+    omega
+
+/-! ### Non-Membership Loop (`forIn`) -/
+
+/- Summing a list of natural numbers with standard `forIn` (no membership proof bound, pure state invariant). -/
+method sumList (xs : List Nat)
+  returns (sum : Nat)
+  requires precond: True
+  ensures sum_nonneg: sum ≥ 0
+do
+  let mut s := 0
+  for' x in xs
+    invariant s_nonneg: s ≥ 0
+  do
+    s := s + x
+  return s
+
+prove_correct sumList by
+  vcgen_ [sumList] with finish
+
+/-! ### Membership Loop (`forIn'`) -/
+
+/- Iterating with membership proof `h : x ∈ xs` in scope (elaborates to `forIn'`). -/
+method memberElementBound (xs : List Nat) (bound : Nat)
+  returns (sum : Nat)
+  requires all_le: ∀ x ∈ xs, x ≤ bound
+  ensures sum_nonneg: sum ≥ 0
+do
+  let mut s := 0
+  for' h : x in xs
+    invariant nonneg: s ≥ 0
+  do
+    assert h_in: x ∈ xs
+    s := s + x
+  return s
+
+prove_correct memberElementBound by
+  vcgen_ [memberElementBound] with finish
+
 
 /- Method-call composition: delegates to `isGreaterWithInvariants`. -/
 method isGreaterWithInvariants' (n : Int) (a : Array Int)

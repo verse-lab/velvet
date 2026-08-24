@@ -1,32 +1,17 @@
 import Velvet2.Specs
+import Velvet2.Partial
+import Std.Internal.Do
+import Std.Internal.Do.Gadget.ForIn
+import Std.Internal.Do.Triple.SpecLemmas
+import Std.Internal.ForIn
 
-/-!
-# Partial (no-measure) loops
-
-`while'` loops may omit `decreasing` under partial correctness. The native Lean `while` lowers to
-`Std.Internal.Do.Gadget.forInLoopWithInvariantAndVariant … noMeasure`, but Std has no sound
-measure-free spec for it: `repeatM` is pinned to `Classical.choose` of an *arbitrary* fixed point,
-so an invariant-only rule is unsound.
-
-Instead we own the loop (like `loom-dev`): `Velvet2.Loop.forIn.loop` is defined with
-`partial_fixpoint`, so it computes the *least* fixed point, and we prove a partial-correctness rule
-for it directly.
-
-Wiring: the do elaborator lowers `while'` (no `decreasing`) to
-`Std.Internal.Do.Gadget.forInLoopWithInvariantAndVariant … noMeasure`. That gadget's body was
-already elaborated to `Lean.Loop.forIn` (the arbitrary-fixed-point one), so a `ForIn` override does
-not change it. Instead, the `macro_rules` at the bottom of this file intercepts the *syntax* of that
-call before elaboration and redirects the `noMeasure` case to `Velvet2.Loop.forInLoopWithInvariantAndVariant`,
-which is built on `forIn.loop`. The measure case is left on the Std gadget, so total loops keep
-working unchanged.
--/
-
+open Std.Internal
 open Std.Internal.Do
 open Std.Internal.Do.Assertion
 open Lean.Order
 open Std.Internal.Do.CompleteLattice
 
-universe u v
+universe u u₁ u₂ v w
 
 namespace Velvet2.Loop
 
@@ -39,147 +24,530 @@ def forIn.loop {β : Type u} {m : Type u → Type v}
       | ForInStep.yield b => forIn.loop f b
   partial_fixpoint
 
-/-- `forIn` wrapper matching `Lean.Loop.forIn`'s shape. -/
-def forIn {β : Type u} {m : Type u → Type v}
-    [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m]
-    (_ : Lean.Loop) (init : β) (f : Unit → β → m (ForInStep β)) : m β :=
-  forIn.loop f init
-
-/-- Partial-correctness rule for our loop over `Option`: the invariant holds on exit, with no
-termination measure. `einv` is specialized to `True` (the partial `none` postcondition). -/
-theorem Option.forInLoop_partial {β : Type u}
-    (f : Unit → β → Option (ForInStep β)) (init : β)
-    (inv : β ⊕ β → Prop)
+/-- Generic partial-correctness rule for `forIn.loop` over any monad satisfying `WPPartial`. -/
+theorem forInLoop_partial
+    {Pred : Type u₁} {EPred : Type u₂}
+    {β : Type u} {m : Type u → Type v}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred]
+    (f : Unit → β → m (ForInStep β)) (init : β)
+    (inv : β ⊕ β → Pred) {einv : EPred}
     (step : ∀ b, Triple (f () b) (inv (.inl b))
       (fun r => match r with
         | .yield b' => inv (.inl b')
-        | .done b' => inv (.inr b')) True) :
-    Triple (forIn.loop (m := Option) f init) (inv (.inl init))
-      (fun b => inv (.inr b)) True := by
-  let post : β → Prop := fun b => inv (.inr b)
-  let mid : ForInStep β → Prop := fun r => match r with
-    | .yield b' => inv (.inl b')
-    | .done b' => inv (.inr b')
-  let k : (β → Option β) → ForInStep β → Option β := fun loop r => match r with
-    | .done b => pure b
-    | .yield b => loop b
-  let body : (β → Option β) → β → Option β := fun loop b => f () b >>= k loop
-  let motive : (β → Option β) → Prop := fun loop => ∀ init, inv (.inl init) → (loop init).elim True post
-  have hadm : Lean.Order.admissible motive := by
+        | .done b' => inv (.inr b')) einv) :
+    Triple (forIn.loop f init) (inv (.inl init))
+      (fun b => inv (.inr b)) einv := by
+  let post : β → Pred := fun b => inv (.inr b)
+  let motive : (β → m β) → Prop := fun loop => ∀ init, inv (.inl init) ⊑ wp (loop init) post einv
+  have hadm : admissible motive := by
     dsimp [motive]
-    apply Lean.Order.admissible_pi_apply
-      (P := fun init (x : Option β) => inv (.inl init) → x.elim True post)
+    apply admissible_pi_apply (P := fun init (x : m β) => inv (.inl init) ⊑ wp x post einv)
     intro init
-    apply Lean.Order.admissible_flatOrder
-      (P := fun x : Option β => inv (.inl init) → x.elim True post)
-    simp [Lean.Order.FlatOrder.mk]
-  have hstep : ∀ loop, motive loop → motive (body loop) := by
-    intro loop ih init hpre
-    have hbody : (f () init).elim True mid := by
-      simpa [mid, Std.Internal.Do.WP.wp, Std.Internal.Do.WP.wpTrans] using (step init).le_wp hpre
-    dsimp [body]
-    simp only [Option.bind]
-    cases hf : f () init with
-    | none => trivial
-    | some r =>
-        have hmid : mid r := by simpa [hf] using hbody
-        cases hr : r with
-        | done b =>
-            simpa [k, mid, post, hr] using hmid
-        | yield b =>
-            exact ih b (by simpa [k, mid, hr] using hmid)
-  have h := forIn.loop.fixpoint_induct (f := f) (motive := motive) hadm hstep
-  exact ⟨fun hpre => h init hpre⟩
-
-/-
-/-- Total-correctness rule for our loop: well-founded induction on the `RepeatVariant` measure. -/
-theorem forInLoop_total
-    {β : Type u} {m : Type u → Type v} {Pred : Type u} {EPred : Type u}
-    [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m]
-    [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ P : Pred, PreservesSup (meet P)]
-    (measure : RepeatVariant β Pred) (inv : β ⊕ β → Pred) (einv : EPred)
-    (f : Unit → β → m (ForInStep β)) (init : β)
-    (step : ∀ b (mb : measure.γ), Triple (f () b)
-        (measure.EvalsTo b mb ⊓ inv (.inl b))
-        (fun r => match r with
-          | .yield b' => measure.EvalsBelow b' mb ⊓ inv (.inl b')
-          | .done b' => inv (.inr b')) einv) :
-    Triple (forIn.loop f init) (inv (.inl init)) (fun b => inv (.inr b)) einv := by
-  refine Triple.intro <| measure.le_of_total_le init ?_
-  refine iSup_le _ _ fun minit => ?_
-  suffices key : ∀ (n : measure.γ), Acc measure.rel n → ∀ (b : β),
-      Triple (forIn.loop f b) (measure.EvalsTo b n ⊓ inv (.inl b)) (fun b => inv (.inr b)) einv
-    from (key minit (measure.wf.apply minit) init).le_wp
-  intro n hacc
-  induction hacc with
-  | intro n _ ih =>
-    intro b
-    rw [forIn.loop.eq_1]
-    refine Triple.bind (f := fun r => match r with
-      | .done b' => pure b'
-      | .yield b' => forIn.loop f b')
-      (f () b) (fun r => match r with
-        | .yield b' => measure.EvalsBelow b' n ⊓ inv (.inl b')
-        | .done b' => inv (.inr b'))
-      (step b n) ?_
+    exact admissible_triple_wp (inv (.inl init)) post einv
+  refine ⟨forIn.loop.fixpoint_induct (f := f) (motive := motive) hadm ?_ init⟩
+  intro loop ih b
+  have h1 := (step b).le_wp
+  let k : ForInStep β → m β := fun r => match r with
+    | .done val => pure val
+    | .yield val => loop val
+  have hk : (fun r => match r with
+      | .yield b' => inv (.inl b')
+      | .done b' => inv (.inr b')) ⊑ (fun r => wp (k r) post einv) := by
     intro r
     cases r with
-    | yield b' =>
-        refine Triple.intro ?_
-        refine iSup_meet_le fun mb' => ?_
-        rw [meet_comm (P := measure.EvalsTo b' mb'), meet_assoc]
-        exact ofProp_meet_le_left fun hlt => (ih mb' hlt b').le_wp
-    | done b' =>
-        exact Triple.pure b' PartialOrder.rel_refl
--/
+    | done val =>
+      dsimp [k]
+      exact WPMonad.pure_le_wp_pure val post einv
+    | yield val =>
+      dsimp [k]
+      exact ih val
+  have h2 : wp (f () b) (fun r => match r with
+      | .yield b' => inv (.inl b')
+      | .done b' => inv (.inr b')) einv ⊑ wp (f () b) (fun r => wp (k r) post einv) einv := by
+    apply WP.wp_consequence (f () b) _ _ einv hk
+  have h3 : wp (f () b) (fun r => wp (k r) post einv) einv ⊑ wp (f () b >>= k) post einv := by
+    exact WPMonad.bind_le_wp_bind (f () b) k post einv
+  exact PartialOrder.rel_trans h1 (PartialOrder.rel_trans h2 h3)
 
-/-- Our version of the annotated loop gadget, built on `forIn.loop`. -/
-@[inline] def forInLoopWithInvariantAndVariant {β : Type u} {m : Type u → Type v} {Pred : Type uₚ}
-    {Fun : Type} [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m]
-    (_l : Lean.Loop) (init : β) (f : Unit → β → m (ForInStep β))
-    (_inv? : Option (RepeatInvariant β β Pred)) (_var? : Option (β → Fun)) : m β :=
+namespace Gadget
+
+set_option linter.unusedVariables false in
+/-- A pure `forIn` loop annotated with a state invariant (independent of the cursor variable).
+The invariant holds before entering the loop, is preserved at every step, and holds upon exit. -/
+@[inline] def forInPureWithStateInv {ρ : Type w} [ForIn m ρ α]
+    (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
+    (inv : β → Pred) : m β :=
+  forIn xs init f
+
+set_option linter.unusedVariables false in
+/-- A pure `forIn'` loop annotated with a state invariant and membership proofs in the loop body. -/
+@[inline] def forInPureWithStateInv' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
+    (inv : β → Pred) : m β :=
+  forIn' xs init f
+
+set_option linter.unusedVariables false in
+@[inline] def forInPureWithInvAndDone {ρ : Type w} [ForIn m ρ α]
+    (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred) : m β :=
+  forIn xs init f
+
+set_option linter.unusedVariables false in
+@[inline] def forInPureWithInvAndDone' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred) : m β :=
+  forIn' xs init f
+
+set_option linter.unusedVariables false in
+@[inline] def whileLoopPartial {β : Type u} {m : Type u → Type v}
+    [Monad m] [∀ α, CCPO (m α)] [MonoBind m]
+    (init : β) (f : Unit → β → m (ForInStep β))
+    (inv : β → Pred) (done : β → Pred) : m β :=
   forIn.loop f init
 
-/-- Partial spec for the `noMeasure` gadget, specialized to `Option`. -/
-@[spec 1200]
-theorem Spec.forInLoop_partial
-    {β : Type u} {l : Lean.Loop} {init : β} {f : Unit → β → Option (ForInStep β)}
-    (inv : β ⊕ β → Prop)
-    (step : ∀ b, Triple (f () b) (inv (.inl b))
-      (fun r => match r with
-        | .yield b' => inv (.inl b')
-        | .done b' => inv (.inr b')) True) :
+set_option linter.unusedVariables false in
+@[inline] def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
+    (init : β) (f : Unit → β → m (ForInStep β))
+    (inv : β → Pred) (done : β → Pred) (measure : β → Named.Measure) : m β :=
+  forIn Lean.Loop.mk init f
+
+end Gadget
+
+open Gadget
+
+theorem Spec.forIn_init_le
+    {α : Type u₁} {β : Type (max u₁ u₂)}
+    {Pred : Type (max u₁ u₂)} [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    (xs : List α) (init : β)
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred) :
+    ((⌜xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜xs = cur :: rest⌝ ⇨ inv [] cur rest init)) ⊑
+      (match xs with | [] => done [] init | cur :: rest => inv [] cur rest init) := by
+  cases xs with
+  | nil =>
+    have h1 := meet_le_left (⌜([] : List α) = []⌝ ⇨ done [] init)
+      (⨅ (cur : α), ⨅ (rest : List α), ⌜([] : List α) = cur :: rest⌝ ⇨ inv [] cur rest init)
+    have h2 : (⌜([] : List α) = []⌝ ⇨ done [] init) ⊑ done [] init := by
+      have h_meet : (⌜([] : List α) = []⌝ ⊓ (⌜([] : List α) = []⌝ ⇨ done [] init)) ⊑ done [] init := meet_himp_le
+      have h_top : ⌜([] : List α) = []⌝ = (⊤ : Pred) := by simp
+      rw [h_top]
+      rw [h_top, CompleteLattice.top_meet] at h_meet
+      exact h_meet
+    exact PartialOrder.rel_trans h1 h2
+  | cons head tail =>
+    have h1 := meet_le_right (⌜head :: tail = []⌝ ⇨ done [] init)
+      (⨅ (cur : α), ⨅ (rest : List α), ⌜head :: tail = cur :: rest⌝ ⇨ inv [] cur rest init)
+    have h2 := iInf_le (i := head) (fun cur => ⨅ (rest : List α), ⌜head :: tail = cur :: rest⌝ ⇨ inv [] cur rest init)
+    have h3 := iInf_le (i := tail) (fun rest => ⌜head :: tail = head :: rest⌝ ⇨ inv [] head rest init)
+    have h4 : (⌜head :: tail = head :: tail⌝ ⇨ inv [] head tail init) ⊑ inv [] head tail init := by
+      have h_meet : (⌜head :: tail = head :: tail⌝ ⊓ (⌜head :: tail = head :: tail⌝ ⇨ inv [] head tail init)) ⊑ inv [] head tail init := meet_himp_le
+      have h_top : ⌜head :: tail = head :: tail⌝ = (⊤ : Pred) := by simp
+      rw [h_top]
+      rw [h_top, CompleteLattice.top_meet] at h_meet
+      exact h_meet
+    exact PartialOrder.rel_trans (PartialOrder.rel_trans (PartialOrder.rel_trans h1 h2) h3) h4
+
+theorem Spec.forIn'_list_inv_done
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    [Assertion EPred] [WPMonad m Pred EPred]
+    {xs : List α} {init : β} {f : (a : α) → a ∈ xs → β → m (ForInStep β)}
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred)
+    {epost : EPred}
+    (step_mid : ∀ pref cur next rest (h : xs = pref ++ cur :: next :: rest) b,
+      Triple
+        (f cur (by simp [h]) b)
+        (inv pref cur (next :: rest) b)
+        (fun r => match r with
+          | .yield b' => inv (pref ++ [cur]) next rest b'
+          | .done b' => done xs b')
+        epost)
+    (step_last : ∀ pref cur (h : xs = pref ++ [cur]) b,
+      Triple
+        (f cur (by simp [h]) b)
+        (inv pref cur [] b)
+        (fun r => match r with
+          | .yield b' => done xs b'
+          | .done b' => done xs b')
+        epost) :
     Triple
-      (forInLoopWithInvariantAndVariant l init f
-        (some (RepeatInvariant.mk inv)) Std.Internal.Do.Gadget.noMeasure)
-      (inv (.inl init)) (fun b => inv (.inr b)) True := by
-  unfold forInLoopWithInvariantAndVariant
-  exact Option.forInLoop_partial f init inv step
+      (forIn' xs init f)
+      ((⌜xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜xs = cur :: rest⌝ ⇨ inv [] cur rest init))
+      (fun b => done xs b)
+      epost := by
+  let inv' : Invariant α β Pred := fun pref suff b =>
+    match suff with
+    | [] => done xs b
+    | cur :: rest => inv pref cur rest b
+  have step : ∀ pref cur suff (h : xs = pref ++ cur :: suff) b,
+      Triple
+        (f cur (by simp [h]) b)
+        (inv' pref (cur :: suff) b)
+        (fun r => match r with
+          | .yield b' => inv' (pref ++ [cur]) suff b'
+          | .done b' => inv' xs [] b')
+        epost := by
+    intro pref cur suff h b
+    cases suff with
+    | cons next rest =>
+      exact step_mid pref cur next rest h b
+    | nil =>
+      exact step_last pref cur h b
+  have h := Spec.forIn'_list (init := init) inv' step
+  apply Triple.intro
+  exact PartialOrder.rel_trans (Spec.forIn_init_le xs init inv done) (by cases xs <;> exact h.le_wp)
+
+set_option linter.unusedVariables false in
+theorem Spec.forIn_list_inv_done
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    [Assertion EPred] [WPMonad m Pred EPred]
+    {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred)
+    {epost : EPred}
+    (step_mid : ∀ pref cur next rest (h : xs = pref ++ cur :: next :: rest) b,
+      Triple
+        (f cur b)
+        (inv pref cur (next :: rest) b)
+        (fun r => match r with
+          | .yield b' => inv (pref ++ [cur]) next rest b'
+          | .done b' => done xs b')
+        epost)
+    (step_last : ∀ pref cur (h : xs = pref ++ [cur]) b,
+      Triple
+        (f cur b)
+        (inv pref cur [] b)
+        (fun r => match r with
+          | .yield b' => done xs b'
+          | .done b' => done xs b')
+        epost) :
+    Triple
+      (forIn xs init f)
+      ((⌜xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜xs = cur :: rest⌝ ⇨ inv [] cur rest init))
+      (fun b => done xs b)
+      epost := by
+  simp only [← forIn'_eq_forIn]
+  exact Spec.forIn'_list_inv_done inv done (fun pref cur next rest h b => step_mid pref cur next rest h b) (fun pref cur h b => step_last pref cur h b)
+
+set_option linter.unusedVariables false in
+@[spec]
+theorem Spec.forInPure
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    [Assertion EPred] [WPMonad m Pred EPred]
+    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α]
+    [PureForIn m ρ α]
+    {xs : ρ} {init : β} {f : α → β → m (ForInStep β)}
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred)
+    {epost : EPred}
+    (step_mid : ∀ pref cur next rest (h : ForIn.toList xs = pref ++ cur :: next :: rest) b,
+      Triple
+        (f cur b)
+        (inv pref cur (next :: rest) b)
+        (fun r => match r with
+          | .yield b' => inv (pref ++ [cur]) next rest b'
+          | .done b' => done (ForIn.toList xs) b')
+        epost)
+    (step_last : ∀ pref cur (h : ForIn.toList xs = pref ++ [cur]) b,
+      Triple
+        (f cur b)
+        (inv pref cur [] b)
+        (fun r => match r with
+          | .yield b' => done (ForIn.toList xs) b'
+          | .done b' => done (ForIn.toList xs) b')
+        epost) :
+    Triple
+      (forInPureWithInvAndDone xs init f inv done)
+      ((⌜ForIn.toList xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜ForIn.toList xs = cur :: rest⌝ ⇨ inv [] cur rest init))
+      (fun b => done (ForIn.toList xs) b)
+      epost := by
+  unfold forInPureWithInvAndDone
+  rw [PureForIn.forIn_eq]
+  exact Spec.forIn_list_inv_done (init := init) inv done step_mid step_last
+
+@[spec]
+theorem Spec.forInPure'
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    [Assertion EPred] [WPMonad m Pred EPred]
+    {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    [ForIn Id ρ α] [LawfulMemForInId ρ α] [PureForIn' m ρ α]
+    {xs : ρ} {init : β} {f : (a : α) → a ∈ xs → β → m (ForInStep β)}
+    (inv : List α → α → List α → β → Pred)
+    (done : List α → β → Pred)
+    {epost : EPred}
+    (step_mid : ∀ pref cur next rest (h : ForIn.toList xs = pref ++ cur :: next :: rest) b,
+      Triple
+        (f cur ((LawfulMemForInId.mem_toList_iff).mp (by simp [h])) b)
+        (inv pref cur (next :: rest) b)
+        (fun r => match r with
+          | .yield b' => inv (pref ++ [cur]) next rest b'
+          | .done b' => done (ForIn.toList xs) b')
+        epost)
+    (step_last : ∀ pref cur (h : ForIn.toList xs = pref ++ [cur]) b,
+      Triple
+        (f cur ((LawfulMemForInId.mem_toList_iff).mp (by simp [h])) b)
+        (inv pref cur [] b)
+        (fun r => match r with
+          | .yield b' => done (ForIn.toList xs) b'
+          | .done b' => done (ForIn.toList xs) b')
+        epost) :
+    Triple
+      (forInPureWithInvAndDone' xs init f inv done)
+      ((⌜ForIn.toList xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜ForIn.toList xs = cur :: rest⌝ ⇨ inv [] cur rest init))
+      (fun b => done (ForIn.toList xs) b)
+      epost := by
+  unfold forInPureWithInvAndDone'
+  rw [PureForIn'.forIn'_eq]
+  exact Spec.forIn'_list_inv_done (xs := ForIn.toList xs) (init := init) (f := fun a h b => f a ((LawfulMemForInId.mem_toList_iff).mp h) b) inv done step_mid step_last
+
+theorem Spec.forIn'_list_state_inv
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {xs : List α} {init : β} {f : (a : α) → a ∈ xs → β → m (ForInStep β)}
+    (inv : β → Pred)
+    {epost : EPred}
+    (step : ∀ cur (h : cur ∈ xs) b,
+      Triple
+        (f cur h b)
+        (inv b)
+        (fun r => match r with
+          | .yield b' => inv b'
+          | .done b' => inv b')
+        epost) :
+    Triple
+      (forIn' xs init f)
+      (inv init)
+      (fun b => inv b)
+      epost := by
+  let inv' : Invariant α β Pred := fun _ _ b => inv b
+  have step' : ∀ pref cur suff (h : xs = pref ++ cur :: suff) b,
+      Triple
+        (f cur (by simp [h]) b)
+        (inv' pref (cur :: suff) b)
+        (fun r => match r with
+          | .yield b' => inv' (pref ++ [cur]) suff b'
+          | .done b' => inv' xs [] b')
+        epost := by
+    intro pref cur suff h b
+    exact step cur (by simp [h]) b
+  have h := Spec.forIn'_list (init := init) inv' step'
+  cases xs
+  · exact h
+  · exact h
+
+set_option linter.unusedVariables false in
+theorem Spec.forIn_list_state_inv
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
+    (inv : β → Pred)
+    {epost : EPred}
+    (step : ∀ cur (h : cur ∈ xs) b,
+      Triple
+        (f cur b)
+        (inv b)
+        (fun r => match r with
+          | .yield b' => inv b'
+          | .done b' => inv b')
+        epost) :
+    Triple
+      (forIn xs init f)
+      (inv init)
+      (fun b => inv b)
+      epost := by
+  simp only [← forIn'_eq_forIn]
+  exact Spec.forIn'_list_state_inv inv step
+
+set_option linter.unusedVariables false in
+/-- Specification lemma for pure `forIn` loops with state invariants (independent of loop cursor). -/
+@[spec]
+theorem Spec.forInPure_state_inv
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α]
+    [PureForIn m ρ α]
+    {xs : ρ} {init : β} {f : α → β → m (ForInStep β)}
+    (inv : β → Pred)
+    {epost : EPred}
+    (step : ∀ cur (h : cur ∈ ForIn.toList xs) b,
+      Triple
+        (f cur b)
+        (inv b)
+        (fun r => match r with
+          | .yield b' => inv b'
+          | .done b' => inv b')
+        epost) :
+    Triple
+      (forInPureWithStateInv xs init f inv)
+      (inv init)
+      (fun b => inv b)
+      epost := by
+  unfold forInPureWithStateInv
+  rw [PureForIn.forIn_eq]
+  exact Spec.forIn_list_state_inv (init := init) inv step
+
+set_option linter.unusedVariables false in
+/-- Specification lemma for pure `forIn'` loops with state invariants and membership proofs. -/
+@[spec]
+theorem Spec.forInPure'_state_inv
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    [ForIn Id ρ α] [LawfulMemForInId ρ α] [PureForIn' m ρ α]
+    {xs : ρ} {init : β} {f : (a : α) → a ∈ xs → β → m (ForInStep β)}
+    (inv : β → Pred)
+    {epost : EPred}
+    (step : ∀ cur (h : cur ∈ ForIn.toList xs) b,
+      Triple
+        (f cur ((LawfulMemForInId.mem_toList_iff).mp h) b)
+        (inv b)
+        (fun r => match r with
+          | .yield b' => inv b'
+          | .done b' => inv b')
+        epost) :
+    Triple
+      (forInPureWithStateInv' xs init f inv)
+      (inv init)
+      (fun b => inv b)
+      epost := by
+  unfold forInPureWithStateInv'
+  rw [PureForIn'.forIn'_eq]
+  exact Spec.forIn'_list_state_inv (init := init) inv step
+
+@[spec 1200]
+theorem Spec.whileLoop_partial
+    {Pred : Type u₁} {EPred : Type u₂}
+    {m : Type u → Type v}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred]
+    {β : Type u} {init : β} {f : Unit → β → m (ForInStep β)} {einv : EPred}
+    (inv : β → Pred) (done : β → Pred)
+    (step : ∀ b, Triple (f () b)
+      (inv b)
+      (fun r => match r with
+        | .yield b' => inv b'
+        | .done b' => done b')
+      einv) :
+    Triple (whileLoopPartial init f inv done)
+      (inv init)
+      (fun b => done b)
+      einv := by
+  unfold whileLoopPartial
+  let inv' : β ⊕ β → Pred := fun
+    | .inl b => inv b
+    | .inr b => done b
+  have step' : ∀ b, Triple (f () b) (inv' (.inl b))
+      (fun r => match r with
+        | .yield b' => inv' (.inl b')
+        | .done b' => inv' (.inr b')) einv := by
+    intro b
+    exact step b
+  exact forInLoop_partial f init inv' step'
+
+@[spec 1200]
+theorem Spec.whileLoop_total
+    {m : Type u → Type v} {Pred EPred : Type u}
+    [Monad m] [Lean.Order.MonadTail m]
+    [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    [Assertion EPred] [WPMonad m Pred EPred]
+    {β : Type u} {init : β}
+    (inv : β → Pred) (done : β → Pred) (measure : β → Named.Measure)
+    {f : Unit → β → m (ForInStep β)} {einv : EPred}
+    (step : ∀ b,
+      Triple (f () b)
+        (inv b)
+        (fun r => match r with
+          | .yield b' =>
+              match measure b, measure b' with
+              | ⟨name, stx, current⟩, ⟨_, _, next⟩ =>
+                  ⌜Named.mk name stx (next < current)⌝ ⊓ inv b'
+          | .done b' => done b')
+        einv) :
+    Triple
+      (whileLoopTotal init f inv done measure)
+      (inv init)
+      (fun b => done b)
+      einv := by
+  let inv' : β ⊕ β → Pred := fun
+    | .inl b => inv b
+    | .inr b => done b
+  let loopMeasure := Std.Internal.Do.RepeatVariant.ofMeasure (Pred := Pred)
+    (fun b => (measure b).value)
+  have step' : ∀ b (mb : loopMeasure.γ),
+      Triple (f () b)
+        (loopMeasure.EvalsTo b mb ⊓ inv' (.inl b))
+        (fun r => match r with
+          | .yield b' => loopMeasure.EvalsBelow b' mb ⊓ inv' (.inl b')
+          | .done b' => inv' (.inr b'))
+        einv := by
+    intro b mb
+    apply Triple.intro
+    apply CompleteLattice.ofProp_meet_le_left
+    intro h
+    subst mb
+    have natRel (a b : Nat) : WellFoundedRelation.rel a b = (a < b) := rfl
+    simpa [Named.mk_eq, loopMeasure,
+      Std.Internal.Do.RepeatVariant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
+  unfold whileLoopTotal
+  exact Spec.forIn_loop (l := Lean.Loop.mk) (init := init) loopMeasure inv' einv step'
+
+theorem list_range_head {n : Nat} {cur : Nat} {rest : List Nat} (h : List.range n = cur :: rest) :
+    cur = 0 := by
+  have : (List.range n)[0]? = (cur :: rest)[0]? := by rw [h]
+  simp only [List.getElem?_cons_zero] at this
+  cases n with
+  | zero => simp at h
+  | succ m =>
+    rw [List.getElem?_range] at this
+    · cases this; rfl
+    · omega
+
+theorem list_range_next {n : Nat} {pref : List Nat} {cur next : Nat} {rest : List Nat}
+    (h : List.range n = pref ++ cur :: next :: rest) : next = cur + 1 := by
+  have hcur : (List.range n)[pref.length]? = (pref ++ cur :: next :: rest)[pref.length]? := by rw [h]
+  have hnext : (List.range n)[pref.length + 1]? = (pref ++ cur :: next :: rest)[pref.length + 1]? := by rw [h]
+  rw [List.getElem?_append_right (by omega)] at hcur
+  simp only [Nat.sub_self, List.getElem?_cons_zero] at hcur
+  have hlen : pref.length + 1 - pref.length = 1 := by omega
+  rw [List.getElem?_append_right (by omega), hlen] at hnext
+  simp only [List.getElem?_cons_succ, List.getElem?_cons_zero] at hnext
+  have hlen_lt : pref.length + 1 < n := by
+    have := congrArg List.length h
+    simp only [List.length_range, List.length_append, List.length_cons] at this
+    omega
+  rw [List.getElem?_range (by omega)] at hcur
+  rw [List.getElem?_range hlen_lt] at hnext
+  cases hcur; cases hnext
+  omega
+
+theorem list_range_last {n : Nat} {pref : List Nat} {cur : Nat}
+    (h : List.range n = pref ++ [cur]) : cur + 1 = n := by
+  have hcur : (List.range n)[pref.length]? = (pref ++ [cur])[pref.length]? := by rw [h]
+  rw [List.getElem?_append_right (by omega)] at hcur
+  simp only [Nat.sub_self, List.getElem?_cons_zero] at hcur
+  have hlen : pref.length + 1 = n := by
+    have := congrArg List.length h
+    simp only [List.length_range, List.length_append, List.length_cons, List.length_nil] at this
+    omega
+  rw [List.getElem?_range (by omega)] at hcur
+  cases hcur
+  omega
 
 end Velvet2.Loop
 
-/-!
-## HACK: redirecting the `noMeasure` loop gadget via `macro_rules`
-
-`while'` (no `decreasing`) lowers through Lean's do elaborator to the *application*
-
-    Std.Internal.Do.Gadget.forInLoopWithInvariantAndVariant l init f inv noMeasure
-
-That is an ordinary `def` application, not a syntactic form, so overriding it with `macro_rules`
-is a hack. It works only because `Lean.Elab.BuiltinDo.For.mkForInLoopWithInvariantAndVariant` builds
-that application as **syntax** and then calls `Term.elabTermEnsuringType` on it; macro expansion runs
-on that syntax before it becomes a term, so a `term`-level `macro_rules` fires.
-
-This relies on an implementation detail of the do elaborator. The clean fix is to patch the
-toolchain's `mkForInLoopWithInvariantAndVariant` to emit our gadget (or to vendor the do-loop
-elaborator); until then, this interception is the least-invasive way to make `while'` use our
-least-fixed-point loop in the partial case while leaving the total (measure) case on Std's gadget.
--/
-macro_rules
-  | `(term| Std.Internal.Do.Gadget.forInLoopWithInvariantAndVariant $l $init $f $inv
-      Std.Internal.Do.Gadget.noMeasure) =>
-      `(term| Velvet2.Loop.forInLoopWithInvariantAndVariant $l $init $f $inv
-        Std.Internal.Do.Gadget.noMeasure)
-
-#check Std.Internal.Do.Gadget.noMeasure
+export Velvet2.Loop (list_range_head list_range_next list_range_last)

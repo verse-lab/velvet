@@ -4,6 +4,7 @@ import Velvet2.Loop
 import Velvet2.Elab.Types
 import Velvet2.Elab.SyntaxDecls
 import Velvet2.Elab.Util
+import Velvet2.Elab.LoopElaboration
 import Velvet2.Elab.SyntaxElaboration
 import Lean.Parser
 import Lean.Elab.Command
@@ -14,4 +15,4 @@ import Std.Internal.Do.Triple.Basic
 import Std.Internal.Do.Triple.Gadget
 import Std.Internal.Do.Triple.SpecLemmas
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named Velvet2.Loop

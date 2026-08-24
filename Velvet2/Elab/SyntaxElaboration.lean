@@ -1,8 +1,10 @@
 import Velvet2.Elab.Types
 import Velvet2.Elab.SyntaxDecls
 import Velvet2.Elab.Util
+import Velvet2.Elab.LoopElaboration
 import Velvet2.Named
 import Velvet2.Specs
+import Velvet2.Loop
 import Lean.Parser
 import Lean.Elab.Do
 import Lean.Elab.BuiltinDo.Let
@@ -64,19 +66,6 @@ private def alreadyGhost (rhs : Term) (expectedType : Expr) : DoElabM Bool :=
       Lean.Elab.Term.synthesizeSyntheticMVarsNoPostponing).isSome
 
 end GhostUtils
-
-
-/-- Walk a `do` body and require every `while'` loop to carry a `decreasing` clause. -/
-private partial def checkWhilePrimeTermination (stx : Syntax) : CommandElabM Unit := do
-  match stx with
-  | `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $m]? $[done_with $[$_h_done : ]? $_d]? do $_body) =>
-      if m.isNone then
-        /- Fires when a `while'` loop in a total-correctness method has no `decreasing` clause,
-           e.g. `while' i < n invariant True do ...` without `decreasing remaining : n - i`. -/
-        throwErrorAt stx "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
-  | _ => pure ()
-  for a in stx.getArgs do
-    checkWhilePrimeTermination a
 
 set_option linter.unusedVariables false in
 /-- Generate the `def`/`spec` command syntax for a parsed `method`, elaborate them, and register
@@ -228,60 +217,6 @@ macro_rules
     let name : TSyntax `term ← `(Lean.Name.mkSimple $nameStr)
     let stx ← Named.sourceRefTerm t.raw
     `(_root_.assertGadget (Named.mk $name $stx $t))
-
-macro_rules
-  | `(doElem| for' $pat:term in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) => do
-    let invs' ← mkAssertionList invs (makeNameArrayFromIdents ns "invariant")
-    let doneTerm ← match done with
-      | some done => pure done
-      | none => `(True)
-    let doneName := hDone.join.map (·.getId) |>.getD `h_done_with
-    let done' ← mkAssertionList #[doneTerm] #[doneName]
-    let pref := Lean.mkIdent `__pref
-    let suff := Lean.mkIdent `__suff
-    -- Lower to Lean's native annotated `for` loop; the stdlib gadget and `Spec.forInPure` own the
-    -- loop semantics. The cursor invariant selects the `done_with` assertion once the collection is
-    -- consumed and the named invariants otherwise.
-    let cursorInv ← `(term| match $suff:ident with
-      | [] => $done':term
-      | $pat :: _ => $invs':term)
-    `(doElem| for $pat in $xs
-      invariant $pref $suff => $cursorInv
-      do $body)
-  | `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) => do
-    let defaultLoopIdent := mkIdent `h_loop
-    let loopIdent := hcond.getD defaultLoopIdent
-    let invNames := makeNameArrayFromIdents ns "invariant"
-    let invs' ← mkAssertionList invs invNames
-    let defaultDoneWith : TSyntax `term ← withRef cond do `(¬ $cond)
-    let doneWith := d.getD defaultDoneWith
-    let doneWithName := match h_done.join with
-      | some id => id.getId
-      | none => `h_done_with
-    let exitedInvs ← mkAssertionList (invs.push doneWith) (invNames.push (doneWithName))
-    let exited := Lean.mkIdent `__exited
-    match m with
-    | some m =>
-        let measureName := match hm.join with
-          | some id => id.getId
-          | none => `decreasing
-        let measureNameStr := Lean.Syntax.mkStrLit measureName.toString
-        let measureNameTerm : TSyntax `term ←
-          `(Lean.Name.mkSimple $measureNameStr)
-        let measureStx ← Named.sourceRefTerm m.raw
-        let measureNamed : TSyntax `term ←
-          `(Named.Measure.mk $measureNameTerm $measureStx $m)
-        `(doElem| while $loopIdent : $cond
-          invariant $exited =>
-            if $exited then $exitedInvs else $invs'
-          decreasing $measureNamed
-          do $body)
-    | none =>
-        `(doElem| while $loopIdent : $cond
-          invariant $exited =>
-            if $exited then $exitedInvs else $invs'
-          do $body)
-
 
 @[doElem_control_info ghostReassign]
 def controlInfoGhostReassign : ControlInfoHandler := fun stx => do

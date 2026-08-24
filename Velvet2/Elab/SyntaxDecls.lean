@@ -17,10 +17,10 @@ syntax "method " ("rec ")? ident bracketedBinder* " returns " "(" ident " : " te
 
 syntax "prove_correct " ident " by " tacticSeq : command
 
-syntax "while' " (atomic(ident " : "))? termBeforeDo
+syntax (name := doWhilePrime) "while' " (atomic(ident " : "))? termBeforeDo
   (" invariant " (atomic(ident " : "))? termBeforeDo)*
-  (" decreasing " (atomic(ident " : ")? termBeforeDo ))?
-  (" done_with " (atomic(ident " : ")? termBeforeDo  ("by " tacticSeq)?))?
+  (" decreasing " (atomic(ident " : "))? termBeforeDo)?
+  (" done_with " (atomic(ident " : "))? termBeforeDo (" by " tacticSeq)?)?
   " do " doSeq : doElem
 
 /--
@@ -28,7 +28,7 @@ A finite range loop with inline state invariants. Like Lean's built-in `for`,
 the collection controls termination; the initial version supports one binder
 and one collection, including closed-open ranges such as `start...stop`.
 -/
-syntax "for' " term " in " termBeforeDo
+syntax (name := doForPrime) "for' " (atomic(ident " : "))? term " in " termBeforeDo
   (" invariant " (atomic(ident " : "))? termBeforeDo)*
   (" done_with " (atomic(ident " : "))? termBeforeDo)?
   " do " doSeq : doElem

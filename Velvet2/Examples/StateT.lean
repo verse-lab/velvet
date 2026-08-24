@@ -55,8 +55,9 @@ theorem boundedIncrement_correct (limit : Nat) :
 def countRange (n : Nat) : CounterOption Nat := do
   set 0
   let mut count := 0
-  for i in List.range n
-    invariant pref _ s => s = pref.length ∧ count = pref.length
+  for' i in List.range n
+    invariant count_tracks : (fun s : Nat => s = i ∧ count = i)
+    done_with count_done : (fun s : Nat => s = n ∧ count = n)
   do
     count := i + 1
     set count
@@ -68,14 +69,21 @@ theorem countRange_correct (n : Nat) :
       (fun r s => r = n ∧ s = n)
       True := by
   vcgen_ [countRange] with try finish
-  case vc3 =>
-    rename_i pre current suffix eq count state inv
-    have hc := congrArg (fun xs => xs[pre.length]?) eq
-    simp at hc
-    rw [List.getElem?_eq_some_iff] at hc
-    rcases hc with ⟨bound, hc⟩
-    have hcur : pre.length = current := by simpa using hc
-    simp [hcur]
+  case count_tracks =>
+    rename_i s cur rest h
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_head h
+    omega
+  case count_tracks =>
+    rename_i s pref cur next rest h b s'
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_next h
+    omega
+  case count_done =>
+    rename_i s pref cur h b s'
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_last h
+    omega
 
 
 
@@ -241,5 +249,25 @@ do
 prove_correct stateOptionTotal by
   vcgen_ [stateOptionTotal] with finish
 
+/- Partial correctness loop over `StateT Nat Option` without termination measure. -/
+set_option velvet.semantics.termination "partial" in
+method countStatePartial (n : Nat) returns (res : Nat) in CounterOption
+    requires (s : Nat), True
+    signals True
+    ensures (s : Nat), res = n ∧ s = n
+  do
+  set 0
+  let mut i := 0
+  while' i < n
+    invariant state_tracks : (fun s : Nat => s = i ∧ i ≤ n)
+    done_with state_done : (fun s : Nat => i = n ∧ s = n)
+  do
+    i := i + 1
+    set i
+  return i
+
+#check countStatePartial
+prove_correct countStatePartial by
+  vcgen_ [countStatePartial] with finish
 
 end Velvet2.Examples.StateT

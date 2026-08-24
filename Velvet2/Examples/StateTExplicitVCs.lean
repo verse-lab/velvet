@@ -29,20 +29,26 @@ theorem boundedIncrement_explicit (limit : Nat) :
   case within_limit => grind
   case vc2 => grind
 
--- TODO: VCs with vc<num> are bad, and are coming due to for loops, need to fix them.
 theorem countRange_explicit (n : Nat) :
     Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) True := by
   vcgen_ [countRange]
-  case vc1 => grind
-  case vc2 => grind
-  case vc3 =>
-    rename_i pre current suffix eq count state inv
-    have hc := congrArg (fun xs => xs[pre.length]?) eq
-    simp at hc
-    rw [List.getElem?_eq_some_iff] at hc
-    rcases hc with ⟨bound, hc⟩
-    have hcur : pre.length = current := by simpa using hc
-    simp [hcur]
+  case count_done => grind
+  case count_tracks =>
+    rename_i s cur rest h
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_head h
+    omega
+  case vc3 => grind
+  case count_tracks =>
+    rename_i s pref cur next rest h b s'
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_next h
+    omega
+  case count_done =>
+    rename_i s pref cur h b s'
+    rw [Std.Internal.ForIn.toList_list] at h
+    have := list_range_last h
+    omega
 
 theorem checkedAdd_explicit : checkedAdd.spec_triple := by
   unfold checkedAdd.spec_triple
@@ -88,5 +94,10 @@ theorem addToReaderLimit_explicit :
     · omega
   case additions_remaining => grind
   case all_added => grind
+
+theorem countStatePartial_explicit : countStatePartial.spec_triple := by
+  unfold countStatePartial.spec_triple
+  vcgen_ [countStatePartial]
+  all_goals grind
 
 end Velvet2.Examples.StateT

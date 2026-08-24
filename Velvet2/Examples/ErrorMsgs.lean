@@ -1,4 +1,8 @@
 import Velvet2.Syntax
+import Velvet2.Loop
+import Velvet2.VCGen.Frontend
+
+open Std.Internal.Do Named Velvet2.Loop Lean.Order
 
 /-
 # Error message examples
@@ -20,3 +24,153 @@ do
   do
     i := i + 1
   return 0
+
+/- Invariant referencing loop cursor variable without `done_with`. -/
+/--
+error: Loop invariant 'bad_inv' references loop cursor variable 'i'.
+Cursor-dependent invariants require an explicit 'done_with' clause because 'i' is not in scope after the loop terminates.
+Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
+-/
+#guard_msgs in
+method badForPrimeCursor (n : Nat) returns (res : Nat)
+  requires True
+  ensures res = n
+do
+  let mut x := 0
+  for' i in 0...n
+    invariant bad_inv: x = i
+  do
+    x := x + 1
+  return x
+
+/- Multiple invariants where one references loop cursor variable without `done_with`. -/
+/--
+error: Loop invariant 'cursor_dep' references loop cursor variable 'i'.
+Cursor-dependent invariants require an explicit 'done_with' clause because 'i' is not in scope after the loop terminates.
+Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
+-/
+#guard_msgs in
+method badForPrimeMultiInv (n : Nat) returns (res : Nat)
+  requires True
+  ensures res = n
+do
+  let mut x := 0
+  for' i in 0...n
+    invariant state_ok: x ≥ 0
+    invariant cursor_dep: x = i
+  do
+    x := x + 1
+  return x
+
+/- Invariant referencing `__rest` without `done_with`. -/
+/--
+error: Loop invariant 'rest_check' references '__rest'.
+Suffix-dependent invariants require an explicit 'done_with' clause because there are no remaining elements after the loop terminates.
+Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
+-/
+#guard_msgs in
+method badForPrimeRest (xs : List Nat) returns (res : Nat)
+  requires True
+  ensures res = 0
+do
+  let mut x := 0
+  for' elem in xs
+    invariant rest_check: __rest.length ≥ 0
+  do
+    x := x + elem
+  return x
+
+/- Invariant referencing `__pref` without `done_with`. -/
+/--
+error: Loop invariant 'pref_check' references '__pref'.
+Prefix-dependent invariants require an explicit 'done_with' clause specifying what holds when the loop finishes.
+Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
+-/
+#guard_msgs in
+method badForPrimePref (xs : List Nat) returns (res : Nat)
+  requires True
+  ensures res = 0
+do
+  let mut x := 0
+  for' elem in xs
+    invariant pref_check: __pref.length ≥ 0
+  do
+    x := x + elem
+  return x
+
+/- Explicit `set_option velvet.semantics.termination "total"` without `decreasing`. -/
+/-- error: `while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness -/
+#guard_msgs in
+set_option velvet.semantics.termination "total" in
+method badWhileExplicitTotal (n : Nat) returns (res : Nat)
+  requires True
+  ensures res = 0
+do
+  let mut i := 0
+  while' i < n
+    invariant True
+  do
+    i := i + 1
+  return 0
+
+/- Partial correctness while loop in a monad stack lacking CCPO instance. -/
+def NoCCPOMonad (α : Type) : Type := Option α
+instance : Monad NoCCPOMonad := inferInstanceAs (Monad Option)
+instance : WPMonad NoCCPOMonad Prop Prop := inferInstanceAs (WPMonad Option Prop Prop)
+
+/--
+error: failed to synthesize instance of type class
+  (α : Type) → CCPO (NoCCPOMonad α)
+
+Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
+-/
+#guard_msgs in
+set_option velvet.semantics.termination "partial" in
+method badWhileNoCCPO (n : Nat) returns (res : Nat) in NoCCPOMonad
+  requires True
+  signals True
+  ensures res = 0
+do
+  let mut i := 0
+  while' i < n
+    invariant True
+  do
+    i := i + 1
+  return 0
+
+/- Partial correctness while loop in a monad with CCPO & MonoBind but lacking WPPartial instance. -/
+def NoWPPartialMonad (α : Type) : Type := Option α
+instance : Monad NoWPPartialMonad := inferInstanceAs (Monad Option)
+instance : WPMonad NoWPPartialMonad Prop Prop := inferInstanceAs (WPMonad Option Prop Prop)
+instance (α : Type) : CCPO (NoWPPartialMonad α) := inferInstanceAs (CCPO (Option α))
+instance : MonoBind NoWPPartialMonad where
+  bind_mono_left := MonoBind.bind_mono_left (m := Option)
+  bind_mono_right := MonoBind.bind_mono_right (m := Option)
+
+set_option velvet.semantics.termination "partial" in
+method badWhileNoWPPartial (n : Nat) returns (res : Nat) in NoWPPartialMonad
+  requires True
+  signals True
+  ensures res = 0
+do
+  let mut i := 0
+  while' i < n
+    invariant True
+  do
+    i := i + 1
+  return 0
+
+/--
+error: No spec applicable to program Gadget.whileLoopPartial 0
+  (fun __u __s => if h_loop : __s < n✝ then pure (ForInStep.yield (__s + 1)) else pure (ForInStep.done __s))
+  (fun i => ⌜⟪invariant1 : True⟫⌝) fun i =>
+  ⌜⟪invariant1 : True⟫⌝ ⊓
+    ⌜⟪h_done_with :
+        ¬i < n✝⟫⌝ in monad NoWPPartialMonad. Candidates were [SpecProof.global Velvet2.Loop.Spec.whileLoop_partial].
+-/
+#guard_msgs in
+prove_correct badWhileNoWPPartial by
+  vcgen_ [badWhileNoWPPartial] with finish
+
+
+
