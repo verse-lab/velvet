@@ -15,9 +15,9 @@ def safeInc (n : Nat) : Option Nat
 #check @safeInc.spec
 
 method velvetCallsIntrinsic (n : Nat) returns (res : Nat) in StateT Nat Option
-  requires (s : Nat), n ≠ 0
+  requires (s : Nat) => n ≠ 0
   signals False
-  ensures (s : Nat), res = n + 1 ∧ s = res
+  ensures (s : Nat) => res = n + 1 ∧ s = res
 do
   let x ← safeInc n
   set x
@@ -27,8 +27,8 @@ prove_correct velvetCallsIntrinsic by
   vcgen_ [velvetCallsIntrinsic] with finish
 
 method velvetDouble (k : Nat) returns (res : Nat) in StateT Nat Id
-  requires (s : Nat), True
-  ensures (s : Nat), res = 2 * k
+  requires (s : Nat) => True
+  ensures (s : Nat) => res = 2 * k
 do
   return 2 * k
 

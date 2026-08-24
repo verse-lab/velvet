@@ -12,9 +12,9 @@ abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
 
 /- A `StateT Nat Option` loop exercising invariant, decreasing, and done gadgets. -/
 method countState (n : Nat) returns (res: Nat) in CounterOption
-    requires (s : Nat), True
+    requires (s : Nat) => True
     signals True
-    ensures (s : Nat), res = n ∧ s = n
+    ensures (s : Nat) => res = n ∧ s = n
   do
   set 0
   let mut i := 0
@@ -90,10 +90,10 @@ theorem countRange_correct (n : Nat) :
 
 /- A larger `StateT Nat (ExceptT String Option)` stack. -/
 method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption
-    requires (s : Nat), True
-    signals err_msg : (error : String), error = "delta must be positive"
+    requires (s : Nat) => True
+    signals err_msg : (error : String) => error = "delta must be positive"
     signals True
-    ensures (s : Nat), s = res + delta do
+    ensures (s : Nat) => s = res + delta do
   let current ← get
   if delta = 0 then
     throw "delta must be positive"
@@ -110,10 +110,10 @@ prove_correct checkedAdd by
 
 /- A stateful loop that either reaches `target` or throws at `blocked`. -/
 method countUnlessBlocked (target: Nat) (blocked: Nat) returns (res: Nat) in CounterExceptOption
-  requires (s : Nat), True
-  signals (e : String), e = "blocked"
+  requires (s : Nat) => True
+  signals (e : String) => e = "blocked"
   signals False
-  ensures (s : Nat), res = target ∧ s = target
+  ensures (s : Nat) => res = target ∧ s = target
 do
   set 0
   let mut i := 0
@@ -169,8 +169,8 @@ theorem countToReaderLimit_correct :
 
 /- A method without `signals` in a monad stack with 0 exception channels (`ReaderCounter`). -/
 method countToReaderLimitMethod returns (res : Nat) in ReaderCounter
-    requires (s : Nat) (env : Nat), True
-    ensures (s : Nat) (env : Nat), res = s do
+    requires (s : Nat) (env : Nat) => True
+    ensures (s : Nat) (env : Nat) => res = s do
   let start ← get
   return start
 
@@ -238,9 +238,9 @@ prove_correct idNoBinders by
 /- Total correctness over `StateT Nat Option` is expressed with a bare `signals False`;
 the state still needs binders in `requires`/`ensures`. -/
 method stateOptionTotal returns (res : Nat) in CounterOption
-  requires (s : Nat), True
+  requires (s : Nat) => True
   signals False
-  ensures (s : Nat), res = 0
+  ensures (s : Nat) => res = 0
 do
   set 0
   return 0
@@ -252,9 +252,9 @@ prove_correct stateOptionTotal by
 /- Partial correctness loop over `StateT Nat Option` without termination measure. -/
 set_option velvet.semantics.termination "partial" in
 method countStatePartial (n : Nat) returns (res : Nat) in CounterOption
-    requires (s : Nat), True
+    requires (s : Nat) => True
     signals True
-    ensures (s : Nat), res = n ∧ s = n
+    ensures (s : Nat) => res = n ∧ s = n
   do
   set 0
   let mut i := 0

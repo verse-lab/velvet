@@ -28,9 +28,9 @@ prove_correct bump by
 -- Note that A's `requires` must be strong enough for the call: dropping
 -- `n ≠ 0` here leaves B's precondition `¬n = 0` as an unsolved call-site VC.
 method outerBump (n : Nat) returns (res : Nat) in StateT Nat Option
-  requires (s : Nat), n ≠ 0
+  requires (s : Nat) => n ≠ 0
   signals False
-  ensures (s : Nat), res = n + 1 ∧ s = res
+  ensures (s : Nat) => res = n + 1 ∧ s = res
 do
   let x ← bump n
   set x
@@ -59,7 +59,7 @@ B's termination channel composes with A's `signals False`.
 
 method checkedHalf (n : Nat) returns (res : Nat)
   requires True
-  signals err_odd : (e : String), e = "n is odd"
+  signals err_odd : (e : String) => e = "n is odd"
   ensures res * 2 = n
 do
   if n % 2 = 1 then
@@ -71,10 +71,10 @@ prove_correct checkedHalf by
   vcgen_ [checkedHalf] with finish
 
 method outerHalf (n : Nat) returns (res : Nat) in StateT Nat (ExceptT String Option)
-  requires (s : Nat), True
-  signals err_odd : (e : String), e = "n is odd"
+  requires (s : Nat) => True
+  signals err_odd : (e : String) => e = "n is odd"
   signals False
-  ensures (s : Nat), res * 2 = n ∧ s = res
+  ensures (s : Nat) => res * 2 = n ∧ s = res
 do
   let h ← checkedHalf n
   set h
@@ -110,8 +110,8 @@ prove_correct triple' by
   vcgen_ [triple'] with finish
 
 method addTriple (k : Nat) returns (res : Nat) in StateT Nat Id
-  requires (s : Nat), True
-  ensures (s : Nat), res = s
+  requires (s : Nat) => True
+  ensures (s : Nat) => res = s
 do
   let t ← triple' k
   let initial ← get
@@ -163,10 +163,10 @@ theorem triple_monadLift_option_exceptTString
 -- `outerBump`, now over `StateT Nat (ExceptT String Option)`; the `signals`
 -- clause admits exactly the one error our lift can produce.
 method outerSafe (n : Nat) returns (res : Nat) in StateT Nat (ExceptT String Option)
-  requires (s : Nat), n ≠ 0
-  signals boom : (e : String), e = optionLiftError
+  requires (s : Nat) => n ≠ 0
+  signals boom : (e : String) => e = optionLiftError
   signals False
-  ensures (s : Nat), res = n + 1 ∧ s = res
+  ensures (s : Nat) => res = n + 1 ∧ s = res
 do
   let x ← bump n
   set x

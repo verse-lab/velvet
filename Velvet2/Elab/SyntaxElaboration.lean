@@ -114,12 +114,12 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
         if c.binders.size != 1 then
           /- Fires when a `signals` clause without an `in <MonadStack>` override does not have
              exactly one explicit binder, e.g. `signals False` (zero binders) or
-             `signals (e : String) (n : Nat), ...` (two binders). -/
+             `signals (e : String) (n : Nat) => ...` (two binders). -/
           throwErrorAt c.stx s!"expected exactly one explicit binder in `signals` when no `in` monad stack is given, got {c.binders.size}"
         /- Defensive: unreachable after the binder-count check above. -/
         let some b := c.binders[0]? | throwErrorAt c.stx "internal error: expected exactly one binder"
         /- Fires when the single `signals` binder has no type annotation, e.g.
-           `signals (e), e = "boom"` (without `in`). -/
+           `signals (e) => e = "boom"` (without `in`). -/
         let some ty := b.type
           | throwErrorAt b.stx "expected a typed binder `(x : T)` in `signals` when no `in` monad stack is given"
         exTypes := exTypes.push ty

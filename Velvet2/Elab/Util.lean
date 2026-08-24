@@ -18,7 +18,7 @@ def parseAssertionBinder (stx : TSyntax `velvBinder) : CommandElabM AssertionBin
 /-- Parse a `velvSpecTerm` into its explicit binders and body term, keeping the raw node. -/
 def parseSpecTerm (name : Option Ident) (stx : TSyntax `velvSpecTerm) : CommandElabM AssertionInfo := do
   let inner := stx.raw[0]
-  if inner.getArgs.size == 3 && inner[1].isToken "," then
+  if inner.getArgs.size == 3 && inner[1].isToken "=>" then
     let binders ← inner[0].getArgs.mapM fun b => parseAssertionBinder ⟨b⟩
     pure { name, binders, term := ⟨inner[2]⟩, stx }
   else
@@ -35,6 +35,19 @@ def buildFun (binders : Array AssertionBinder) (body : TSyntax `term) :
     | some ty => `(term| ($id : $ty))
     | none => `(term| $id)
   `(term| fun $funBinders* => $body)
+
+/-- Convert a `velvSpecTerm` into a Lean `term` (e.g. `(s : Nat) => body` becomes `fun (s : Nat) => body`, and bare `term` stays as-is). -/
+def specTermToTerm (stx : TSyntax `velvSpecTerm) : MacroM (TSyntax `term) := do
+  let inner := stx.raw[0]
+  if inner.getArgs.size == 3 && inner[1].isToken "=>" then
+    let binders : Array AssertionBinder ← inner[0].getArgs.mapM fun b =>
+      match b with
+      | `(velvBinder| ($id:ident : $ty:term)) => pure { ident := id, type := some ty, stx := ⟨b⟩ }
+      | `(velvBinder| ($id:ident)) => pure { ident := id, type := none, stx := ⟨b⟩ }
+      | _ => Macro.throwErrorAt (⟨b⟩ : TSyntax `velvBinder) "expected an explicit binder of the form `(x : T)` or `(x)`"
+    buildFun binders ⟨inner[2]⟩
+  else
+    pure ⟨inner⟩
 
 /-- Build `ExceptT e₁ (ExceptT e₂ … Option) retType` from the signal exception types. -/
 def mkExceptTStackType (retType : TSyntax `term) (exTypes : Array (TSyntax `term)) :

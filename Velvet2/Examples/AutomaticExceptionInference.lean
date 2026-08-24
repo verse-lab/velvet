@@ -15,7 +15,7 @@ open Std.Internal.Do
 /- One signal, returning `Nat`: `ExceptT String Option Nat`. -/
 method maybeFail (b : Bool) returns (res : Nat)
   requires True
-  signals boom : (e : String), e = "boom"
+  signals boom : (e : String) => e = "boom"
   ensures res = 0
 do
   if b then
@@ -32,7 +32,7 @@ prove_correct maybeFail by
 /- One signal, returning `String`: `ExceptT String Option String`. -/
 method maybeFailString (b : Bool) returns (res : String)
   requires True
-  signals boom : (e : String), e = "boom"
+  signals boom : (e : String) => e = "boom"
   ensures res = "ok"
 do
   if b then
@@ -49,8 +49,8 @@ prove_correct maybeFailString by
 /- Two signals, returning `Int`: `ExceptT String (ExceptT Nat Option) Int`. -/
 method twoChannelsInt returns (res : Int)
   requires True
-  signals str : (e : String), e = "s"
-  signals nat : (e : Nat), e = 3
+  signals str : (e : String) => e = "s"
+  signals nat : (e : Nat) => e = 3
   ensures res = 0
 do
   return 0
@@ -66,9 +66,9 @@ prove_correct twoChannelsInt by
 `ExceptT String (ExceptT Int (ExceptT Bool Option)) (Nat × String)`. -/
 method threeChannelsProd returns (res : Nat × String)
   requires True
-  signals str : (e : String), e = "s"
-  signals int : (e : Int), e = 3
-  signals bool : (e : Bool), e = true
+  signals str : (e : String) => e = "s"
+  signals int : (e : Int) => e = 3
+  signals bool : (e : Bool) => e = true
   ensures res = (0, "ok")
 do
   return (0, "ok")

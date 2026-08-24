@@ -121,6 +121,8 @@ def controlInfoDoForPrime : ControlInfoHandler := fun stx => do
 def elabDoForPrime : DoElab := fun stx dec => do
   let `(doElem| for' $[$h? : ]? $pat in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) := stx
     | throwUnsupportedSyntax
+  let invs ← liftMacroM <| invs.mapM specTermToTerm
+  let done ← liftMacroM <| done.mapM specTermToTerm
   let dec ← dec.ensureUnitAt stx
   let (x, body) ←
     if pat.raw.isIdent then
@@ -258,6 +260,9 @@ def controlInfoDoWhilePrime : ControlInfoHandler := fun stx => do
 def elabDoWhilePrime : DoElab := fun stx dec => do
   let `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
     | throwUnsupportedSyntax
+  let invs ← liftMacroM <| invs.mapM specTermToTerm
+  let d ← liftMacroM <| d.mapM specTermToTerm
+  let m ← liftMacroM <| m.mapM specTermToTerm
   let dec ← dec.ensureUnitAt stx
   let defaultLoopIdent := mkIdent `h_loop
   let loopIdent := hcond.getD defaultLoopIdent

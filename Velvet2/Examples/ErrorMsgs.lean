@@ -172,5 +172,25 @@ error: No spec applicable to program Gadget.whileLoopPartial 0
 prove_correct badWhileNoWPPartial by
   vcgen_ [badWhileNoWPPartial] with finish
 
+/- Signals with multiple binders when no `in` monad stack is provided. -/
+/-- error: expected exactly one explicit binder in `signals` when no `in` monad stack is given, got 2 -/
+#guard_msgs in
+method badSignalsTwoBinders returns (res : Nat)
+  requires True
+  signals (e1 : String) (e2 : Nat) => e1 = "boom"
+  ensures res = 0
+do
+  return 0
+
+/- Signals with untyped binder when no `in` monad stack is provided. -/
+/-- error: expected a typed binder `(x : T)` in `signals` when no `in` monad stack is given -/
+#guard_msgs in
+method badSignalsUntyped returns (res : Nat)
+  requires True
+  signals (e) => e = "boom"
+  ensures res = 0
+do
+  return 0
+
 
 
