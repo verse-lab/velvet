@@ -83,14 +83,14 @@ do
 prove_correct decodeStr by
   vcgen_ [decodeStr] simplifying_assumptions with try finish
   case size_ok =>
-    rename_i encoded decoded i
+    rename_i encoded
     have h1 := size_inv
     rw [done] at h1
     have hsz : encoded.size = encoded.toList.length := by simp
     rw [hsz, List.take_length] at h1
     exact h1
   case size_inv =>
-    rename_i encoded decoded i
+    rename_i encoded
     have hszlt : i < encoded.size := loop_cond
     have hlt : i < encoded.toList.length := by simpa using hszlt
     have hget : encoded.toList[i] = encoded[i]'hszlt :=

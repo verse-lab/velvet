@@ -25,13 +25,13 @@ def forIn.loop {β : Type u} {m : Type u → Type v}
 
 /-- Generic partial-correctness rule for `forIn.loop` over any monad satisfying `WPPartial`. -/
 theorem forInLoop_partial
-    {Pred : Type u₁} {EPred : Type u₂}
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {β : Type u} {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred]
+    [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred div_post div_pre]
     (f : Unit → β → m (ForInStep β)) (init : β)
-    (inv : β ⊕ β → Pred) {einv : EPred}
-    (hbot : ∀ init, inv (.inl init) ⊑ wp (CCPO.csup (α := m β) (c := fun _ => False) emptyChain) (fun b => inv (.inr b)) einv)
+    (inv : β ⊕ β → Pred) (einv : EPred)
+    (hdiv : ∀ b, inv (.inl b) ⊑ div_pre einv)
     (step : ∀ b, Triple (f () b) (inv (.inl b))
       (fun r => match r with
         | .yield b' => inv (.inl b')
@@ -44,7 +44,7 @@ theorem forInLoop_partial
     dsimp [motive]
     apply admissible_pi_apply (P := fun init (x : m β) => inv (.inl init) ⊑ wp x post einv)
     intro init
-    exact admissible_triple_wp (inv (.inl init)) post einv (hbot init)
+    exact admissible_triple_wp (inv (.inl init)) post einv (hdiv init)
   refine ⟨forIn.loop.fixpoint_induct (f := f) (motive := motive) hadm ?_ init⟩
   intro loop ih b
   have h1 := (step b).le_wp
@@ -69,7 +69,6 @@ theorem forInLoop_partial
   have h3 : wp (f () b) (fun r => wp (k r) post einv) einv ⊑ wp (f () b >>= k) post einv := by
     exact WPMonad.bind_le_wp_bind (f () b) k post einv
   exact PartialOrder.rel_trans h1 (PartialOrder.rel_trans h2 h3)
-
 namespace Gadget
 
 set_option linter.unusedVariables false in
@@ -437,15 +436,29 @@ theorem Spec.forInPure'_state_inv
   rw [PureForIn'.forIn'_eq]
   exact Spec.forIn'_list_state_inv (init := init) inv step
 
-@[spec 1200]
-theorem Spec.whileLoop_partial
-    {Pred : Type u₁} {EPred : Type u₂}
+@[spec 1100]
+theorem bot_partial
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred]
+    [∀ α, CCPO (m α)] [WPPartial m Pred EPred div_post div_pre]
+    {α : Type u} {pre : Pred} {post : α → Pred} :
+    Triple (CCPO.csup (α := m α) (c := fun _ => False) emptyChain)
+      pre
+      post div_post := by
+  constructor
+  rw [WPPartial.wp_bot]
+  exact WPPartial.le_divergence_post (m := m) pre
+
+@[spec 1200]
+theorem Spec.whileLoop_partial
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
+    {m : Type u → Type v}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred div_post div_pre]
     {β : Type u} {init : β} {f : Unit → β → m (ForInStep β)} {einv : EPred}
     (inv : β → Pred) (done : β → Pred)
-    (hbot : ∀ b, inv b ⊑ wp (CCPO.csup (α := m β) (c := fun _ => False) emptyChain) done einv := by intros; try trivial)
+    (hdiv : ∀ b, inv b ⊑ div_pre einv)
     (step : ∀ b, Triple (f () b)
       (binderNameHint b inv <| inv b)
       (fun r => match r with
@@ -466,10 +479,7 @@ theorem Spec.whileLoop_partial
         | .done b' => inv' (.inr b')) einv := by
     intro b
     exact step b
-  have hbot' : ∀ init, inv' (.inl init) ⊑ wp (CCPO.csup (α := m β) (c := fun _ => False) emptyChain) (fun b => inv' (.inr b)) einv := by
-    intro b
-    exact hbot b
-  exact forInLoop_partial f init inv' hbot' step'
+  exact forInLoop_partial f init inv' einv hdiv step'
 
 @[spec 1200]
 theorem Spec.whileLoop_total
@@ -518,6 +528,10 @@ theorem Spec.whileLoop_total
   unfold whileLoopTotal
   exact Spec.forIn_loop (l := Lean.Loop.mk) (init := init) loopMeasure inv' einv step'
 
+@[simp, grind =]
+theorem list_append_cons_ne_nil {α} (l1 : List α) (x : α) (l2 : List α) :
+    (l1 ++ x :: l2 = []) ↔ False := by simp
+
 @[grind →]
 theorem list_range_head {n : Nat} {cur : Nat} {rest : List Nat} (h : List.range n = cur :: rest) :
     cur = 0 := by
@@ -531,8 +545,22 @@ theorem list_range_head {n : Nat} {cur : Nat} {rest : List Nat} (h : List.range 
     · omega
 
 @[grind →]
+theorem list_range_mem {n : Nat} {pref : List Nat} {cur : Nat} {rest : List Nat}
+    (h : List.range n = pref ++ cur :: rest) : cur = pref.length ∧ cur < n := by
+  have hcur : (List.range n)[pref.length]? = (pref ++ cur :: rest)[pref.length]? := by rw [h]
+  rw [List.getElem?_append_right (by omega)] at hcur
+  simp only [Nat.sub_self, List.getElem?_cons_zero] at hcur
+  have hlen_lt : pref.length < n := by
+    have := congrArg List.length h
+    simp only [List.length_range, List.length_append, List.length_cons] at this
+    omega
+  rw [List.getElem?_range hlen_lt] at hcur
+  cases hcur
+  omega
+
+@[grind →]
 theorem list_range_next {n : Nat} {pref : List Nat} {cur next : Nat} {rest : List Nat}
-    (h : List.range n = pref ++ cur :: next :: rest) : next = cur + 1 := by
+    (h : List.range n = pref ++ cur :: next :: rest) : next = cur + 1 ∧ cur + 1 ≤ n := by
   have hcur : (List.range n)[pref.length]? = (pref ++ cur :: next :: rest)[pref.length]? := by rw [h]
   have hnext : (List.range n)[pref.length + 1]? = (pref ++ cur :: next :: rest)[pref.length + 1]? := by rw [h]
   rw [List.getElem?_append_right (by omega)] at hcur

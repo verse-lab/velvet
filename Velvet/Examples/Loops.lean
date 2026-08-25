@@ -1,8 +1,6 @@
 import Velvet
 
 
-set_option maxHeartbeats 10000000
-
 method isGreaterWithInvariants (n : Int) (a : Array Int)
   returns (result : Bool)
   requires size_gt_0: a.size > 0
@@ -30,11 +28,12 @@ do
 prove_correct isGreaterWithInvariants by
   vcgen_ [isGreaterWithInvariants] with try finish
   case inv_ok =>
-    rename_i n a ok i
+    rename_i n a
     constructor <;> intro h
     · cases h
     · have this := h i (by omega)
-      rw [getElem!_pos a i (by omega)] at this
+      have hget : a[i]! = a[i] := getElem!_pos a i (by omega)
+      rw [hget] at this
       exact False.elim (if_cond this)
 
 /- The same loop written with Lean's ordinary `while` syntax. -/

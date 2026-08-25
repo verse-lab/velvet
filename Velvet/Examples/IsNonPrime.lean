@@ -62,15 +62,15 @@ prove_correct isNonPrime by
       have h4 : (4 : Nat) ≤ d * d := Nat.mul_le_mul hd2 hd2
       omega
   case by_bound =>
-    rename_i n i ret
+    rename_i n
     have : 2 * i ≤ i * i := Nat.mul_le_mul_right i i_lower
     omega
   case by_bound =>
-    rename_i n i ret
+    rename_i n
     have : 2 * i ≤ i * i := Nat.mul_le_mul_right i i_lower
     omega
   case result_iff =>
-    rename_i n i ret
+    rename_i n
     obtain ⟨hinv_of_false, hfalse_of_inv⟩ := ret_iff
     constructor
     · intro hb
@@ -88,8 +88,8 @@ prove_correct isNonPrime by
       grind
     · rintro ⟨d, hd2, hdsq, hdvd⟩
       cases hb : ret with
-      | true => exact rfl
+      | true => rfl
       | false =>
-          obtain ⟨e, he2, helt, hevd⟩ :=
-            small_divisor_exists hd2 hdvd hdsq scanned i_lower
-          exact absurd hevd ((hinv_of_false hb) e ⟨he2, helt⟩)
+        obtain ⟨e, he2, helt, hedvd⟩ := small_divisor_exists hd2 hdvd hdsq scanned i_lower
+        have hall := hinv_of_false hb
+        exact False.elim (hall e ⟨he2, helt⟩ hedvd)

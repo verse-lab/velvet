@@ -1,6 +1,8 @@
 import Velvet
 
 open Std.WP
+open Velvet
+open Lean.Order
 
 method rec countUp (n : Nat)
   returns (res : Nat)
@@ -102,35 +104,55 @@ do
 
 theorem fibFor_correct : fibFor.spec_triple := by
   unfold fibFor.spec_triple
-  vcgen_ [fibFor, fibAccSpec] with try finish
-  case cursor_index =>
-    rename_i cur rest h
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_head h
-    omega
-  case cursor_index =>
-    rename_i pref cur next rest h _
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_next h
-    omega
-  case index_bound =>
-    rename_i n pref cur next rest h b
-    rcases b with ⟨a, b, i⟩
-    rw [Std.Internal.ForIn.toList_list] at h
-    have hcur : (List.range n)[pref.length]? = (pref ++ cur :: next :: rest)[pref.length]? := by rw [h]
-    rw [List.getElem?_append_right (by omega)] at hcur
-    simp only [Nat.sub_self, List.getElem?_cons_zero] at hcur
-    have hlen : pref.length < n := by
-      have := congrArg List.length h
-      simp only [List.length_range, List.length_append, List.length_cons] at this
-      omega
-    rw [List.getElem?_range hlen] at hcur
-    cases hcur
-    have := list_range_next h
-    omega
-  case fib_done =>
-    rename_i n pref cur h b
-    rcases b with ⟨a, b, i⟩
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_last h
-    grind
+  vcgen_ [fibFor, fibAccSpec] with finish
+
+method rec spinRec returns (res : Nat) in Option
+  signals (u : Unit) => True
+  ensures res = 2
+do
+  spinRec
+
+prove_correct spinRec by
+  refine spinRec.fixpoint_induct (motive := spinRec.fixpoint_triple_motive) ?_ ?_
+  · apply admissible_triple
+    intro _
+    simp [Named.mk]
+  · intro p ih
+    vcgen_ [ih] with finish
+
+method rec spinRecStateM returns (res : Nat) in StateT Nat Option
+  requires (s : Nat) => True
+  signals (u : Unit) => True
+  ensures (s : Nat) => res = 2
+do
+  spinRecStateM
+
+prove_correct spinRecStateM by
+  refine spinRecStateM.fixpoint_induct (motive := spinRecStateM.fixpoint_triple_motive) ?_ ?_
+  · apply admissible_triple
+    intro _
+    simp [Named.mk]
+  · intro p ih
+    vcgen_ [ih] with finish
+
+/- Parameterized recursive method (1 argument) with automatically synthesized fixpoint_triple_motive -/
+method rec countdownRec (n : Nat) returns (res : Nat) in Option
+  signals (u : Unit) => True
+  ensures res = 0
+do
+  if n = 0 then
+    return 0
+  else
+    countdownRec (n - 1)
+
+prove_correct countdownRec by
+  intro n
+  refine countdownRec.fixpoint_induct (motive := countdownRec.fixpoint_triple_motive) ?_ ?_ n
+  · apply admissible_pi_triple
+    intro _
+    simp [Named.mk]
+  · intro p ih n
+    vcgen_ [ih] with finish
+
+ 
+

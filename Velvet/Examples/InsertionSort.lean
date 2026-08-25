@@ -100,20 +100,16 @@ do
 prove_correct insertionSort by
   vcgen_ [insertionSort] with try finish
   case sorted_prefix =>
-    rename_i arr
     intro i j _ hj
     have hii : i = j := by omega
     subst hii
     omega
   case elems_inv =>
-    rename_i arr
     exact fun _ => rfl
   case inner_sorted =>
-    rename_i arr res n
     intro i j hij hj hn
     exact sorted_prefix i j hij (by omega)
   case sorted_prefix =>
-    rename_i arr res n ain mind
     have hm0 : mind = 0 := by
       by_cases hm : mind = 0
       · exact hm
@@ -126,14 +122,12 @@ prove_correct insertionSort by
       omega
     · exact inner_sorted i j hij (by omega) (by omega)
   case inner_elems =>
-    rename_i arr res n ain mind
     intro x
     have hidx : mind - 1 + 1 = mind := by omega
-    have h := cnt_swap (arr := ain) (k := mind - 1) (by omega) x
+    have h := cnt_swap (arr := res) (k := mind - 1) (by omega) x
     rw [hidx] at h
     exact h.trans (inner_elems x)
   case inner_sorted =>
-    rename_i arr res n ain mind
     intro i j hij hjlt hne
     by_cases hjm : j = mind - 1
     · subst hjm

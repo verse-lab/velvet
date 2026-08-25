@@ -12,21 +12,61 @@ namespace Velvet
 
 /-- Typeclass for monads whose weakest precondition operator is continuous with respect to CCPO chain limits
 (fixed-point admissibility). This supports partial correctness verification of possibly divergent recursive loops. -/
-class WPPartial (m : Type u → Type v) (Pred : Type u₁) (EPred : Type u₂)
-    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ α, CCPO (m α)] where
-  csup_lift {α : Type u} {c : m α → Prop} (hc : chain c) (hne : ∃ x, c x) (Q : α → Pred) (E : EPred) :
-    (⨅ (x : {x : m α // c x}), wp x.val Q E) ⊑ wp (CCPO.csup hc) Q E
-
-theorem emptyChain {α : Sort u} [PartialOrder α] : chain (fun (_ : α) => False) :=
+theorem emptyChain {α : Type u} [PartialOrder α] : chain (fun (_ : α) => False) :=
   fun _ _ h => False.elim h
 
+/--
+`WPPartial` axiomatizes partial-correctness weakest precondition reasoning over
+monadic computations `m` equipped with a chain-complete partial order (`CCPO`).
+
+### Type Parameters (outParams)
+- `m`: The monadic computation type (e.g. `Option`, `StateT σ Option`).
+- `Pred`: The assertion type for preconditions / standard state predicates (e.g. `Prop`, `σ → Prop`).
+- `EPred`: The assertion type for signals / exceptional postconditions (e.g. `Unit → Prop`, `(ε → Pred) × EPred`).
+- `div_post`: The canonical divergence postcondition representing "divergence is permitted"
+  (e.g. `(fun _ => True)` for `Option`).
+- `div_pre`: Predicate transformer mapping an exceptional postcondition `epost : EPred` to the
+  weakest precondition needed when a computation diverges (`wp ⊥ post epost = div_pre epost`).
+
+### Fields
+- `csup_lift`: Scott-subcontinuity: weakest preconditions commute with chain suprema, ensuring
+  the admissibility of Hoare triple motives for Scott fixpoint induction.
+- `wp_bot`: Characterizes the weakest precondition of the bottom / diverging computation `⊥`.
+- `le_divergence_post`: Ensures `⊥` is universally valid under the default divergence postcondition
+  (`pre ⊑ div_pre div_post`).
+-/
+class WPPartial (m : Type u → Type v)
+    (Pred : outParam (Type u₁)) (EPred : outParam (Type u₂))
+    (div_post : outParam EPred) (div_pre : outParam (EPred → Pred))
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ α, CCPO (m α)] where
+  /-- Weakest preconditions commute with chain suprema (Scott admissibility). -/
+  csup_lift {α : Type u} {c : m α → Prop} (hc : chain c) (hne : ∃ x, c x) (Q : α → Pred) (E : EPred) :
+    (⨅ (x : {x : m α // c x}), wp x.val Q E) ⊑ wp (CCPO.csup hc) Q E
+  /-- Weakest precondition of divergence `⊥` evaluated against `epost`. -/
+  wp_bot {α : Type u} (post : α → Pred) (epost : EPred) :
+    wp (Prog := m α) (CCPO.csup (α := m α) (c := fun _ => False) emptyChain) post epost = div_pre epost
+  /-- Divergence is valid for any precondition under the default `div_post`. -/
+  le_divergence_post (pre : Pred) : pre ⊑ div_pre div_post
+
+/-- Compatibility accessor for `divergence_post` -/
+def WPPartial.divergence_post (m : Type u → Type v)
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ α, CCPO (m α)]
+    [WPPartial m Pred EPred div_post div_pre] : EPred := div_post
+
+/-- Compatibility accessor for `divergence_pre` -/
+def WPPartial.divergence_pre (m : Type u → Type v)
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ α, CCPO (m α)]
+    [WPPartial m Pred EPred div_post div_pre] : EPred → Pred := div_pre
+
 theorem admissible_triple_wp
-    {Pred : Type u₁} {EPred : Type u₂}
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {β : Type u} {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ α, CCPO (m α)] [WPPartial m Pred EPred]
+    [instCCPO : ∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre]
     (pre : Pred) (post : β → Pred) (epost : EPred)
-    (hbot : pre ⊑ wp (CCPO.csup (α := m β) (c := fun _ => False) emptyChain) post epost := by intros; try trivial) :
+    (hbot : pre ⊑ div_pre epost) :
     admissible (fun (c : m β) => pre ⊑ wp c post epost) := by
   intro c hc h
   by_cases hne : ∃ x, c x
@@ -43,6 +83,63 @@ theorem admissible_triple_wp
         intro x hx
         exact False.elim hx
     rw [h_eq]
+    rw [WPPartial.wp_bot]
     exact hbot
+
+theorem admissible_triple_wp_partial
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
+    {β : Type u} {m : Type u → Type v}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [instCCPO : ∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre]
+    (pre : Pred) (post : β → Pred) :
+    admissible (fun (c : m β) => pre ⊑ wp c post div_post) :=
+  admissible_triple_wp pre post div_post (instWP.le_divergence_post pre)
+
+theorem admissible_triple
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
+    {β : Type u} {m : Type u → Type v}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [instCCPO : ∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre]
+    (pre : Pred) (post : β → Pred) (epost : EPred)
+    (hbot : pre ⊑ div_pre epost) :
+    admissible (fun (c : m β) => ⦃ pre ⦄ c ⦃ post ; epost ⦄) := by
+  intro c hc h
+  exact Triple.intro (admissible_triple_wp pre post epost hbot c hc (fun x hx => (h x hx).le_wp))
+
+theorem admissible_triple_partial
+    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
+    {β : Type u} {m : Type u → Type v}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [instCCPO : ∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre]
+    (pre : Pred) (post : β → Pred) :
+    admissible (fun (c : m β) => ⦃ pre ⦄ c ⦃ post ; div_post ⦄) := by
+  intro c hc h
+  exact Triple.intro (admissible_triple_wp_partial pre post c hc (fun x hx => (h x hx).le_wp))
+
+/-- Admissibility of Hoare triple motives for 1-argument recursive methods. -/
+theorem admissible_pi_triple
+    {α : Type u₁} {β : Type u₂} {m : Type u₂ → Type v}
+    {Pred : Type u₃} {EPred : Type u₄} {div_post : EPred} {div_pre : EPred → Pred}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
+    (pre : α → Pred) (post : α → β → Pred) (epost : α → EPred)
+    (hbot : ∀ x, pre x ⊑ div_pre (epost x)) :
+    admissible (fun (f : α → m β) => ∀ x, ⦃ pre x ⦄ f x ⦃ post x ; epost x ⦄) := by
+  apply Lean.Order.admissible_pi_apply (P := fun x (c : m β) => ⦃ pre x ⦄ c ⦃ post x ; epost x ⦄)
+  intro x
+  exact admissible_triple (pre x) (post x) (epost x) (hbot x)
+
+/-- Admissibility of Hoare triple motives for 2-argument recursive methods. -/
+theorem admissible_pi2_triple
+    {α₁ : Type u₁} {α₂ : Type u₂} {β : Type u₃} {m : Type u₃ → Type v}
+    {Pred : Type u₄} {EPred : Type u₅} {div_post : EPred} {div_pre : EPred → Pred}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
+    (pre : α₁ → α₂ → Pred) (post : α₁ → α₂ → β → Pred) (epost : α₁ → α₂ → EPred)
+    (hbot : ∀ x y, pre x y ⊑ div_pre (epost x y)) :
+    admissible (fun (f : α₁ → α₂ → m β) => ∀ x y, ⦃ pre x y ⦄ f x y ⦃ post x y ; epost x y ⦄) := by
+  apply Lean.Order.admissible_pi_apply (P := fun x (g : α₂ → m β) => ∀ y, ⦃ pre x y ⦄ g y ⦃ post x y ; epost x y ⦄)
+  intro x
+  exact admissible_pi_triple (pre x) (post x) (epost x) (hbot x)
 
 end Velvet

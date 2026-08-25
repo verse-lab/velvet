@@ -43,13 +43,13 @@ do
 prove_correct isSorted by
   vcgen_ [isSorted] with try finish
   case sorted_iff =>
-    rename_i arr sorted i
+    rename_i a
     refine ⟨fun hs => ?_, fun hglob => ?_⟩
-    · have hi : i = arr.size - 1 := by
+    · have hi : i = a.size - 1 := by
         rcases done with h | hf
         · exact h
         · exact absurd hs (by rw [hf]; simp)
-      exact adjacent_to_global_sorted arr (fun k hk => ok_prefix hs k (by omega))
+      exact adjacent_to_global_sorted a (fun k hk => ok_prefix hs k (by omega))
     · cases heq : sorted with
       | false =>
           obtain ⟨k, hk, hgt⟩ := found_inversion heq

@@ -48,20 +48,20 @@ theorem twoVar_explicit : twoVar.spec_triple := by
   vcgen_ [twoVar]
   case d => grind
   case xy =>
-    rename_i cur rest h
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_head h
+    rename_i b
+    rw [Std.Internal.ForIn.toList_list] at b
+    have := list_range_head b
     omega
   case r_eq => grind
   case xy =>
-    rename_i pref cur next rest h b
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_next h
+    rename_i b
+    rw [Std.Internal.ForIn.toList_list] at b
+    have := list_range_next b
     omega
   case d =>
-    rename_i pref cur h b
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_last h
+    rename_i b
+    rw [Std.Internal.ForIn.toList_list] at b
+    have := list_range_last b
     omega
 
 theorem sumList_explicit : sumList.spec_triple := by

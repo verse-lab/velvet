@@ -45,12 +45,70 @@ theorem Option.wp_csup_lift {α : Type u} {c : Option α → Prop} (hc : chain c
     rw [hcsup]
     exact iInf_le (fun (x : {x : Option α // c x}) => (wp (Prog := Option α) x.val Q E : Prop)) ⟨none, hy⟩
 
-instance Option.instWPPartial : WPPartial (Option.{u}) Prop (Unit → Prop) where
+@[simp, grind =]
+theorem Option.wp_bot {α : Type u} {Q : α → Prop} {E : Unit → Prop} :
+    wp (Prog := Option α) (CCPO.csup (α := Option α) (c := fun _ => False) emptyChain) Q E = E () := by
+  have hcsup : CCPO.csup (α := Option α) (c := fun _ => False) emptyChain = none := by
+    apply PartialOrder.rel_antisymm
+    · apply csup_le emptyChain
+      intro z hz
+      exact False.elim hz
+    · cases (CCPO.csup (α := Option α) (c := fun _ => False) emptyChain)
+      · exact PartialOrder.rel_refl
+      · constructor
+  rw [hcsup]
+  rfl
+
+@[simp, grind =]
+theorem ReaderT.csup_bot {ρ : Type u} {m : Type u → Type v} [∀ α, CCPO (m α)] {α : Type u} (r : ρ) :
+    (CCPO.csup (α := ReaderT ρ m α) (c := fun _ => False) emptyChain).run r =
+    CCPO.csup (α := m α) (c := fun _ => False) emptyChain := by
+  have : (CCPO.csup (α := ReaderT ρ m α) (c := fun _ => False) emptyChain).run r =
+         (CCPO.csup (α := ρ → m α) (c := fun _ => False) emptyChain) r := rfl
+  rw [this]
+  have h_eq := fun_csup_eq (α := ρ) (β := fun _ => m α) (c := fun _ => False) emptyChain
+  rw [← h_eq]
+  apply PartialOrder.rel_antisymm
+  · apply csup_le
+    intro z hz
+    rcases hz with ⟨f, hf, _⟩
+    exact False.elim hf
+  · apply csup_le
+    intro z hz
+    exact False.elim hz
+
+@[simp, grind =]
+theorem StateT.csup_bot {σ : Type u} {m : Type u → Type v} [∀ α, CCPO (m α)] {α : Type u} (s : σ) :
+    (CCPO.csup (α := StateT σ m α) (c := fun _ => False) emptyChain).run s =
+    CCPO.csup (α := m (α × σ)) (c := fun _ => False) emptyChain := by
+  have : (CCPO.csup (α := StateT σ m α) (c := fun _ => False) emptyChain).run s =
+         (CCPO.csup (α := σ → m (α × σ)) (c := fun _ => False) emptyChain) s := rfl
+  rw [this]
+  have h_eq := fun_csup_eq (α := σ) (β := fun _ => m (α × σ)) (c := fun _ => False) emptyChain
+  rw [← h_eq]
+  apply PartialOrder.rel_antisymm
+  · apply csup_le
+    intro z hz
+    rcases hz with ⟨f, hf, _⟩
+    exact False.elim hf
+  · apply csup_le
+    intro z hz
+    exact False.elim hz
+
+@[simp, grind =]
+theorem ExceptT.csup_bot {ε : Type u} {m : Type u → Type v} [∀ α, CCPO (m α)] {α : Type u} :
+    (CCPO.csup (α := ExceptT ε m α) (c := fun _ => False) emptyChain).run =
+    CCPO.csup (α := m (Except ε α)) (c := fun _ => False) emptyChain := by
+  rfl
+
+instance Option.instWPPartial : WPPartial (Option.{u}) Prop (Unit → Prop) (fun _ => True) (fun E => E ()) where
   csup_lift hc hne Q E := Option.wp_csup_lift hc hne Q E
+  wp_bot _ _ := Option.wp_bot
+  le_divergence_post pre := by intro _; trivial
 
 instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ α, CCPO (m α)] [WPPartial m Pred EPred] {ρ : Type u} :
-    WPPartial (ReaderT ρ m) (ρ → Pred) EPred where
+    [∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre] {ρ : Type u} :
+    WPPartial (ReaderT ρ m) (ρ → Pred) EPred div_post (fun E => fun _ => div_pre E) where
   csup_lift {α} {c} hc hne Q E := by
     intro r
     rw [ReaderT.wp_apply_eq]
@@ -64,16 +122,22 @@ instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
       rw [← fun_csup_eq]
       rfl
     rw [h_csup]
-    have h1 := WPPartial.csup_lift hc_r hne_r (fun a => Q a r) E
+    have h1 := WPPartial.csup_lift (m := m) hc_r hne_r (fun a => Q a r) E
     apply PartialOrder.rel_trans _ h1
     apply le_iInf
     rintro ⟨x, ⟨f, hf, rfl⟩⟩
     refine PartialOrder.rel_trans (iInf_le (fun (x : {x // c x}) => (wp x.val Q E) r) ⟨f, hf⟩) ?_
     rw [ReaderT.wp_apply_eq]
+  wp_bot post epost := by
+    ext r
+    rw [ReaderT.wp_apply_eq, ReaderT.csup_bot, WPPartial.wp_bot]
+  le_divergence_post pre := by
+    intro r
+    exact instWP.le_divergence_post (pre r)
 
 instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ α, CCPO (m α)] [WPPartial m Pred EPred] {σ : Type u} :
-    WPPartial (StateT σ m) (σ → Pred) EPred where
+    [∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre] {σ : Type u} :
+    WPPartial (StateT σ m) (σ → Pred) EPred div_post (fun E => fun _ => div_pre E) where
   csup_lift {α} {c} hc hne Q E := by
     intro s
     rw [StateT.wp_apply_eq]
@@ -87,24 +151,49 @@ instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
       rw [← fun_csup_eq]
       rfl
     rw [h_csup]
-    have h1 := WPPartial.csup_lift hc_s hne_s (fun (a, s') => Q a s') E
+    have h1 := WPPartial.csup_lift (m := m) hc_s hne_s (fun (a, s') => Q a s') E
     apply PartialOrder.rel_trans _ h1
     apply le_iInf
     rintro ⟨x, ⟨f, hf, rfl⟩⟩
     refine PartialOrder.rel_trans (iInf_le (fun (x : {x // c x}) => (wp x.val Q E) s) ⟨f, hf⟩) ?_
     rw [StateT.wp_apply_eq]
+  wp_bot post epost := by
+    ext s
+    rw [StateT.wp_apply_eq, StateT.csup_bot, WPPartial.wp_bot]
+  le_divergence_post pre := by
+    intro s
+    exact instWP.le_divergence_post (pre s)
 
-instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    [∀ α, CCPO (m α)] [WPPartial m Pred EPred] {ε : Type u} :
-    WPPartial (ExceptT ε m) Pred ((ε → Pred) × EPred) where
+instance [Monad m] [∀ α, CCPO (m α)] [MonoBind m] {ε : Type u} : MonoBind (ExceptT ε m) where
+  bind_mono_left {α β} {x₁ x₂ : ExceptT ε m α} (f : α → ExceptT ε m β) (h : x₁ ⊑ x₂) := by
+    change (ExceptT.bind x₁ f : m (Except ε β)) ⊑ (ExceptT.bind x₂ f : m (Except ε β))
+    unfold ExceptT.bind
+    apply MonoBind.bind_mono_left
+    exact h
+  bind_mono_right {α β} (x : ExceptT ε m α) {f₁ f₂ : α → ExceptT ε m β} (h : f₁ ⊑ f₂) := by
+    change (ExceptT.bind x f₁ : m (Except ε β)) ⊑ (ExceptT.bind x f₂ : m (Except ε β))
+    unfold ExceptT.bind
+    apply MonoBind.bind_mono_right
+    intro res
+    cases res with
+    | error e => exact PartialOrder.rel_refl
+    | ok a => exact h a
+
+noncomputable instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre] {ε : Type u} :
+    WPPartial (ExceptT ε m) Pred ((ε → Pred) × EPred) (fun _ => ⊥, div_post) (fun E => div_pre E.snd) where
   csup_lift {α} {c} hc hne Q E := by
     rw [ExceptT.wp_apply_eq]
-    have h1 := WPPartial.csup_lift (α := Except ε α) (c := c) hc hne (pushExcept Q E.fst) E.snd
+    have h1 := WPPartial.csup_lift (m := m) (α := Except ε α) (c := c) hc hne (pushExcept Q E.fst) E.snd
     apply PartialOrder.rel_trans _ h1
     apply le_iInf
     rintro ⟨x, hx⟩
     refine PartialOrder.rel_trans (iInf_le (fun (x : {x // c x}) => wp x.val Q E) ⟨x, hx⟩) ?_
     rw [ExceptT.wp_apply_eq]
     exact PartialOrder.rel_refl
+  wp_bot post epost := by
+    rw [ExceptT.wp_apply_eq, ExceptT.csup_bot, WPPartial.wp_bot]
+  le_divergence_post pre := by
+    exact instWP.le_divergence_post pre
 
 end Velvet

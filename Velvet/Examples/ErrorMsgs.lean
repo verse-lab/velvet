@@ -190,5 +190,41 @@ method badSignalsUntyped returns (res : Nat)
 do
   return 0
 
+/- Partial correctness loop in `Option` with `signals (e : Unit) => False` fails intrinsic verification.
+   The while loop without a decreasing measure allows divergence (`divergence_post Option` is `True`),
+   which contradicts the contract's promise that failure/divergence never happens (`signals False`). -/
+/--
+error: `finish` failed
+case signals1
+n✝ : Nat
+requires1 : True
+b✝ : Nat
+i_le : b✝ ≤ n✝
+⊢ False
+[grind] Goal diagnostics
+  [facts] Asserted facts
+    [prop] b✝ ≤ n✝
+  [eqc] True propositions
+    [prop] b✝ ≤ n✝
+  [cutsat] Assignment satisfying linear constraints
+    [assign] n✝ := 0
+    [assign] b✝ := 0
+-/
+#guard_msgs in
+set_option velvet.semantics.termination "partial" in
+set_option velvet.verifyDuringElab true in
+method badSignalsPartialOption (n : Nat) returns (res : Nat) in Option
+  requires True
+  signals (e : Unit) => False
+  ensures res = n
+do
+  let mut i := 0
+  while' (i < n)
+    invariant i_le : i ≤ n
+  do
+    i := i + 1
+  return i
+
+
 
 

@@ -50,19 +50,20 @@ prove_correct sqrt_total by
   vcgen_ [sqrt_total] with try finish
   case sqrt_max2 => rename_i x; intro i hi; have := le_of_mul_self_le hi; omega
   case sqrt_is =>
-    rename_i x a
-    by_cases ha : a = 0
-    · simp [ha] at h_done_with
-    · exact below (a - 1) (by omega)
+    rename_i x
+    by_cases ha : i = 0
+    · have : 0 * 0 ≤ x := by omega
+      subst ha; contradiction
+    · exact below (i - 1) (by omega)
   case sqrt_max2 =>
-    rename_i x a
-    intro i hi
-    by_cases hlt : i < a
+    rename_i x
+    intro j hj
+    by_cases hlt : j < i
     · omega
-    · have hsq : a * a ≤ i * i := sq_le_sq (by omega)
+    · have hsq : i * i ≤ j * j := sq_le_sq (by omega)
       have := h_done_with
       omega
-  case by_x => rename_i x b; have hb : b ≤ x := le_of_mul_self_le loop_cond; omega
+  case by_x => rename_i x; have hb : i ≤ x := le_of_mul_self_le loop_cond; omega
 
 set_option velvet.semantics.termination "total" in
 method cbrt (x : Nat)
@@ -86,19 +87,20 @@ prove_correct cbrt by
   vcgen_ [cbrt] with try finish
   case cbrt_max2 => rename_i x; intro i hi; have := le_of_mul_self_cube_le hi; omega
   case cbrt_is =>
-    rename_i x a
-    by_cases ha : a = 0
-    · simp [ha] at h_done_with
-    · exact below (a - 1) (by omega)
+    rename_i x
+    by_cases ha : i = 0
+    · have : 0 * 0 * 0 ≤ x := by omega
+      subst ha; contradiction
+    · exact below (i - 1) (by omega)
   case cbrt_max2 =>
-    rename_i x a
-    intro i hi
-    by_cases hlt : i < a
+    rename_i x
+    intro j hj
+    by_cases hlt : j < i
     · omega
-    · have hcb : a * a * a ≤ i * i * i := cube_le_cube (by omega)
+    · have hcb : i * i * i ≤ j * j * j := cube_le_cube (by omega)
       have := h_done_with
       omega
-  case by_x => rename_i x b; have hb : b ≤ x := le_of_mul_self_cube_le loop_cond; omega
+  case by_x => rename_i x; have hb : i ≤ x := le_of_mul_self_cube_le loop_cond; omega
 
 set_option velvet.semantics.termination "total" in
 method sqrt_bn (x : Nat) (bnd : Nat)
@@ -126,13 +128,13 @@ do
 prove_correct sqrt_bn by
   vcgen_ [sqrt_bn] with try finish
   case bn_max2 =>
-    rename_i x bnd a b
+    rename_i x bnd
     intro i hi
-    by_cases hle : i ≤ a
+    by_cases hle : i ≤ l
     · exact hle
-    · have hsq : b * b ≤ i * i := sq_le_sq (by omega)
+    · have hsq : r * r ≤ i * i := sq_le_sq (by omega)
       omega
   case low_max =>
-    rename_i x bnd a b
+    rename_i x bnd
     intro i hi
     exact Nat.le_trans (sq_le_sq hi) if_cond

@@ -11,7 +11,6 @@ producing the verified `spec` theorem without requiring a separate `prove_correc
 namespace Velvet.Examples.IntrinsicVerification
 
 set_option velvet.verifyDuringElab true
-set_option maxHeartbeats 10000000
 
 /-! ## Basic Pure and Arithmetic Methods -/
 
@@ -152,68 +151,68 @@ that `finish` cannot automatically discharge, leaving 1 unsolved VC during elabo
 error: `finish` failed
 case inv_ok.1
 n✝ : Int
-a✝¹ : Array Int
-size_gt_0 : 0 < a✝¹.size
-a✝ : Bool
-b✝ : Nat
-sz_invariant : 0 ≤ b✝ ∧ b✝ ≤ a✝¹.size
-inv_ok : a✝ = true ↔ ∀ (j : Nat), j < b✝ → a✝¹[j]! < n✝
-loop_cond : b✝ < a✝¹.size
-if_cond : ¬a✝¹[b✝] < n✝
-h✝¹ : False = ¬∀ (j : Nat), j ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
-left✝ : a✝ = true
-right✝ : ∀ (j : Nat), j + 1 ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
+a✝ : Array Int
+size_gt_0 : 0 < a✝.size
+ok : Bool
+i : Nat
+sz_invariant : 0 ≤ i ∧ i ≤ a✝.size
+inv_ok : ok = true ↔ ∀ (j : Nat), j < i → a✝[j]! < n✝
+loop_cond : i < a✝.size
+if_cond : ¬a✝[i] < n✝
+h✝¹ : False = ¬∀ (j : Nat), j ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
+left✝ : ok = true
+right✝ : ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
 ⊢ False
 [grind] Goal diagnostics
   [facts] Asserted facts
-    [prop] 1 ≤ a✝¹.size
-    [prop] b✝ ≤ a✝¹.size
-    [prop] (a✝ = true) = ∀ (j : Nat), j + 1 ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
-    [prop] b✝ + 1 ≤ a✝¹.size
-    [prop] n✝ + -1 * a✝¹[b✝] ≤ 0
-    [prop] False = ¬∀ (j : Nat), j ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
-    [prop] a✝ = true
-    [prop] ∀ (j : Nat), j + 1 ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
+    [prop] 1 ≤ a✝.size
+    [prop] i ≤ a✝.size
+    [prop] (ok = true) = ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
+    [prop] i + 1 ≤ a✝.size
+    [prop] n✝ + -1 * a✝[i] ≤ 0
+    [prop] False = ¬∀ (j : Nat), j ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
+    [prop] ok = true
+    [prop] ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
   [eqc] True propositions
-    [prop] False = ¬∀ (j : Nat), j ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
-    [prop] (a✝ = true) = ∀ (j : Nat), j + 1 ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
-    [prop] a✝ = true
-    [prop] n✝ + -1 * a✝¹[b✝] ≤ 0
-    [prop] b✝ ≤ a✝¹.size
-    [prop] 1 ≤ a✝¹.size
-    [prop] b✝ + 1 ≤ a✝¹.size
-    [prop] b✝ < a✝¹.size
-    [prop] ∀ (j : Nat), j ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
-    [prop] ∀ (j : Nat), j + 1 ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
+    [prop] False = ¬∀ (j : Nat), j ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
+    [prop] (ok = true) = ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
+    [prop] ok = true
+    [prop] n✝ + -1 * a✝[i] ≤ 0
+    [prop] i ≤ a✝.size
+    [prop] 1 ≤ a✝.size
+    [prop] i + 1 ≤ a✝.size
+    [prop] i < a✝.size
+    [prop] ∀ (j : Nat), j ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
+    [prop] ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
   [eqc] False propositions
-    [prop] ¬∀ (j : Nat), j ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
+    [prop] ¬∀ (j : Nat), j ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
   [eqc] Equivalence classes
-    [eqc] {a✝, true}
+    [eqc] {ok, true}
   [cases] Case analyses
-    [cases] [1/2]: (a✝ = true) = ∀ (j : Nat), j + 1 ≤ b✝ → -1 * n✝ + a✝¹[j]! + 1 ≤ 0
+    [cases] [1/2]: (ok = true) = ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
       [cases] source: Initial goal
   [ematch] E-matching patterns
     [thm] Array.eq_empty_of_size_eq_zero: [@Array.size #2 #1]
-    [thm] local_0: [@LE.le `[Nat] `[instLENat] #1 `[b✝]]
+    [thm] local_0: [@LE.le `[Nat] `[instLENat] #1 `[i]]
     [thm] local_0: [@LE.le `[Int] `[Int.instLEInt] (@HAdd.hAdd `[Int] `[Int] `[Int] `[instHAdd] (@HAdd.hAdd `[Int] `[Int] `[Int] `[instHAdd] `[-1 *
              n✝] (@getElem! `[Array
               Int] `[Nat] `[Int] `[fun xs i =>
-              i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝¹] #1)) `[1]) `[0]]
+              i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝] #1)) `[1]) `[0]]
     [thm] local_0: [@getElem! `[Array
-           Int] `[Nat] `[Int] `[fun xs i => i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝¹] #1]
-    [thm] local_1: [@LE.le `[Nat] `[instLENat] (@HAdd.hAdd `[Nat] `[Nat] `[Nat] `[instHAdd] #1 `[1]) `[b✝]]
+           Int] `[Nat] `[Int] `[fun xs i => i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝] #1]
+    [thm] local_1: [@LE.le `[Nat] `[instLENat] (@HAdd.hAdd `[Nat] `[Nat] `[Nat] `[instHAdd] #1 `[1]) `[i]]
     [thm] local_1: [@LE.le `[Int] `[Int.instLEInt] (@HAdd.hAdd `[Int] `[Int] `[Int] `[instHAdd] (@HAdd.hAdd `[Int] `[Int] `[Int] `[instHAdd] `[-1 *
              n✝] (@getElem! `[Array
               Int] `[Nat] `[Int] `[fun xs i =>
-              i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝¹] #1)) `[1]) `[0]]
+              i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝] #1)) `[1]) `[0]]
     [thm] local_1: [@getElem! `[Array
-           Int] `[Nat] `[Int] `[fun xs i => i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝¹] #1]
-    [thm] local_1: [@LE.le `[Nat] `[instLENat] (#1 + 1) `[b✝]]
+           Int] `[Nat] `[Int] `[fun xs i => i < xs.size] `[Array.instGetElem?NatLtSize] `[Int.instInhabited] `[a✝] #1]
+    [thm] local_1: [@LE.le `[Nat] `[instLENat] (#1 + 1) `[i]]
   [cutsat] Assignment satisfying linear constraints
     [assign] n✝ := 0
-    [assign] b✝ := 0
-    [assign] a✝¹.size := 1
-    [assign] a✝¹[b✝] := 0
+    [assign] i := 0
+    [assign] a✝.size := 1
+    [assign] a✝[i] := 0
 [grind] Diagnostics
   [ematch] E-matching Diagnostics
     [thm] Theorem Instance Count

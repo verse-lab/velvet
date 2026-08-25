@@ -75,7 +75,7 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
   match ctx.termination with
   | .totalCorrectness => checkWhileTermination ctx.body.raw
   | .partialCorrectness => pure ()
-  let (defCmd, specCmd, statement) ← Command.runTermElabM fun _vs => do
+  let (defCmd, specCmd, motiveCmd?, statement) ← Command.runTermElabM fun _vs => do
     let ids := ctx.binders.map (·.ident)
     let binderStxs := ctx.binders.map (·.stx)
     let reqNames := makeNameArrayFromIdents (ctx.requiresClauses.map (·.name)) "requires"
@@ -148,9 +148,36 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
       abbrev $specId := $statement)
-    return (defCmd, specCmd, statement)
+    let motiveCmd? : Option (TSyntax `command) ←
+      if ctx.isRec then
+        let motiveId := mkIdentFrom ctx.name (ctx.name.getId ++ `fixpoint_triple_motive)
+        let motiveStatement ←
+          if binderStxs.isEmpty then
+            `(term|
+              fun (p : $monadStack') => Std.WP.Triple
+                p
+                $pre
+                ($post)
+                ($sigs))
+          else
+            `(term|
+              fun (p : ∀ $binderStxs*, $monadStack') => ∀ $binderStxs*, Std.WP.Triple
+                (p $ids*)
+                $pre
+                ($post)
+                ($sigs))
+        let cmd ← `(command|
+          open scoped Std.WP Lean.Order in
+          set_option linter.unusedVariables false in
+          abbrev $motiveId := $motiveStatement)
+        pure (some cmd)
+      else
+        pure none
+    return (defCmd, specCmd, motiveCmd?, statement)
   elabCommand defCmd
   elabCommand specCmd
+  if let some motiveCmd := motiveCmd? then
+    elabCommand motiveCmd
   let specName ← liftCoreM <| realizeGlobalConstNoOverload (mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple))
   modifyEnv (methodSpecExt.addEntry · { name := specName, statement := statement })
   let verifyDuringElab := (← getOptions).getBool `velvet.verifyDuringElab false

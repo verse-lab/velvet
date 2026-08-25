@@ -64,22 +64,7 @@ theorem countRange_correct (n : Nat) :
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
       (fun (_ : Unit) => False) := by
-  vcgen_ [countRange] with try finish
-  case count_tracks =>
-    rename_i s cur rest h
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_head h
-    omega
-  case count_tracks =>
-    rename_i s pref cur next rest h b s'
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_next h
-    omega
-  case count_done =>
-    rename_i s pref cur h b s'
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_last h
-    omega
+  vcgen_ [countRange] with finish
 
 
 
@@ -211,12 +196,7 @@ theorem addToReaderLimit_correct :
         initial ≤ limit ∧ final = initial + triangular limit)
       PUnit.unit := by
   vcgen_ [addToReaderLimit] with try finish
-  all_goals try simp_all [triangular]
-  all_goals try simp_all
-  case accumulated_sum =>
-    constructor
-    · simp [Nat.add_assoc]
-    · omega
+  all_goals (dsimp [triangular]; omega)
 
 /- A zero-binder monad stack (`Id`): `requires`/`ensures` are plain `Prop`s with no binders. -/
 method idNoBinders returns (res : Nat) in Id

@@ -33,22 +33,10 @@ theorem countRange_explicit (n : Nat) :
     Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) (fun (_ : Unit) => False) := by
   vcgen_ [countRange]
   case count_done => grind
-  case count_tracks =>
-    rename_i s cur rest h
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_head h
-    omega
+  case count_tracks => grind
   case vc3 => grind
-  case count_tracks =>
-    rename_i s pref cur next rest h b s'
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_next h
-    omega
-  case count_done =>
-    rename_i s pref cur h b s'
-    rw [Std.Internal.ForIn.toList_list] at h
-    have := list_range_last h
-    omega
+  case count_tracks => grind
+  case count_done => grind
 
 theorem checkedAdd_explicit : checkedAdd.spec_triple := by
   unfold checkedAdd.spec_triple
