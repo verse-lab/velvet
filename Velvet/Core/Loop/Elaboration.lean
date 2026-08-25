@@ -1,13 +1,29 @@
-import Velvet.Elab.Types
-import Velvet.Elab.SyntaxDecls
-import Velvet.Elab.Util
-import Velvet.Named
-import Velvet.Loop
+import Velvet.Core.Named
+import Velvet.Core.Specs
+import Velvet.Core.Options
+import Velvet.Core.Loop.Gadgets
 import Lean.Parser
 import Lean.Elab.Do
 import Lean.Elab.BuiltinDo.Let
 import Lean.Elab.Command
 import Std.WP
+
+syntax (name := doWhilePrime) "while' " (atomic(ident " : "))? termBeforeDo
+  (" invariant " (atomic(ident " : "))? velvSpecTerm)*
+  (" decreasing " (atomic(ident " : "))? velvSpecTerm)?
+  (" done_with " (atomic(ident " : "))? velvSpecTerm (" by " tacticSeq)?)?
+  " do " doSeq : doElem
+
+/--
+A finite range loop with inline state invariants. Like Lean's built-in `for`,
+the collection controls termination; the initial version supports one binder
+and one collection, including closed-open ranges such as `start...stop`.
+-/
+syntax (name := doForPrime) "for' " (atomic(ident " : "))? term " in " termBeforeDo
+  (" invariant " (atomic(ident " : "))? velvSpecTerm)*
+  (" done_with " (atomic(ident " : "))? velvSpecTerm)?
+  " do " doSeq : doElem
+
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
 open Lean Meta Elab

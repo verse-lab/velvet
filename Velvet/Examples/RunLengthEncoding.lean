@@ -12,30 +12,18 @@ def getCntSum (l : List Encoding) : Nat :=
   | [] => 0
   | e :: xs => e.cnt + getCntSum xs
 
-@[grind]
+@[grind =]
 theorem getCntSum_cons (e : Encoding) (l : List Encoding) :
     getCntSum (e :: l) = e.cnt + getCntSum l := rfl
 
-@[grind]
+@[grind =]
 theorem getCntSum_nil : getCntSum [] = 0 := rfl
 
-theorem getCntSum_append (l1 l2 : List Encoding) :
-    getCntSum (l1 ++ l2) = getCntSum l1 + getCntSum l2 := by
-  induction l1 with
-  | nil => simp only [List.nil_append, getCntSum_nil]; omega
-  | cons e t ih =>
-      simp only [List.cons_append, getCntSum_cons]
-      omega
-
-@[reducible]
-def isValidRunSequence (encoded : Array Encoding) : Prop :=
-  ∀ i, (h : i < encoded.size) → (encoded[i]'h).cnt > 0
-
-/-- Bridge between a prefix `extract` and `List.take`. -/
-@[simp]
-theorem extract_take_toList {α : Type} (arr : Array α) (i : Nat) :
-    (arr.extract 0 i).toList = arr.toList.take i := by
-  simp [Array.toList_extract, List.extract_eq_take_drop]
+@[grind =]
+theorem take_array_size (arr : Array Encoding) :
+    arr.toList.take arr.size = arr.toList := by
+  have h : arr.size = arr.toList.length := Array.length_toList.symm
+  rw [h, List.take_length]
 
 /-- Peeling one more element off a `take` prefix adds its count. -/
 theorem getCntSum_take_succ {l : List Encoding} {i : Nat} (h : i < l.length)
@@ -62,6 +50,25 @@ theorem getCntSum_take_succ {l : List Encoding} {i : Nat} (h : i < l.length)
           rw [hrec]
           omega
 
+@[grind =]
+theorem getCntSum_take_succ' (l : List Encoding) (i : Nat) (h : i < l.length) :
+    getCntSum (l.take (i + 1)) = getCntSum (l.take i) + l[i].cnt :=
+  getCntSum_take_succ h (e := l[i]) rfl
+
+@[grind =]
+theorem array_size_append_replicate (a : Array Char) (n : Nat) (c : Char) :
+    (a ++ Array.replicate n c).size = a.size + n := by
+  simp
+
+@[grind =]
+theorem getElem!_eq_toList_getElem (arr : Array Encoding) (i : Nat) (h : i < arr.size) :
+    arr[i]! = arr.toList[i]'(by simpa using h) := by
+  simp [h]
+
+@[reducible]
+def isValidRunSequence (encoded : Array Encoding) : Prop :=
+  ∀ i, (h : i < encoded.size) → (encoded[i]'h).cnt > 0
+
 method decodeStr (encoded : Array Encoding)
   returns (res : Array Char)
   requires valid: isValidRunSequence encoded
@@ -81,25 +88,38 @@ do
   return decoded
 
 prove_correct decodeStr by
-  vcgen_ [decodeStr] simplifying_assumptions with try finish
-  case size_ok =>
-    rename_i encoded
-    have h1 := size_inv
-    rw [done] at h1
-    have hsz : encoded.size = encoded.toList.length := by simp
-    rw [hsz, List.take_length] at h1
-    exact h1
-  case size_inv =>
-    rename_i encoded
-    have hszlt : i < encoded.size := loop_cond
-    have hlt : i < encoded.toList.length := by simpa using hszlt
-    have hget : encoded.toList[i] = encoded[i]'hszlt :=
-      Array.getElem_toList (xs := encoded) (i := i) hlt
-    have hbang : encoded[i]'hszlt = encoded[i]! := by simp [hszlt]
-    have hstep := getCntSum_take_succ (l := encoded.toList) (i := i) hlt
-      (e := encoded[i]'hszlt) hget
-    have hs : (decoded ++ Array.replicate encoded[i]!.cnt encoded[i]!.c).size =
-        decoded.size + (encoded[i]'hszlt).cnt := by
-      rw [hbang]
-      simp [Array.size_append, Array.size_replicate]
-    rw [hs, hstep, ← size_inv]
+  vcgen_ [decodeStr] with finish
+
+@[grind]
+def decodeStrLean (encoded_str : Array Encoding) : Array Char :=
+  let mp := Array.map (fun e => Array.replicate e.cnt e.c) encoded_str
+  mp.flatten
+
+method encodeStr (str : Array Char)
+  returns (res : Array Encoding)
+  ensures valid: isValidRunSequence res
+  ensures decoded_eq: decodeStrLean res = str
+do
+  let mut encoding : Array Encoding := #[]
+  let mut i : Nat := 0
+  while' loop_i: i < str.size
+    invariant i_bounded: i ≤ str.size
+    invariant decoded_inv: decodeStrLean encoding = str.extract 0 i
+    invariant valid_inv: isValidRunSequence encoding
+    decreasing loop_cntr: str.size - i
+  do
+    let curChar := str[i]!
+    let mut j : Nat := i + 1
+    while' loop_j: j < str.size ∧ str[j]! == curChar
+      invariant j_bounds: i < j ∧ j ≤ str.size
+      invariant all_eq: ∀ k, i ≤ k → k < j → str[k]! = curChar
+      decreasing loop_j_cntr: str.size - j
+    do
+      j := j + 1
+    let cnt := j - i
+    encoding := encoding.push ({cnt := cnt, c := curChar})
+    i := j
+  return encoding
+
+prove_correct encodeStr by
+  vcgen_ [encodeStr] with finish

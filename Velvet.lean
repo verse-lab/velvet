@@ -1,7 +1,5 @@
-import Velvet.Ghost
-import Velvet.Partial
-import Velvet.Loop
-import Velvet.Syntax
-import Velvet.VCGen
+import Velvet.Core
+import Velvet.Frontend
 
-open Std.WP
+open scoped GhostSyntax Std.WP Lean.Order
+open Std.WP Named Velvet.Loop

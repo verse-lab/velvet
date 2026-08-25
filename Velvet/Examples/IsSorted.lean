@@ -2,11 +2,11 @@ import Velvet
 
 open Std.WP
 
-/-- Adjacency propagates to global sortedness by transitivity. -/
-theorem adjacent_to_global_sorted (a : Array Int) :
-    (∀ k, k < a.size - 1 → a[k]! ≤ a[k + 1]!) →
-    (∀ i j, i < j → j < a.size → a[i]! ≤ a[j]!) := by
-  intro h_adjacent i j
+@[grind →]
+theorem adjacent_to_global_sorted {a : Array Int}
+    (h_adjacent : ∀ k, k < a.size - 1 → a[k]! ≤ a[k + 1]!) :
+    ∀ i j, i < j → j < a.size → a[i]! ≤ a[j]! := by
+  intro i j
   induction j with
   | zero => intro h _; omega
   | succ j ih =>
@@ -17,6 +17,14 @@ theorem adjacent_to_global_sorted (a : Array Int) :
     · have h1 := ih (by omega) (by omega)
       have h2 := h_adjacent j (by omega)
       omega
+
+@[grind →]
+theorem not_sorted_of_inversion {a : Array Int} {k : Nat}
+    (hk : k < a.size - 1) (hinv : a[k + 1]! < a[k]!) :
+    ¬ (∀ i j, i < j → j < a.size → a[i]! ≤ a[j]!) := by
+  intro h
+  have := h k (k + 1) (by omega) (by omega)
+  omega
 
 method isSorted (a : Array Int)
   returns (sorted : Bool)
@@ -41,18 +49,4 @@ do
   return sorted
 
 prove_correct isSorted by
-  vcgen_ [isSorted] with try finish
-  case sorted_iff =>
-    rename_i a
-    refine ⟨fun hs => ?_, fun hglob => ?_⟩
-    · have hi : i = a.size - 1 := by
-        rcases done with h | hf
-        · exact h
-        · exact absurd hs (by rw [hf]; simp)
-      exact adjacent_to_global_sorted a (fun k hk => ok_prefix hs k (by omega))
-    · cases heq : sorted with
-      | false =>
-          obtain ⟨k, hk, hgt⟩ := found_inversion heq
-          have hle := hglob k (k + 1) (by omega) (by omega)
-          exact absurd hgt (by omega)
-      | true => rfl
+  vcgen_ [isSorted] with finish

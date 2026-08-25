@@ -1,4 +1,4 @@
-import Velvet.Specs
+import Velvet.Core.Specs
 import Std.WP
 import Std.WP.Triple.SpecLemmas
 

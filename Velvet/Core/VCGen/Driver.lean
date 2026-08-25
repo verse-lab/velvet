@@ -8,9 +8,9 @@ module
 prelude
 public import Lean.Elab.Tactic.Meta
 public import Lean.Elab.Tactic.VCGen.Context
-public import Velvet.VCGen.Solve
-public import Velvet.VCGen.Util
-public import Velvet.Named
+public import Velvet.Core.VCGen.Solve
+public import Velvet.Core.VCGen.Util
+public import Velvet.Core.Named
 public import Lean.Meta.Sym.Grind
 public import Lean.Meta.Sym.InstantiateMVarsS
 

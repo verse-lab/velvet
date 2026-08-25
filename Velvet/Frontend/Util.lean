@@ -1,5 +1,7 @@
-import Velvet.Elab.Types
-import Velvet.Elab.SyntaxDecls
+import Velvet.Frontend.Types
+import Velvet.Frontend.SyntaxDecls
+import Velvet.Core.Named
+import Velvet.Core.Specs
 import Lean.Parser
 import Lean.Elab.Command
 
@@ -38,21 +40,6 @@ def buildFun (binders : Array AssertionBinder) (body : TSyntax `term) :
     | none => `(term| $id)
   `(term| fun $funBinders* => $body)
 
-/-- Convert a `velvSpecTerm` into a Lean `term` (e.g. `(s : Nat) => body` becomes `fun (s : Nat) => body`, and bare `term` stays as-is). -/
-def specTermToTerm (stx : TSyntax `velvSpecTerm) : MacroM (TSyntax `term) := do
-  let inner := stx.raw[0]
-  if inner.getArgs.size == 3 && inner[1].isToken "=>" then
-    let binders : Array AssertionBinder ← inner[0].getArgs.mapM fun b =>
-      match b with
-      | `(velvBinder| ($id:ident : $ty:term)) => pure { ident := id, type := some ty, stx := ⟨b⟩ }
-      | `(velvBinder| ($id:ident)) => pure { ident := id, type := none, stx := ⟨b⟩ }
-      | `(velvBinder| (_ : $ty:term)) => pure { ident := mkIdent `_, type := some ty, stx := ⟨b⟩ }
-      | `(velvBinder| (_)) => pure { ident := mkIdent `_, type := none, stx := ⟨b⟩ }
-      | _ => Macro.throwErrorAt (⟨b⟩ : TSyntax `velvBinder) "expected an explicit binder of the form `(x : T)` or `(x)`"
-    buildFun binders ⟨inner[2]⟩
-  else
-    pure ⟨inner⟩
-
 /-- Build `ExceptT e₁ (ExceptT e₂ … Option) retType` from the signal exception types. -/
 def mkExceptTStackType (retType : TSyntax `term) (exTypes : Array (TSyntax `term)) :
     MacroM (TSyntax `term) := do
@@ -71,10 +58,3 @@ def parseMethodParam (stx : TSyntax `Lean.Parser.Term.bracketedBinder) : Command
       /- Fires for unsupported method parameters, e.g. `method m [inst] ...`,
          `method m ⦃x : T⦄ ...`, or a multi-identifier binder `method m (x y : T) ...`. -/
       throwErrorAt stx "expected a method binder of the form (x : T) or an implicit binder"
-
-/-- Fill in `requires`/`ensures`/`signals` names that were not given explicitly. -/
-public def makeNameArrayFromIdents (ids : Array (Option Ident)) (pref : String) : Array Name :=
-  ids.mapIdx fun i e =>
-    match e with
-    | some id => id.getId
-    | none => Name.mkSimple s!"{pref}{i+1}"

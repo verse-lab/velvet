@@ -1,5 +1,7 @@
 import Velvet
 
+open scoped GhostSyntax
+
 
 method isGreaterWithInvariants (n : Int) (a : Array Int)
   returns (result : Bool)

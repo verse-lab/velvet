@@ -7,7 +7,7 @@ public import Lean.Elab.Tactic.Do.VCGen.Split
 public import Lean.Meta.Sym.AbstractS
 public import Lean.Meta.Sym.AlphaShareBuilder
 public import Lean.Meta.Sym.InstantiateS
-public import Velvet.Named
+public import Velvet.Core.Named
 
 open Lean Meta Sym Sym.Internal
 open Lean.Elab.Tactic.VCGen

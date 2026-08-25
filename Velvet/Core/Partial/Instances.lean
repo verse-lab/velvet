@@ -1,4 +1,4 @@
-import Velvet.Partial.Defs
+import Velvet.Core.Partial.Defs
 
 open Std.WP
 open Std.WP.Assertion

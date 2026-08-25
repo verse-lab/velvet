@@ -10,6 +10,8 @@ producing the verified `spec` theorem without requiring a separate `prove_correc
 
 namespace Velvet.Examples.IntrinsicVerification
 
+open scoped GhostSyntax
+
 set_option velvet.verifyDuringElab true
 
 /-! ## Basic Pure and Arithmetic Methods -/

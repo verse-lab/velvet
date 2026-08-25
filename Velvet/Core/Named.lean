@@ -210,6 +210,13 @@ public partial def extractInfo? (type : Expr) : SymM (Option Info) := do
 public def extract? (type : Expr) : SymM (Option (Name × Expr)) := do
   return (← extractInfo? type).map fun info => (info.name, info.value)
 
+/-- Fill in `requires`/`ensures`/`signals`/`invariant` names that were not given explicitly. -/
+public def makeNameArrayFromIdents (ids : Array (Option Ident)) (pref : String) : Array Name :=
+  ids.mapIdx fun i e =>
+    match e with
+    | some id => id.getId
+    | none => Name.mkSimple s!"{pref}{i+1}"
+
 public meta def mkAssertionList (ts : Array (TSyntax `term)) (names : Array Name) : MacroM (TSyntax `term) := do
   if ts.isEmpty then
     `(term| (True : Prop))

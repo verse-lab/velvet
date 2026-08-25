@@ -14,7 +14,7 @@ public import Lean.Meta.Sym.Intro
 public import Lean.Meta.Sym.Simp.ControlFlow
 public import Lean.Meta.Sym.Simp.EvalGround
 public import Lean.Meta.Sym.Simp.Rewrite
-public import Velvet.Named
+public import Velvet.Core.Named
 
 open Lean Meta Sym Sym.Internal
 open Lean.Elab.Tactic.VCGen

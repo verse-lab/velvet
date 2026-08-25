@@ -11,8 +11,8 @@ public import Lean.Elab.Tactic.VCGen.Context
 public import Lean.Elab.Tactic.VCGen.RuleCache
 public import Lean.Elab.Tactic.VCGen.Entails
 public import Lean.Elab.Tactic.VCGen.BinderName
-public import Velvet.VCGen.HypNaming
-public import Velvet.VCGen.Util
+public import Velvet.Core.VCGen.HypNaming
+public import Velvet.Core.VCGen.Util
 public import Lean.Meta.Sym.InstantiateS
 public import Lean.Meta.Sym.Simp.App
 import Lean.Meta.Sym.InferType

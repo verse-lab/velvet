@@ -9,7 +9,7 @@ prelude
 public meta import Init.Data.Prod
 public meta import Lean.Elab.Tactic.Do.VCGen
 public meta import Lean.Elab.Tactic.VCGen.Context
-public meta import Velvet.VCGen.Driver
+public meta import Velvet.Core.VCGen.Driver
 public meta import Lean.Elab.Tactic.VCGen.FrameProcAttr
 public meta import Lean.Meta.Sym.Simp.Attr
 public meta import Lean.Meta.Sym.Simp.ControlFlow
@@ -19,7 +19,7 @@ public meta import Lean.Meta.Sym.Simp.Rewrite
 public meta import Lean.Meta.Sym.Simp.Simproc
 public meta import Lean.Elab.Tactic.Grind.Main
 public meta import Lean.Elab.Tactic.Grind.Basic
-public meta import Velvet.VCGen.Progress
+public meta import Velvet.Core.VCGen.Progress
 public meta import Lean.Meta.Sym.ProofInstInfo
 
 open Lean Parser Meta Elab Tactic Sym

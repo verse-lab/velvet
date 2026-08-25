@@ -1,5 +1,5 @@
-import Velvet.Specs
-import Velvet.Partial
+import Velvet.Core.Specs
+import Velvet.Core.Partial
 import Std.WP
 import Std.WP.Gadget.ForIn
 import Std.WP.Triple.SpecLemmas

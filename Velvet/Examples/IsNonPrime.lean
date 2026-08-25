@@ -2,6 +2,14 @@ import Velvet
 
 open Std.WP
 
+@[grind →]
+theorem sq_ge_four {d : Nat} (h : 2 ≤ d) : 4 ≤ d * d :=
+  Nat.mul_le_mul h h
+
+@[grind →]
+theorem two_mul_le_sq {i : Nat} (h : 2 ≤ i) : 2 * i ≤ i * i :=
+  Nat.mul_le_mul_right i h
+
 /-- A nontrivial divisor whose square is at most `n` yields a smaller nontrivial
 divisor below `i` whenever `n < i * i`. -/
 theorem small_divisor_exists {n d i : Nat} (hd2 : 2 ≤ d) (hdn : n % d = 0)
@@ -55,41 +63,17 @@ prove_correct isNonPrime by
   vcgen_ [isNonPrime] with try finish
   case result_iff =>
     rename_i n
-    constructor
-    · intro h
-      nomatch h
-    · intro ⟨d, hd2, hdsq, _⟩
-      have h4 : (4 : Nat) ≤ d * d := Nat.mul_le_mul hd2 hd2
-      omega
-  case by_bound =>
-    rename_i n
-    have : 2 * i ≤ i * i := Nat.mul_le_mul_right i i_lower
-    omega
-  case by_bound =>
-    rename_i n
-    have : 2 * i ≤ i * i := Nat.mul_le_mul_right i i_lower
-    omega
-  case result_iff =>
-    rename_i n
-    obtain ⟨hinv_of_false, hfalse_of_inv⟩ := ret_iff
-    constructor
-    · intro hb
-      have hbf : ¬(ret = false) := by simp [hb]
-      have hnotall : ¬ (∀ d, 2 ≤ d ∧ d < i → n % d ≠ 0) :=
-        fun hall => hbf (hfalse_of_inv hall)
-      obtain ⟨d, hd2, hdlt, hdvd⟩ : ∃ d, 2 ≤ d ∧ d < i ∧ n % d = 0 := by
-        refine Classical.byContradiction fun hcon => hnotall (fun d hconj => ?_)
-        cases hd0 : n % d with
-        | zero => exact absurd ⟨d, hconj.1, hconj.2, hd0⟩ hcon
-        | succ m => omega
-      refine ⟨d, hd2, ?_, hdvd⟩
+    cases ret
+    · simp only [Bool.false_eq_true, false_iff, not_exists, not_and]
+      intro d hd2 hdsq hdn
+      obtain ⟨e, he2, hei, hen⟩ := small_divisor_exists hd2 hdn hdsq scanned i_lower
+      exact (ret_iff.mp rfl) e ⟨he2, hei⟩ hen
+    · simp only [true_iff]
+      obtain ⟨d, hd2, hdi, hdn⟩ : ∃ d, 2 ≤ d ∧ d < i ∧ n % d = 0 := by
+        apply Classical.byContradiction
+        intro h
+        have hall : ∀ d, 2 ≤ d ∧ d < i → n % d ≠ 0 := fun d hd hd0 => h ⟨d, hd.1, hd.2, hd0⟩
+        exact Bool.noConfusion (ret_iff.mpr hall)
       have hle : d ≤ i - 1 := by omega
-      have hsq : d * d ≤ (i - 1) * (i - 1) := Nat.mul_le_mul hle hle
-      grind
-    · rintro ⟨d, hd2, hdsq, hdvd⟩
-      cases hb : ret with
-      | true => rfl
-      | false =>
-        obtain ⟨e, he2, helt, hedvd⟩ := small_divisor_exists hd2 hdvd hdsq scanned i_lower
-        have hall := hinv_of_false hb
-        exact False.elim (hall e ⟨he2, helt⟩ hedvd)
+      have hdsq : d * d ≤ (i - 1) * (i - 1) := Nat.mul_le_mul hle hle
+      exact ⟨d, hd2, by omega, hdn⟩
