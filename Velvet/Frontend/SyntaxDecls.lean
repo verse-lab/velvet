@@ -1,6 +1,8 @@
-import Velvet.Core.Specs
-import Lean.Parser
-import Lean.Elab.Command
+module
+
+public import Velvet.Core.Specs
+public meta import Lean.Parser
+public meta import Lean.Elab.Command
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro
 

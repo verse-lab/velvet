@@ -1,9 +1,12 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
 @[grind]
-def isMax (mx : Int) (arr : Array Int) : Prop :=
+public def isMax (mx : Int) (arr : Array Int) : Prop :=
   ∀ i, (h : i < arr.size) → mx ≥ arr[i]'h
 
 method maxElem (arr : Array Int)

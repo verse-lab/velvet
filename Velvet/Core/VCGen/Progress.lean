@@ -15,7 +15,13 @@ public meta import Lean.Meta.Basic
 
 open Lean Meta Elab Term
 
-namespace Velvet.VCGen
+namespace VCGen
+
+/-- Show status and diagnostics for verification goals during `velvet_vcgen`. -/
+register_option velvet_vcgen.showProgress : Bool := {
+  defValue := true
+  descr := "Show status and diagnostics for verification goals."
+}
 
 /-- Clean up a specification theorem name (such as `Foo.bar.spec` -> `bar` or `Foo.bar`). -/
 public meta def cleanFunctionName (declName : Name) : String :=
@@ -48,8 +54,8 @@ public meta def init (declName? : Option Name) (total : Nat) (enabled : Bool) : 
 
 private meta def formatPrefix (tracker : ProgressTracker) : String :=
   match tracker.funcName? with
-  | some fn => s!"[velvet:{fn}]"
-  | none    => "[velvet]"
+  | some fn => s!"[vcgen:{fn}]"
+  | none    => "[vcgen]"
 
 public meta def onSolved (tracker : ProgressTracker) (idx : Nat) (tag : String) : ProgressTracker :=
   { tracker with
@@ -95,4 +101,4 @@ public meta def onGenerated (tracker : ProgressTracker) (tags : List String) : M
 
 end ProgressTracker
 
-end Velvet.VCGen
+end VCGen

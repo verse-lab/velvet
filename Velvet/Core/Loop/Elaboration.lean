@@ -1,12 +1,21 @@
-import Velvet.Core.Named
-import Velvet.Core.Specs
-import Velvet.Core.Loop.Gadgets
-import Lean.Data.KVMap
-import Lean.Parser
-import Lean.Elab.Do
-import Lean.Elab.BuiltinDo.Let
-import Lean.Elab.Command
-import Std.WP
+module
+
+public import Velvet.Core.Named
+public meta import Velvet.Core.Named
+public import Velvet.Core.Specs
+public meta import Velvet.Core.Specs
+public import Velvet.Core.Loop.Gadgets
+public import Lean.Data.KVMap
+public meta import Lean.Parser
+public meta import Lean.Elab.Do
+public meta import Lean.Elab.BuiltinDo.Let
+public meta import Lean.Elab.Command
+public meta import Lean.Meta.ProdN
+public meta import Lean.Elab.Do.Control
+public meta import Lean.Elab.BuiltinDo.For
+public meta import Lean.Meta.Basic
+public meta import Lean.Elab.Term
+public import Std.WP
 
 syntax (name := doWhilePrime) "while' " (atomic(ident " : "))? termBeforeDo
   (" invariant " (atomic(ident " : "))? velvSpecTerm)*
@@ -30,7 +39,7 @@ open Lean Meta Elab
 open Lean.Parser.Term
 open Lean.Elab.Do
 
-partial def checkWhileTermination (stx : Syntax) : CommandElabM Unit := do
+public meta partial def checkWhileTermination (stx : Syntax) : CommandElabM Unit := do
   match stx with
   | `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $m]? $[done_with $[$_h_done : ]? $_d]? do $_body) =>
       if m.isNone then
@@ -42,7 +51,7 @@ partial def checkWhileTermination (stx : Syntax) : CommandElabM Unit := do
     checkWhileTermination a
 
 /-- Recursively checks whether a syntax tree contains an identifier matching or prefixed by `name`. -/
-partial def syntaxContainsIdent (name : Name) (stx : Syntax) : Bool :=
+public meta partial def syntaxContainsIdent (name : Name) (stx : Syntax) : Bool :=
   if stx.isIdent then
     stx.getId == name || name.isPrefixOf stx.getId
   else
@@ -52,7 +61,7 @@ partial def syntaxContainsIdent (name : Name) (stx : Syntax) : Bool :=
 * `pureState`: Invariants depend only on mutable loop state (do not mention cursor `x`, `__pref`, or `__rest`),
   and no `done_with` was specified. The invariant is used as both step invariant and exit condition.
 * `invAndDone`: Invariants depend on traversal cursor / `__rest`, or an explicit `done_with` was provided. -/
-inductive ForLoopInvKind where
+public inductive ForLoopInvKind where
   | /-- Pure state invariants: invariant holds at entry, step, and exit. -/
     pureState
   | /-- Step invariants with explicit exit condition (`done_with`), or cursor-dependent invariants. -/
@@ -64,11 +73,11 @@ Uses speculative elaboration in the pure-state scope to correctly handle shadowe
 (e.g., quantifiers `∀ i : Nat, ...` where `i` shadows the loop cursor).
 If an invariant actually references the cursor variable or progress variables without specifying `done_with`,
 a clear diagnostic error is thrown with suggestions for fixing it. -/
-def classifyForLoopInvariants (cursorId : Name) (invs : Array Term) (ns : Array (Option Ident))
+public meta def classifyForLoopInvariants (cursorId : Name) (invs : Array Term) (ns : Array (Option Ident))
     (stateInvLam : Term) (done? : Option Term) (hDone? : Option (Option Ident)) : TermElabM ForLoopInvKind := do
   match done? with
   | some doneStx =>
-    let doneName := hDone?.join.map (·.getId) |>.getD `h_done_with
+    let doneName := hDone?.join.map (fun (id : Ident) => id.getId) |>.getD `h_done_with
     return .invAndDone doneStx doneName
   | none =>
     -- Speculatively elaborate the state invariant closure in state-only context
@@ -114,7 +123,7 @@ def classifyForLoopInvariants (cursorId : Name) (invs : Array Term) (ns : Array 
     let _ ← Term.elabTerm stateInvLam none
     return .pureState
 
-private def mkStatePat (loopMutVars : Array MutVar) (returnsEarly : Bool) : DoElabM Term := do
+private meta def mkStatePat (loopMutVars : Array MutVar) (returnsEarly : Bool) : DoElabM Term := do
   let hole ← `(_)
   let mut binders : Array Term := #[]
   if returnsEarly then binders := binders.push hole
@@ -126,14 +135,14 @@ private def mkStatePat (loopMutVars : Array MutVar) (returnsEarly : Bool) : DoEl
     | _    => `(⟨$binders,*⟩)
 
 @[doElem_control_info doForPrime]
-def controlInfoDoForPrime : ControlInfoHandler := fun stx => do
+public meta def controlInfoDoForPrime : ControlInfoHandler := fun stx => do
   let `(doElem| for' $[$_h? : ]? $_pat in $_xs $[ invariant $[$_ns : ]? $_invs]* $[done_with $[$_hDone : ]? $_done]? do $body) := stx
     | throwUnsupportedSyntax
   let bodyInfo ← InferControlInfo.ofSeq body
   return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
 
 @[doElem_elab doForPrime]
-def elabDoForPrime : DoElab := fun stx dec => do
+public meta def elabDoForPrime : DoElab := fun stx dec => do
   let `(doElem| for' $[$h? : ]? $pat in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) := stx
     | throwUnsupportedSyntax
   let invs ← liftMacroM <| invs.mapM specTermToTerm
@@ -229,8 +238,8 @@ def elabDoForPrime : DoElab := fun stx dec => do
   let stateInvLam ← `(fun $statePat => $invs')
   let forIn ← match ← classifyForLoopInvariants x.getId invs ns stateInvLam done hDone with
     | .pureState =>
-      let gadget := if h?.isSome then ``Velvet.Loop.Gadget.forInPureWithStateInv'
-        else ``Velvet.Loop.Gadget.forInPureWithStateInv
+      let gadget := if h?.isSome then ``Loop.Gadget.forInPureWithStateInv'
+        else ``Loop.Gadget.forInPureWithStateInv
       let call ← `($(mkIdent gadget) $(← Term.exprToSyntax xs) $(← Term.exprToSyntax preS)
         $(← Term.exprToSyntax body) $stateInvLam)
       Term.elabTermEnsuringType call (mkApp mi.m σ)
@@ -240,8 +249,8 @@ def elabDoForPrime : DoElab := fun stx dec => do
       let rest := mkIdent `__rest
       let invLam ← `(fun $pref:ident $x:ident $rest:ident $statePat => $invs')
       let doneLam ← `(fun $pref:ident $statePat => $done')
-      let gadget := if h?.isSome then ``Velvet.Loop.Gadget.forInPureWithInvAndDone'
-        else ``Velvet.Loop.Gadget.forInPureWithInvAndDone
+      let gadget := if h?.isSome then ``Loop.Gadget.forInPureWithInvAndDone'
+        else ``Loop.Gadget.forInPureWithInvAndDone
       let call ← `($(mkIdent gadget) $(← Term.exprToSyntax xs) $(← Term.exprToSyntax preS)
         $(← Term.exprToSyntax body) $invLam $doneLam)
       Term.elabTermEnsuringType call (mkApp mi.m σ)
@@ -265,14 +274,14 @@ def elabDoForPrime : DoElab := fun stx dec => do
   mkBindApp σ γ forIn rest
 
 @[doElem_control_info doWhilePrime]
-def controlInfoDoWhilePrime : ControlInfoHandler := fun stx => do
+public meta def controlInfoDoWhilePrime : ControlInfoHandler := fun stx => do
   let `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
     | throwUnsupportedSyntax
   let bodyInfo ← InferControlInfo.ofSeq body
   return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
 
 @[doElem_elab doWhilePrime]
-def elabDoWhilePrime : DoElab := fun stx dec => do
+public meta def elabDoWhilePrime : DoElab := fun stx dec => do
   let `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
     | throwUnsupportedSyntax
   let invs ← liftMacroM <| invs.mapM specTermToTerm
@@ -354,7 +363,7 @@ def elabDoWhilePrime : DoElab := fun stx dec => do
   let invs' ← liftMacroM <| mkAssertionList invs invNames
   let defaultDoneWith ← withRef cond do `(¬ $cond)
   let doneWith := d.getD defaultDoneWith
-  let doneName := h_done.join.map (·.getId) |>.getD `h_done_with
+  let doneName := h_done.join.map (fun (id : Ident) => id.getId) |>.getD `h_done_with
   let exitedInvs ← liftMacroM <| mkAssertionList (invs.push doneWith) (invNames.push doneName)
   let invLam ← `(fun $statePat => $invs')
   let doneLam ← `(fun $statePat => $exitedInvs)
@@ -366,19 +375,19 @@ def elabDoWhilePrime : DoElab := fun stx dec => do
         | some (Lean.DataValue.ofString s) => s == "partial"
         | _ => false
       if isPartial == true then
-        let gadget := ``Velvet.Loop.Gadget.whileLoopPartial
+        let gadget := ``Loop.Gadget.whileLoopPartial
         let call ← `($(mkIdent gadget) $(← Term.exprToSyntax preS) $(← Term.exprToSyntax body) $invLam $doneLam)
         Term.elabTermEnsuringType call (mkApp mi.m σ)
       else
         throwError "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
     | some m =>
-      let measureName := hm.join.map (·.getId) |>.getD `termination
+      let measureName := hm.join.map (fun (id : Ident) => id.getId) |>.getD `termination
       let measureNameStr := Lean.Syntax.mkStrLit measureName.toString
       let measureNameTerm : TSyntax `term ← `(Lean.Name.mkSimple $measureNameStr)
       let measureStx ← liftMacroM <| Named.sourceRefTerm m.raw
       let measureTerm ← `(Named.Measure.mk $measureNameTerm $measureStx $m)
       let measureLam ← `(fun $statePat => $measureTerm)
-      let gadget := ``Velvet.Loop.Gadget.whileLoopTotal
+      let gadget := ``Loop.Gadget.whileLoopTotal
       let call ← `($(mkIdent gadget) $(← Term.exprToSyntax preS) $(← Term.exprToSyntax body) $invLam $doneLam $measureLam)
       Term.elabTermEnsuringType call (mkApp mi.m σ)
 

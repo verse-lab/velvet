@@ -1,7 +1,9 @@
-import Velvet.Core.Named
-import Lean.Parser
-import Lean.Elab.Command
-import Std.WP
+module
+
+public import Velvet.Core.Named
+public import Lean.Parser
+public import Lean.Elab.Command
+public import Std.WP
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
 
@@ -12,7 +14,7 @@ declare_syntax_cat velvSpecTerm
 syntax (atomic(velvBinder+ " => " termBeforeDo) <|> termBeforeDo) : velvSpecTerm
 
 /-- Convert a `velvSpecTerm` into a Lean `term` (e.g. `(s : Nat) => body` becomes `fun (s : Nat) => body`, and bare `term` stays as-is). -/
-def specTermToTerm (stx : TSyntax `velvSpecTerm) : MacroM (TSyntax `term) := do
+public def specTermToTerm (stx : TSyntax `velvSpecTerm) : MacroM (TSyntax `term) := do
   let inner := stx.raw[0]
   if inner.getArgs.size == 3 && inner[1].isToken "=>" then
     let binders : Array Syntax := inner[0].getArgs
@@ -31,7 +33,7 @@ def specTermToTerm (stx : TSyntax `velvSpecTerm) : MacroM (TSyntax `term) := do
 variable {m : Type u → Type v} {Pred EPred : Type u}
 
 /-- A runtime no-op that introduces an assertion into verification conditions. -/
-def assertGadget [Monad m] [Assertion Pred] [Assertion EPred]
+public def assertGadget [Monad m] [Assertion Pred] [Assertion EPred]
     [WPMonad m Pred EPred] (_assertion : Pred) : m PUnit := pure ⟨⟩
 
 syntax "assert" (atomic(ident " : ")) term : term
@@ -43,7 +45,7 @@ macro_rules
     let stx ← Named.sourceRefTerm t.raw
     `(_root_.assertGadget (Named.mk $name $stx $t))
 
-namespace Velvet.Spec
+namespace Specs
 
 open Lean.Order
 
@@ -51,7 +53,7 @@ open Lean.Order
 Heyting implication `assertion ⇨ post ⟨⟩`, so the assertion is available when proving the
 continuation. -/
 @[spec]
-theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
+public theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
     (assertion : Pred) [∀ a : Pred, PreservesSup (meet a)]
     {post : PUnit → Pred} {epost : EPred} :
@@ -63,4 +65,4 @@ theorem assertGadgetSpec {m : Type u → Type v} {Pred EPred : Type u}
       (post := post) (epost := epost) (a := ⟨⟩)
       (h := meet_himp_le))
 
-end Velvet.Spec
+end Specs

@@ -1,18 +1,21 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
 @[grind →]
-theorem sq_ge_four {d : Nat} (h : 2 ≤ d) : 4 ≤ d * d :=
+public theorem sq_ge_four {d : Nat} (h : 2 ≤ d) : 4 ≤ d * d :=
   Nat.mul_le_mul h h
 
 @[grind →]
-theorem two_mul_le_sq {i : Nat} (h : 2 ≤ i) : 2 * i ≤ i * i :=
+public theorem two_mul_le_sq {i : Nat} (h : 2 ≤ i) : 2 * i ≤ i * i :=
   Nat.mul_le_mul_right i h
 
 /-- A nontrivial divisor whose square is at most `n` yields a smaller nontrivial
 divisor below `i` whenever `n < i * i`. -/
-theorem small_divisor_exists {n d i : Nat} (hd2 : 2 ≤ d) (hdn : n % d = 0)
+public theorem small_divisor_exists {n d i : Nat} (hd2 : 2 ≤ d) (hdn : n % d = 0)
     (hsq : d * d ≤ n) (hscan : n < i * i) (_hi : 2 ≤ i) :
     ∃ e, 2 ≤ e ∧ e < i ∧ n % e = 0 := by
   rcases Nat.lt_or_ge d i with hlt | hge

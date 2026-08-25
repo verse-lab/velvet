@@ -1,9 +1,13 @@
-import Velvet.Frontend.Method
-import Velvet.Frontend.SyntaxDecls
-import Velvet.Core.Specs
-import Lean.Parser
-import Lean.Elab.Command
-import Std.WP
+module
+
+public import Velvet.Frontend.Method
+public meta import Velvet.Frontend.Method
+public import Velvet.Frontend.SyntaxDecls
+public import Velvet.Core.Specs
+public meta import Velvet.Core.Specs
+public meta import Lean.Parser
+public meta import Lean.Elab.Command
+public import Std.WP
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP
 
@@ -27,7 +31,7 @@ elab_rules : command
     let thmCmd ← `(command|
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
-      @[spec] theorem $proofId : $statement :=
+      @[spec] public theorem $proofId : $statement :=
         show $specIdent from by
           unfold $specIdent
           ($proof))

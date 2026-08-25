@@ -1,6 +1,9 @@
-import Velvet
+module
 
-open Std.WP Named Velvet.Loop Lean.Order
+public import Velvet
+public meta import Velvet
+
+open Std.WP Named Loop Specs WPPartial Lean.Order
 
 /-
 # Error message examples
@@ -112,9 +115,9 @@ do
   return 0
 
 /- Partial correctness while loop in a monad stack lacking CCPO instance. -/
-def NoCCPOMonad (α : Type) : Type := Option α
-instance : Monad NoCCPOMonad := inferInstanceAs (Monad Option)
-instance : WPMonad NoCCPOMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
+@[expose] public def NoCCPOMonad (α : Type) : Type := Option α
+public instance : Monad NoCCPOMonad := inferInstanceAs (Monad Option)
+public instance : WPMonad NoCCPOMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
 
 /--
 error: failed to synthesize instance of type class
@@ -137,11 +140,11 @@ do
   return 0
 
 /- Partial correctness while loop in a monad with CCPO & MonoBind but lacking WPPartial instance. -/
-def NoWPPartialMonad (α : Type) : Type := Option α
-instance : Monad NoWPPartialMonad := inferInstanceAs (Monad Option)
-instance : WPMonad NoWPPartialMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
-instance (α : Type) : CCPO (NoWPPartialMonad α) := inferInstanceAs (CCPO (Option α))
-instance : MonoBind NoWPPartialMonad where
+@[expose] public def NoWPPartialMonad (α : Type) : Type := Option α
+public instance : Monad NoWPPartialMonad := inferInstanceAs (Monad Option)
+public instance : WPMonad NoWPPartialMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
+public instance (α : Type) : CCPO (NoWPPartialMonad α) := inferInstanceAs (CCPO (Option α))
+public instance : MonoBind NoWPPartialMonad where
   bind_mono_left := MonoBind.bind_mono_left (m := Option)
   bind_mono_right := MonoBind.bind_mono_right (m := Option)
 
@@ -163,8 +166,7 @@ error: No spec applicable to program Gadget.whileLoopPartial 0
   (fun __u __s => if h_loop : __s < n✝ then pure (ForInStep.yield (__s + 1)) else pure (ForInStep.done __s))
   (fun i => ⌜⟪invariant1 : True⟫⌝) fun i =>
   ⌜⟪invariant1 : True⟫⌝ ⊓
-    ⌜⟪h_done_with :
-        ¬i < n✝⟫⌝ in monad NoWPPartialMonad. Candidates were [SpecProof.global Velvet.Loop.Spec.whileLoop_partial].
+    ⌜⟪h_done_with : ¬i < n✝⟫⌝ in monad NoWPPartialMonad. Candidates were [SpecProof.global Loop.Spec.whileLoop_partial].
 -/
 #guard_msgs in
 prove_correct badWhileNoWPPartial by

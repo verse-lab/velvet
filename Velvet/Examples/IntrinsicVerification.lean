@@ -1,4 +1,7 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 /-!
 # Intrinsic Verification Examples
@@ -107,7 +110,7 @@ method spin
   ensures True
 do
   let mut i := 0
-  while' True
+  while' i ≥ 0
     invariant True
   do
     i := i + 1
@@ -137,7 +140,7 @@ method partialTick
   ensures True
 do
   let mut i := 0
-  while' True
+  while' i ≥ 0
     invariant i_nonneg : i ≥ 0
   do
     i := i + 1
@@ -251,7 +254,7 @@ method partialTickWithGhost
 do
   let mut i := 0
   let ghost ctr := 0
-  while' True
+  while' i ≥ 0
     invariant i_nonneg : i ≥ 0
     invariant ghost_ctr : ctr.reveal = i
   do

@@ -1,11 +1,14 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
 namespace Velvet.Examples.StateT
 
-abbrev CounterOption := StateT Nat Option
-abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
+public abbrev CounterOption := StateT Nat Option
+public abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
 
 #check instMonadLiftT
 
@@ -33,14 +36,14 @@ prove_correct countState by
 
 
 /-- A `StateT Nat Option` program with assertions before and after mutation. -/
-def boundedIncrement (limit : Nat) : CounterOption Nat := do
+@[expose] public def boundedIncrement (limit : Nat) : CounterOption Nat := do
   let current ← get
   assert within_limit : (fun _ : Nat => current < limit)
   set (current + 1)
   assert state_advanced : (fun s : Nat => s = current + 1)
   return current
 
-theorem boundedIncrement_correct (limit : Nat) :
+public theorem boundedIncrement_correct (limit : Nat) :
     Triple (boundedIncrement limit)
       (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1)
@@ -48,7 +51,7 @@ theorem boundedIncrement_correct (limit : Nat) :
   velvet_vcgen [boundedIncrement] with finish
 
 /-- A finite-range loop over `StateT Nat Option`. -/
-def countRange (n : Nat) : CounterOption Nat := do
+@[expose] public def countRange (n : Nat) : CounterOption Nat := do
   set 0
   let mut count := 0
   for' i in List.range n
@@ -59,7 +62,7 @@ def countRange (n : Nat) : CounterOption Nat := do
     set count
   return count
 
-theorem countRange_correct (n : Nat) :
+public theorem countRange_correct (n : Nat) :
     Triple (countRange n)
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
@@ -120,10 +123,10 @@ prove_correct countUnlessBlocked by
 
 
 /-- `StateT` outside `ReaderT`; assertions have shape `Nat → Nat → Prop`. -/
-abbrev ReaderCounter := StateT Nat (ReaderT Nat Id)
+public abbrev ReaderCounter := StateT Nat (ReaderT Nat Id)
 
 /-- Count from the initial state up to the reader-provided limit. -/
-def countToReaderLimit : ReaderCounter Nat := do
+@[expose] public def countToReaderLimit : ReaderCounter Nat := do
   let limit ← readThe Nat
   let start ← get
   assert initial_bound :
@@ -141,7 +144,7 @@ def countToReaderLimit : ReaderCounter Nat := do
   return i
 
 /-- The precondition ensures that counting up to the configured limit is possible. -/
-theorem countToReaderLimit_correct :
+public theorem countToReaderLimit_correct :
     Triple countToReaderLimit
       (fun state limit => state ≤ limit)
       (fun result state limit => result = limit ∧ state = limit)
@@ -160,12 +163,12 @@ prove_correct countToReaderLimitMethod by
   velvet_vcgen [countToReaderLimitMethod] with finish
 
 /-- The triangular number `0 + 1 + ... + n`. -/
-def triangular : Nat → Nat
+@[expose] public def triangular : Nat → Nat
   | 0 => 0
   | n + 1 => triangular n + (n + 1)
 
 /-- Add `1 + ... + limit` from the reader environment to the initial state. -/
-def addToReaderLimit : ReaderCounter Nat := do
+@[expose] public def addToReaderLimit : ReaderCounter Nat := do
   let limit ← readThe Nat
   let initial ← get
   assert initial_snapshot :
@@ -189,7 +192,7 @@ def addToReaderLimit : ReaderCounter Nat := do
 `triangular limit` is mathematically `limit * (limit + 1) / 2`. The result
 remembers the initial state, and the final state contains the accumulated sum.
 -/
-theorem addToReaderLimit_correct :
+public theorem addToReaderLimit_correct :
     Triple addToReaderLimit
       (fun initial limit => initial ≤ limit)
       (fun initial final limit =>

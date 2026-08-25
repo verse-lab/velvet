@@ -1,7 +1,12 @@
-import Velvet.Core.Ghost
-import Lean.Parser
-import Lean.Elab.Do
-import Lean.Elab.BuiltinDo.Let
+module
+
+public import Velvet.Core.Ghost
+public meta import Lean.Parser
+public meta import Lean.Elab.Command
+public meta import Lean.Elab.Do
+public meta import Lean.Elab.BuiltinDo.Let
+public meta import Lean.Meta.Basic
+public meta import Lean.Elab.Term
 
 open Lean Elab Command Term Meta Lean.Parser
 open Lean.Parser.Term (doReassign)
@@ -23,10 +28,10 @@ private structure GhostLocal where
   binder : Ident
   fvarId : FVarId
 
-private def isGhostType (type : Expr) : MetaM Bool := do
+private meta def isGhostType (type : Expr) : MetaM Bool := do
   return (← whnf type).isAppOf ``Ghost
 
-private def liftGhostLocals (rhs : Term) : DoElabM Term := do
+private meta def liftGhostLocals (rhs : Term) : DoElabM Term := do
   let rewrite : Syntax → StateT (Array GhostLocal) DoElabM (Option Syntax) := fun stx => do
     unless stx.isIdent do return none
     let source : Ident := ⟨stx⟩
@@ -43,7 +48,7 @@ private def liftGhostLocals (rhs : Term) : DoElabM Term := do
     result ← `($(ghostLocal.source) >>= fun $(ghostLocal.binder) => $result)
   return result
 
-private def alreadyGhost (rhs : Term) (expectedType : Expr) : DoElabM Bool :=
+private meta def alreadyGhost (rhs : Term) (expectedType : Expr) : DoElabM Bool :=
   Lean.Elab.withoutModifyingStateWithInfoAndMessages do
     return (← Lean.Elab.Term.commitIfNoErrors? do
       discard <| Lean.Elab.Term.elabTermEnsuringType rhs (some expectedType)
@@ -52,13 +57,13 @@ private def alreadyGhost (rhs : Term) (expectedType : Expr) : DoElabM Bool :=
 end GhostUtils
 
 @[doElem_control_info ghostReassign]
-def controlInfoGhostReassign : ControlInfoHandler := fun stx => do
+public meta def controlInfoGhostReassign : ControlInfoHandler := fun stx => do
   let `(doElem| *$x:ident := $_rhs) := stx
     | throwUnsupportedSyntax
   return { reassigns := {x.getId} }
 
 @[doElem_elab ghostReassign]
-def elabGhostReassign : DoElab := fun stx cont => do
+public meta def elabGhostReassign : DoElab := fun stx cont => do
   let `(doElem| *$x:ident := $rhs) := stx
     | throwUnsupportedSyntax
   let original ← `(doReassign| $x:ident := $rhs)

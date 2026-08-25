@@ -19,7 +19,7 @@ public import Velvet.Core.Named
 open Lean Meta Sym Sym.Internal
 open Lean.Elab.Tactic.VCGen
 
-namespace Velvet.VCGen
+namespace VCGen
 
 public theorem prodFstMk {α : Type u} {β : Type v} (a : α) (b : β) :
     (a, b).fst = a := rfl
@@ -219,4 +219,4 @@ public partial def cleanupVC (goal : MVarId) : VCGenM (Option MVarId) :=
   else
     return some goal
 
-end Velvet.VCGen
+end VCGen

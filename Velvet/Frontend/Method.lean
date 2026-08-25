@@ -1,34 +1,36 @@
-import Velvet.Frontend.Types
-import Velvet.Frontend.SyntaxDecls
-import Velvet.Frontend.Util
-import Velvet.Core.Named
-import Velvet.Core.Specs
-import Velvet.Core.Loop
-import Velvet.Core.VCGen
-import Lean.Parser
-import Lean.Elab.Do
-import Lean.Elab.Command
-import Std.WP
+module
+
+public import Velvet.Frontend.Options
+public meta import Velvet.Frontend.Options
+public import Velvet.Frontend.Types
+public meta import Velvet.Frontend.Types
+public import Velvet.Frontend.SyntaxDecls
+public meta import Velvet.Frontend.SyntaxDecls
+public import Velvet.Frontend.Util
+public meta import Velvet.Frontend.Util
+public import Velvet.Core.Named
+public meta import Velvet.Core.Named
+public import Velvet.Core.Specs
+public meta import Velvet.Core.Specs
+public import Velvet.Core.Loop
+public meta import Velvet.Core.Loop
+public import Velvet.Core.VCGen
+public meta import Velvet.Core.VCGen
+public meta import Lean.Parser
+public meta import Lean.Elab.Do
+public meta import Lean.Elab.Command
+public import Std.WP
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
 open Lean Meta Elab
 open Lean.Parser.Term
 open Lean.Elab.Do
 
-private def addMethodSpecEntry (state : Std.HashMap Name Syntax) (entry : MethodSpecEntry) :=
-  state.insert entry.name entry.statement
-
-initialize methodSpecExt : SimplePersistentEnvExtension MethodSpecEntry (Std.HashMap Name Syntax) ←
-  registerSimplePersistentEnvExtension {
-    addEntryFn := addMethodSpecEntry
-    addImportedFn := fun entries =>
-      mkStateFromImportedEntries addMethodSpecEntry {} entries }
-
 set_option linter.unusedVariables false in
 /-- Generate the `def`/`spec` command syntax for a parsed `method`, elaborate them, and register
 the spec statement. All the method-generation logic lives here; the `elab_rules` only builds the
 `MethodElabContext` from the syntax. -/
-def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
+public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
   match ctx.termination with
   | .totalCorrectness => checkWhileTermination ctx.body.raw
   | .partialCorrectness => pure ()
@@ -88,12 +90,12 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
       if ctx.isRec then
         `(command|
           set_option linter.unusedVariables false in
-          def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body)
+          @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body)
             partial_fixpoint)
       else
         `(command|
           set_option linter.unusedVariables false in
-          def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body))
+          @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body))
     let specId := mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple)
     let statement ← `(term|
       ∀ $binderStxs*, Std.WP.Triple
@@ -104,7 +106,7 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
     let specCmd ← `(command|
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
-      abbrev $specId := $statement)
+      public abbrev $specId := $statement)
     let motiveCmd? : Option (TSyntax `command) ←
       if ctx.isRec then
         let motiveId := mkIdentFrom ctx.name (ctx.name.getId ++ `fixpoint_triple_motive)
@@ -126,7 +128,7 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
         let cmd ← `(command|
           open scoped Std.WP Lean.Order in
           set_option linter.unusedVariables false in
-          abbrev $motiveId := $motiveStatement)
+          public abbrev $motiveId := $motiveStatement)
         pure (some cmd)
       else
         pure none

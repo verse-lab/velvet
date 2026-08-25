@@ -48,7 +48,10 @@ syntax (name := vcgenVendoredGrindTac) "velvet_vcgen" optConfig
 end Grind
 end Lean.Parser.Tactic
 
-namespace Lean.Elab.Tactic.VCGen
+open Lean.Elab.Tactic.VCGen
+open VCGen
+
+namespace VCGen
 
 /-!
 `vcgen` tactic frontend: parse the user-facing argument syntax into a
@@ -68,7 +71,7 @@ spec theorems and simp lemmas. Follows the same approach as
 and on failure falls back to a simp/unfold lemma processed via `mkSimpContext`.
 -/
 public meta def mkContext (lemmas : Syntax) (goal : MVarId) (ignoreStarArg := false) :
-    TermElabM (Context × Scope) := do
+    TermElabM (Lean.Elab.Tactic.VCGen.Context × Scope) := do
   let mut specThms ← getSpecTheorems
   let mut simpStuff := #[]
   let mut simpTermThms : Array SimpTheorem := #[]
@@ -164,7 +167,7 @@ public meta def mkContext (lemmas : Syntax) (goal : MVarId) (ignoreStarArg := fa
         catch _ => continue
   let backwardRules ← mkBackwardRules
   let allSpecThms ← addSimpSpecs specThms simpThms
-  let ctx : Context := { backwardRules }
+  let ctx : Lean.Elab.Tactic.VCGen.Context := { backwardRules }
   return (ctx, { specs := allSpecThms })
 
 /-- True iff `m` carries a `WPMonad m _ _` instance, i.e. it is a genuine weakest-precondition monad
@@ -340,7 +343,7 @@ private meta def elabRemainingInvariants (alts : Std.HashMap Nat Syntax)
 /-- Parsed `vcgen` arguments shared by the two entry points. -/
 private structure ParsedArgs where
   config : Do.VCGen.Config
-  ctx : Context
+  ctx : Lean.Elab.Tactic.VCGen.Context
   scope : Scope
   invariantAlts? : Option (Std.HashMap Nat Syntax)
   frameDB : FrameDB
@@ -472,8 +475,8 @@ private meta def dischargeVCGoals (g : TSyntax `grind) (declName? : Option Name 
   let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
   let total := activeGoals.length
   let opts ← liftMetaM getOptions
-  let showProgress := opts.getBool `velvet.showProgress true
-  let mut tracker := Velvet.VCGen.ProgressTracker.init declName? total showProgress
+  let showProgress := opts.getBool `velvet_vcgen.showProgress (opts.getBool `vcgen.showProgress (opts.getBool `velvet.showProgress true))
+  let mut tracker := ProgressTracker.init declName? total showProgress
   let mut goalsNew := #[]
   let mut idx := 0
 
@@ -515,8 +518,8 @@ private meta def reportGeneratedGoals (declName? : Option Name := none) : Grind.
   let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
   let total := activeGoals.length
   let opts ← liftMetaM getOptions
-  let showProgress := opts.getBool `velvet.showProgress true
-  let tracker := Velvet.VCGen.ProgressTracker.init declName? total showProgress
+  let showProgress := opts.getBool `velvet_vcgen.showProgress (opts.getBool `vcgen.showProgress (opts.getBool `velvet.showProgress true))
+  let tracker := ProgressTracker.init declName? total showProgress
   let mut tags := #[]
   let mut idx := 0
   for goal in activeGoals do
@@ -587,4 +590,4 @@ public meta def elabVCGenVendored : Tactic := fun stx => do
     Core.setMessageLog messages
     throw ex
 
-end Lean.Elab.Tactic.VCGen
+end VCGen

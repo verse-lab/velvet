@@ -1,4 +1,7 @@
-import Velvet.Examples.StateT
+module
+
+public import Velvet.Examples.StateT
+public meta import Velvet.Examples.StateT
 
 /-!
 # StateT examples — explicit VC discharge

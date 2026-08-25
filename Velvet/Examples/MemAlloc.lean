@@ -1,4 +1,7 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
@@ -7,35 +10,35 @@ namespace Velvet.Examples.MemAlloc
 set_option autoImplicit true
 set_option velvet.semantics.termination "partial"
 
-@[reducible]
-def addr := Int
+@[expose, reducible]
+public def addr := Int
 
 @[reducible]
-def path (h : addr → addr) (x : addr) (l : List addr) (y : addr) :=
+public def path (h : addr → addr) (x : addr) (l : List addr) (y : addr) :=
   match l with
   | [] => x = y
   | a :: t => a ≠ 0 ∧ x = a ∧ path h (h a) t y
 
 @[reducible]
-def distinct (l : List addr) :=
+public def distinct (l : List addr) :=
   match l with
   | [] => True
   | a :: t => (∀ x, x ∈ t → x ≠ a) ∧ distinct t
 
 @[reducible]
-def distPath (h : addr → addr) (x : addr) (l : List addr) (y : addr) :=
+public def distPath (h : addr → addr) (x : addr) (l : List addr) (y : addr) :=
   path h x l y ∧ distinct l
 
 @[reducible]
-def updateAt (f : addr → addr) (a v : addr) : addr → addr :=
+public def updateAt (f : addr → addr) (a v : addr) : addr → addr :=
   fun x => if x = a then v else f x
 
-structure AllocResult where
+public structure AllocResult where
   mem : addr
   next : addr → addr
   freeList : addr
 
-def mem_alloc (block_size : addr → Nat) (size : Nat) (Ps : List addr)
+public def mem_alloc (block_size : addr → Nat) (size : Nat) (Ps : List addr)
     (next0 : addr → addr) (free0 : addr) : Option AllocResult := do
   let mut next := next0
   let mut free := free0

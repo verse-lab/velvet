@@ -1,9 +1,12 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
 @[grind →]
-theorem adjacent_to_global_sorted {a : Array Int}
+public theorem adjacent_to_global_sorted {a : Array Int}
     (h_adjacent : ∀ k, k < a.size - 1 → a[k]! ≤ a[k + 1]!) :
     ∀ i j, i < j → j < a.size → a[i]! ≤ a[j]! := by
   intro i j
@@ -19,7 +22,7 @@ theorem adjacent_to_global_sorted {a : Array Int}
       omega
 
 @[grind →]
-theorem not_sorted_of_inversion {a : Array Int} {k : Nat}
+public theorem not_sorted_of_inversion {a : Array Int} {k : Nat}
     (hk : k < a.size - 1) (hinv : a[k + 1]! < a[k]!) :
     ¬ (∀ i j, i < j → j < a.size → a[i]! ≤ a[j]!) := by
   intro h

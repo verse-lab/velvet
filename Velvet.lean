@@ -1,5 +1,9 @@
-import Velvet.Core
-import Velvet.Frontend
+module
+
+public import Velvet.Core
+public meta import Velvet.Core
+public import Velvet.Frontend
+public meta import Velvet.Frontend
 
 open scoped GhostSyntax Std.WP Lean.Order
-open Std.WP Named Velvet.Loop
+open Std.WP Named Loop Specs WPPartial

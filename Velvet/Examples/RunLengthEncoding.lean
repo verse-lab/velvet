@@ -1,32 +1,36 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
-structure Encoding where
+public structure Encoding where
   cnt : Nat
   c : Char
 deriving Inhabited
 
-def getCntSum (l : List Encoding) : Nat :=
+@[expose]
+public def getCntSum (l : List Encoding) : Nat :=
   match l with
   | [] => 0
   | e :: xs => e.cnt + getCntSum xs
 
 @[grind =]
-theorem getCntSum_cons (e : Encoding) (l : List Encoding) :
+public theorem getCntSum_cons (e : Encoding) (l : List Encoding) :
     getCntSum (e :: l) = e.cnt + getCntSum l := rfl
 
 @[grind =]
-theorem getCntSum_nil : getCntSum [] = 0 := rfl
+public theorem getCntSum_nil : getCntSum [] = 0 := rfl
 
 @[grind =]
-theorem take_array_size (arr : Array Encoding) :
+public theorem take_array_size (arr : Array Encoding) :
     arr.toList.take arr.size = arr.toList := by
   have h : arr.size = arr.toList.length := Array.length_toList.symm
   rw [h, List.take_length]
 
 /-- Peeling one more element off a `take` prefix adds its count. -/
-theorem getCntSum_take_succ {l : List Encoding} {i : Nat} (h : i < l.length)
+public theorem getCntSum_take_succ {l : List Encoding} {i : Nat} (h : i < l.length)
     {e : Encoding} (he : l[i] = e) :
     getCntSum (l.take (i + 1)) = getCntSum (l.take i) + e.cnt := by
   cases i with
@@ -51,22 +55,22 @@ theorem getCntSum_take_succ {l : List Encoding} {i : Nat} (h : i < l.length)
           omega
 
 @[grind =]
-theorem getCntSum_take_succ' (l : List Encoding) (i : Nat) (h : i < l.length) :
+public theorem getCntSum_take_succ' (l : List Encoding) (i : Nat) (h : i < l.length) :
     getCntSum (l.take (i + 1)) = getCntSum (l.take i) + l[i].cnt :=
   getCntSum_take_succ h (e := l[i]) rfl
 
 @[grind =]
-theorem array_size_append_replicate (a : Array Char) (n : Nat) (c : Char) :
+public theorem array_size_append_replicate (a : Array Char) (n : Nat) (c : Char) :
     (a ++ Array.replicate n c).size = a.size + n := by
   simp
 
 @[grind =]
-theorem getElem!_eq_toList_getElem (arr : Array Encoding) (i : Nat) (h : i < arr.size) :
+public theorem getElem!_eq_toList_getElem (arr : Array Encoding) (i : Nat) (h : i < arr.size) :
     arr[i]! = arr.toList[i]'(by simpa using h) := by
   simp [h]
 
-@[reducible]
-def isValidRunSequence (encoded : Array Encoding) : Prop :=
+@[expose, reducible]
+public def isValidRunSequence (encoded : Array Encoding) : Prop :=
   ∀ i, (h : i < encoded.size) → (encoded[i]'h).cnt > 0
 
 method decodeStr (encoded : Array Encoding)
@@ -90,8 +94,8 @@ do
 prove_correct decodeStr by
   velvet_vcgen [decodeStr] with finish
 
-@[grind]
-def decodeStrLean (encoded_str : Array Encoding) : Array Char :=
+@[expose, grind]
+public def decodeStrLean (encoded_str : Array Encoding) : Array Char :=
   let mp := Array.map (fun e => Array.replicate e.cnt e.c) encoded_str
   mp.flatten
 

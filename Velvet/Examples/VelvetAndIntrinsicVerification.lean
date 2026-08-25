@@ -1,10 +1,13 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
 namespace Velvet.Examples.VelvetAndIntrinsic
 
-def safeInc (n : Nat) : Option Nat
+public def safeInc (n : Nat) : Option Nat
   requires n ≠ 0
   ensures r => r = n + 1 :=
   pure (n + 1)
@@ -34,7 +37,7 @@ do
 prove_correct velvetDouble by
   velvet_vcgen [velvetDouble] with finish
 
-def intrinsicCallsVelvet (k : Nat) : StateT Nat Id Nat
+public def intrinsicCallsVelvet (k : Nat) : StateT Nat Id Nat
   requires _s => True
   ensures r s => r = 2 * k + s :=
   do

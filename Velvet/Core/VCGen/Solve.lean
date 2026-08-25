@@ -23,8 +23,9 @@ open Lean Meta Elab Tactic Sym Sym.Internal
 open Lean.Elab.Tactic.VCGen.SpecAttr
 open Lean.Elab.Tactic.VCGen
 open Std.WP Lean.Order
+open VCGen
 
-namespace Lean.Elab.Tactic.VCGen
+namespace VCGen
 
 /-!
 The main `solve` step. Runs once per worklist iteration and either fully
@@ -91,7 +92,7 @@ private def forallIntro? (oldGoal : MVarId) (target : Expr) : VCGenM (Option (Li
   let mut target ← goal.getType
   while target.isForall do
     let n := numBindersToIntro target
-    let goal' ← if n == 0 then splitProdBinder goal target else _root_.Velvet.VCGen.introsHygienic goal
+    let goal' ← if n == 0 then splitProdBinder goal target else introsHygienic goal
     if goal' == goal then break
     goal := goal'
     target ← goal.getType
@@ -117,7 +118,7 @@ private def targetLetIntro? (goal : MVarId) (target : Expr) : VCGenM (Option MVa
     return some (← goal.replaceTargetDefEqFast (← Sym.instantiateRevBetaS body #[val]))
   else
     trace[Elab.Tactic.Do.vcgen] "let-intro: {name}"
-    return some (← _root_.Velvet.VCGen.introsHygienic goal)
+    return some (← introsHygienic goal)
 
 /-- Strategy 3: unfold a `Triple` target into the underlying lattice entailment. -/
 private def tripleUnfold? (goal : MVarId) (target : Expr) : VCGenM (Option MVarId) := do
@@ -213,7 +214,7 @@ private def stripMeetTopPre? (goal : MVarId) (pre : Expr) : VCGenM (Option MVarI
 private def introPre' (rule : BackwardRule) (goal : MVarId) : VCGenM (MVarId × FVarId) := do
   let .goals [goal] ← rule.applyChecked goal
     | throwError "Failed to apply precondition intro rule to {goal}"
-  let goal ← _root_.Velvet.VCGen.introsHygienic goal
+  let goal ← introsHygienic goal
   let some decl := (← goal.withContext getLCtx).lastDecl
     | throwError "Failed to intro the lifted precondition of {goal}"
   return (goal, decl.fvarId)
@@ -270,7 +271,7 @@ bare `⌜p⌝` reaches `ofPropPreIntro?` on a later worklist iteration. Each ste
 transported through the entailment with `congrArg`/`replaceTargetEq` (not defEq — `ofProp_apply` is
 propositional), leaving the RHS and Grind state untouched. -/
 private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVarId) := do
-  let .step pre' h .. ← Sym.simp pre (← _root_.Velvet.VCGen.mkGeneratedControlSimpMethods)
+  let .step pre' h .. ← Sym.simp pre (← mkGeneratedControlSimpMethods)
     | return none
   let args := target.getAppArgs
   let preIdx := args.size - 2
@@ -406,7 +407,7 @@ private def wpMatch? (goal : MVarId) (info : WPApp) :
     | .goal g' => simpGoals := simpGoals.push g'
     | .noProgress => simpGoals := simpGoals.push g
     | .closed => continue
-  return some (← Velvet.VCGen.nameSplitBranchHyps splitInfo simpGoals.toList)
+  return some (← nameSplitBranchHyps splitInfo simpGoals.toList)
 
 /-- Strategy 11c: zeta-unfold a local let-bound fvar used as the program head. -/
 private def wpFVarZeta? (goal : MVarId) (info : WPApp) :
@@ -726,4 +727,4 @@ public def solve (scope : Scope) (goal : MVarId) : VCGenM SolveResult := goal.wi
   return .stop (.noProgress pre rhs)
 
 
-end Lean.Elab.Tactic.VCGen
+end VCGen

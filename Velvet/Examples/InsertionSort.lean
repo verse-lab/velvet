@@ -1,16 +1,18 @@
-import Velvet
+module
 
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 
 @[grind, simp]
-def cnt (arr : Array Int) (x : Int) : Nat := arr.toList.count x
+public def cnt (arr : Array Int) (x : Int) : Nat := arr.toList.count x
 
 @[grind, simp]
-def sameElems (a b : Array Int) : Prop := ∀ x, cnt a x = cnt b x
+public def sameElems (a b : Array Int) : Prop := ∀ x, cnt a x = cnt b x
 
 @[grind, simp]
-def SortedUpTo (arr : Array Int) (n : Nat) : Prop :=
+public def SortedUpTo (arr : Array Int) (n : Nat) : Prop :=
   ∀ i j, i ≤ j → j < n → arr[i]! ≤ arr[j]!
 
 set_option maxHeartbeats 10000000 in

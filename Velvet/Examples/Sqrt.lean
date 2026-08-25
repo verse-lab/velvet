@@ -1,29 +1,32 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 /-- Squares are monotone on Nat. -/
-theorem sq_le_sq {x y : Nat} (h : x ≤ y) : x * x ≤ y * y := Nat.mul_le_mul h h
+public theorem sq_le_sq {x y : Nat} (h : x ≤ y) : x * x ≤ y * y := Nat.mul_le_mul h h
 
 /-- Cubes are monotone on Nat. -/
-theorem cube_le_cube {x y : Nat} (h : x ≤ y) : x * x * x ≤ y * y * y :=
+public theorem cube_le_cube {x y : Nat} (h : x ≤ y) : x * x * x ≤ y * y * y :=
   calc x * x * x ≤ y * y * x := Nat.mul_le_mul_right x (sq_le_sq h)
     _ ≤ y * y * y := Nat.mul_le_mul (Nat.le_refl _) h
 
 /-- A positive natural is at most its square. -/
-theorem le_mul_self {n : Nat} (h : 0 < n) : n ≤ n * n :=
+public theorem le_mul_self {n : Nat} (h : 0 < n) : n ≤ n * n :=
   Nat.le_mul_of_pos_right n h
 
 /-- A positive natural is at most its cube. -/
-theorem le_cube_self {n : Nat} (h : 0 < n) : n ≤ n * n * n :=
+public theorem le_cube_self {n : Nat} (h : 0 < n) : n ≤ n * n * n :=
   Nat.le_trans (le_mul_self h) (Nat.le_mul_of_pos_right _ h)
 
 /-- A cube bounded by `x` bounds the base itself. -/
-theorem le_of_mul_self_cube_le {x y : Nat} (h : y * y * y ≤ x) : y ≤ x := by
+public theorem le_of_mul_self_cube_le {x y : Nat} (h : y * y * y ≤ x) : y ≤ x := by
   by_cases hp : 0 < y
   · have := le_cube_self hp; omega
   · omega
 
 /-- A square bounded by `x` bounds the base itself. -/
-theorem le_of_mul_self_le {x y : Nat} (h : y * y ≤ x) : y ≤ x := by
+public theorem le_of_mul_self_le {x y : Nat} (h : y * y ≤ x) : y ≤ x := by
   by_cases hp : 0 < y
   · have := le_mul_self hp; omega
   · omega

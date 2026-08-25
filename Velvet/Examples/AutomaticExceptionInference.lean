@@ -1,4 +1,7 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 /-
 # Automatic `ExceptT` inference

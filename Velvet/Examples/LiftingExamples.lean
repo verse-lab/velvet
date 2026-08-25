@@ -1,4 +1,7 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
 open Lean.Order
@@ -137,10 +140,10 @@ Two definitions are needed:
 -/
 
 -- The error message raised when a lifted `Option` computation fails.
-def optionLiftError : String := "Lifted from Option"
+public def optionLiftError : String := "Lifted from Option"
 
 -- Piece 1: the lift itself: `none ↦ throw "Lifted from Option"` 
-instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
+public instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
     MonadLift Option (ExceptT String m) where
   monadLift x :=
     ExceptT.mk (
@@ -149,7 +152,7 @@ instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
       | none => pure (Except.error optionLiftError))
 
 @[spec]
-theorem triple_monadLift_option_exceptTString
+public theorem triple_monadLift_option_exceptTString
     {α : Type} (x : Option α) (post : α → Prop) (epost : (String → Prop) × (Unit → Prop)) :
     Triple (MonadLift.monadLift x : ExceptT String Option α)
       (wp x post (fun (_ : Unit) => epost.fst optionLiftError))

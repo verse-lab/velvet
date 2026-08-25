@@ -1,4 +1,7 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open scoped GhostSyntax
 
@@ -263,7 +266,7 @@ method spin returns (res : Nat)
   requires True
   ensures True do
   let mut i := 0
-  while' True
+  while' i ≥ 0
     invariant True
   do
     i := i + 1
@@ -295,7 +298,7 @@ method partialTick returns (res : Nat)
   requires True
   ensures True do
   let mut i := 0
-  while' True
+  while' i ≥ 0
     invariant i_nonneg : i ≥ 0
   do
     i := i + 1
@@ -310,7 +313,7 @@ method partialTick' returns (res : Nat)
   ensures True do
   let mut i := 0
   let ghost ctr := 0
-  while' True
+  while' i ≥ 0
     invariant i_nonneg : i ≥ 0
     invariant ghost_ctr : ctr.reveal = i
   do
@@ -320,4 +323,6 @@ method partialTick' returns (res : Nat)
 
 prove_correct partialTick' by
   velvet_vcgen [partialTick'] with finish
+
+
   

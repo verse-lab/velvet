@@ -1,4 +1,7 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 /-!
 # Sum of digits
@@ -11,7 +14,7 @@ open Std.WP
 
 /-- Recursive specification of the digit sum. -/
 @[grind ]
-def sumDigits (n : Nat) : Nat :=
+public def sumDigits (n : Nat) : Nat :=
   if n = 0 then 0 else n % 10 + sumDigits (n / 10)
 
 -- The loop peels off one digit per iteration; the measure is `n` itself.

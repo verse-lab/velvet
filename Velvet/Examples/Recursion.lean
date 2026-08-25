@@ -1,8 +1,11 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
 
 open Std.WP
-open Velvet
 open Lean.Order
+open WPPartial
 
 method rec countUp (n : Nat)
   returns (res : Nat)
@@ -20,13 +23,13 @@ prove_correct countUp by
   | zero => rw [countUp.eq_1]; velvet_vcgen with finish
   | succ k ih => rw [countUp.eq_2]; velvet_vcgen [ih] with finish
 
-@[grind]
-def fibAccSpec : Nat → Nat → Nat → Nat
+@[expose, grind]
+public def fibAccSpec : Nat → Nat → Nat → Nat
   | 0, a, _ => a
   | n + 1, a, b => fibAccSpec n b (a + b)
 
 @[grind =]
-theorem fibAccSpec_add (n a b c d : Nat) :
+public theorem fibAccSpec_add (n a b c d : Nat) :
     fibAccSpec n (a + c) (b + d) = fibAccSpec n a b + fibAccSpec n c d := by
   induction n generalizing a b c d with
   | zero => rfl

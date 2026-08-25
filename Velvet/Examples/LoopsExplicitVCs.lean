@@ -1,4 +1,7 @@
-import Velvet.Examples.Loops
+module
+
+public import Velvet.Examples.Loops
+public meta import Velvet.Examples.Loops
 
 /-!
 # Loop examples — explicit VC discharge
@@ -110,3 +113,6 @@ theorem partialTick_explicit : partialTick.spec_triple := by
   velvet_vcgen [partialTick]
   case i_nonneg => grind
   case i_nonneg => grind
+  case i_nonneg => grind
+  case h_done_with => grind
+

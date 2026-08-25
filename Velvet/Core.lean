@@ -1,10 +1,12 @@
-import Velvet.Core.Ghost
-import Velvet.Core.GhostSyntax
-import Velvet.Core.Named
-import Velvet.Core.Specs
-import Velvet.Core.Loop
-import Velvet.Core.Partial
-import Velvet.Core.VCGen
+module
+
+public import Velvet.Core.Ghost
+public import Velvet.Core.GhostSyntax
+public import Velvet.Core.Named
+public import Velvet.Core.Specs
+public import Velvet.Core.Loop
+public import Velvet.Core.Partial
+public import Velvet.Core.VCGen
 
 open scoped GhostSyntax Std.WP Lean.Order
-open Std.WP Named Velvet.Loop
+open Std.WP Named Loop Specs WPPartial

@@ -57,12 +57,12 @@ Velvet provides several options to control verification semantics and feedback:
 | :--- | :--- | :--- | :--- |
 | `velvet.semantics.termination` | `"total"`, `"partial"` | `"total"` | Whether methods require termination measures or use partial fixpoints. |
 | `velvet.verifyDuringElab` | `true`, `false` | `false` | Automatically verify specifications at definition time without `prove_correct`. |
-| `velvet.showProgress` | `true`, `false` | `true` | Show VC generation and discharge progress diagnostics in the Infoview. |
+| `velvet_vcgen.showProgress` | `true`, `false` | `true` | Show VC generation and discharge progress diagnostics in the Infoview. |
 
 Example:
 ```lean
 set_option velvet.semantics.termination "partial"
-set_option velvet.showProgress true
+set_option velvet_vcgen.showProgress true
 ```
 
 ---
@@ -291,7 +291,7 @@ prove_correct <method_name> by
 
 ### Progress Reporting & Diagnostics
 
-With `set_option velvet.showProgress true` (default), `velvet_vcgen` reports real-time verification status in the Infoview:
+With `set_option velvet_vcgen.showProgress true` (default), `velvet_vcgen` reports real-time verification status in the Infoview:
 
 ```text
 [velvet:isqrt] ℹ Generated 3 VCs:

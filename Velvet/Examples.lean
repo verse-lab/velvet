@@ -1,22 +1,25 @@
-import Velvet
-import Velvet.Examples.Loops
-import Velvet.Examples.LoopsExplicitVCs
-import Velvet.Examples.MaxElem
-import Velvet.Examples.SumOfDigits
-import Velvet.Examples.IsSorted
-import Velvet.Examples.IsNonPrime
-import Velvet.Examples.Sqrt
-import Velvet.Examples.LoopControl
-import Velvet.Examples.MatchRecursion
-import Velvet.Examples.RunLengthEncoding
-import Velvet.Examples.InsertionSort
-import Velvet.Examples.Recursion
-import Velvet.Examples.AutomaticExceptionInference
-import Velvet.Examples.ErrorMsgs
-import Velvet.Examples.StateT
-import Velvet.Examples.StateTExplicitVCs
-import Velvet.Examples.IntrinsicVerification
-import Velvet.Examples.MemAlloc
-import Velvet.Examples.HypNaming
-import Velvet.Examples.LiftingExamples
-import Velvet.Examples.VelvetAndIntrinsicVerification
+module
+
+public import Velvet
+public meta import Velvet
+public import Velvet.Examples.Loops
+public import Velvet.Examples.LoopsExplicitVCs
+public import Velvet.Examples.MaxElem
+public import Velvet.Examples.SumOfDigits
+public import Velvet.Examples.IsSorted
+public import Velvet.Examples.IsNonPrime
+public import Velvet.Examples.Sqrt
+public import Velvet.Examples.LoopControl
+public import Velvet.Examples.MatchRecursion
+public import Velvet.Examples.RunLengthEncoding
+public import Velvet.Examples.InsertionSort
+public import Velvet.Examples.Recursion
+public import Velvet.Examples.AutomaticExceptionInference
+public import Velvet.Examples.ErrorMsgs
+public import Velvet.Examples.StateT
+public import Velvet.Examples.StateTExplicitVCs
+public import Velvet.Examples.IntrinsicVerification
+public import Velvet.Examples.MemAlloc
+public import Velvet.Examples.HypNaming
+public import Velvet.Examples.LiftingExamples
+public import Velvet.Examples.VelvetAndIntrinsicVerification

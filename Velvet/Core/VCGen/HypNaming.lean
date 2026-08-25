@@ -12,7 +12,7 @@ public import Velvet.Core.Named
 open Lean Meta Sym Sym.Internal
 open Lean.Elab.Tactic.VCGen
 
-namespace Velvet.VCGen
+namespace VCGen
 
 open Lean.Elab.Tactic.Do (SplitInfo)
 
@@ -131,4 +131,4 @@ public def nameSplitBranchHyps (splitInfo : SplitInfo) (goals : List MVarId) :
     VCGenM (List MVarId) := do
   goals.mapM (annotateLeadingBinders · (guardName? splitInfo))
 
-end Velvet.VCGen
+end VCGen

@@ -1,15 +1,18 @@
+module
+
 namespace Internal
 
-def Set (α : Type u) : Type u := α → Prop
+@[expose]
+public def Set (α : Type u) : Type u := α → Prop
 
-def Set.mem (x : α) (s : Set α) : Prop := s x
+public def Set.mem (x : α) (s : Set α) : Prop := s x
 
-def Set.mkSingleton (x : α) : Set α := fun y => y = x
+public def Set.mkSingleton (x : α) : Set α := fun y => y = x
 
-inductive Set.IsSingleton (s : Set α) : Prop where
+public inductive Set.IsSingleton (s : Set α) : Prop where
   | intro (x : α) : (∀ y, s.mem y ↔ y = x) → s.IsSingleton
 
-theorem Set.mk_singleton_is_singleton (x : α) : (Set.mkSingleton x).IsSingleton := by
+public theorem Set.mk_singleton_is_singleton (x : α) : (Set.mkSingleton x).IsSingleton := by
   apply Set.IsSingleton.intro x
   simp [mkSingleton, mem]
 
@@ -18,21 +21,20 @@ end Internal
 section Ghost
 open Internal
 
-
-structure Ghost (α : Type u) : Type u where
+public structure Ghost (α : Type u) : Type u where
   protected mk' ::
   protected toSet : Set α
   protected isSingleton : toSet.IsSingleton
 
 
 
-theorem Ghost.exists_unique (s : Ghost α) : ∃ x, ∀ y, s.toSet.mem y ↔ y = x := by
+public theorem Ghost.exists_unique (s : Ghost α) : ∃ x, ∀ y, s.toSet.mem y ↔ y = x := by
   rcases s.isSingleton with ⟨x, hx⟩
   exact ⟨x, hx⟩
 
 public def Ghost.mk (x : α) : Ghost α := ⟨Set.mkSingleton x, Set.mk_singleton_is_singleton x⟩
 
-instance Ghost.instNonempty [Nonempty α] : Nonempty (Ghost α) :=
+public instance Ghost.instNonempty [Nonempty α] : Nonempty (Ghost α) :=
   ⟨Ghost.mk Classical.ofNonempty⟩
 
 public noncomputable def Ghost.reveal (s : Ghost α) : α := s.exists_unique.choose
@@ -68,7 +70,7 @@ public def Ghost.bind {α : Type u} {β : Type u'} (s : Ghost α) (k : α → Gh
       have hy' : (k x₀).toSet.mem y := (hz₀ y).mpr hy
       exact ⟨x₀, hx, hy'⟩⟩
 
-instance : Monad Ghost where
+public instance : Monad Ghost where
   pure := Ghost.mk
   bind s k := Ghost.bind s k
 

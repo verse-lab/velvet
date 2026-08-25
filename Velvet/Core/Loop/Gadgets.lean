@@ -1,21 +1,24 @@
-import Velvet.Core.Specs
-import Velvet.Core.Partial
-import Std.WP
-import Std.WP.Gadget.ForIn
-import Std.WP.Triple.SpecLemmas
-import Std.Internal.ForIn
+module
+
+public import Velvet.Core.Specs
+public import Velvet.Core.Partial
+public import Std.WP
+public import Std.WP.Gadget.ForIn
+public import Std.WP.Triple.SpecLemmas
+public import Std.Internal.ForIn
 
 open Std.Internal
 open Std.WP
 open Std.WP.Assertion
 open Lean.Order
+open WPPartial
 
 universe u u₁ u₂ v w
 
-namespace Velvet.Loop
+namespace Loop
 
 /-- Our own least-fixed-point loop: `partial_fixpoint` over the loop body. -/
-def forIn.loop {β : Type u} {m : Type u → Type v}
+public def forIn.loop {β : Type u} {m : Type u → Type v}
     [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m]
     (f : Unit → β → m (ForInStep β)) (b : β) : m β := do
     match ← f () b with
@@ -24,7 +27,7 @@ def forIn.loop {β : Type u} {m : Type u → Type v}
   partial_fixpoint
 
 /-- Generic partial-correctness rule for `forIn.loop` over any monad satisfying `WPPartial`. -/
-theorem forInLoop_partial
+public theorem forInLoop_partial
     {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {β : Type u} {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -74,41 +77,41 @@ namespace Gadget
 set_option linter.unusedVariables false in
 /-- A pure `forIn` loop annotated with a state invariant (independent of the cursor variable).
 The invariant holds before entering the loop, is preserved at every step, and holds upon exit. -/
-@[inline] def forInPureWithStateInv {ρ : Type w} [ForIn m ρ α]
+@[inline] public def forInPureWithStateInv {ρ : Type w} [ForIn m ρ α]
     (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
     (inv : β → Pred) : m β :=
   forIn xs init f
 
 set_option linter.unusedVariables false in
 /-- A pure `forIn'` loop annotated with a state invariant and membership proofs in the loop body. -/
-@[inline] def forInPureWithStateInv' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+@[inline] public def forInPureWithStateInv' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
     (inv : β → Pred) : m β :=
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-@[inline] def forInPureWithInvAndDone {ρ : Type w} [ForIn m ρ α]
+@[inline] public def forInPureWithInvAndDone {ρ : Type w} [ForIn m ρ α]
     (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
     (inv : List α → α → List α → β → Pred)
     (done : List α → β → Pred) : m β :=
   forIn xs init f
 
 set_option linter.unusedVariables false in
-@[inline] def forInPureWithInvAndDone' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+@[inline] public def forInPureWithInvAndDone' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
     (inv : List α → α → List α → β → Pred)
     (done : List α → β → Pred) : m β :=
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-@[inline] def whileLoopPartial {β : Type u} {m : Type u → Type v}
+@[inline] public def whileLoopPartial {β : Type u} {m : Type u → Type v}
     [Monad m] [∀ α, CCPO (m α)] [MonoBind m]
     (init : β) (f : Unit → β → m (ForInStep β))
     (inv : β → Pred) (done : β → Pred) : m β :=
   forIn.loop f init
 
 set_option linter.unusedVariables false in
-@[inline] def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
+@[inline] public def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
     (inv : β → Pred) (done : β → Pred) (measure : β → Named.Measure) : m β :=
   forIn Lean.Loop.mk init f
@@ -117,7 +120,7 @@ end Gadget
 
 open Gadget
 
-theorem Spec.forIn_init_le
+public theorem Spec.forIn_init_le
     {α : Type u₁} {β : Type (max u₁ u₂)}
     {Pred : Type (max u₁ u₂)} [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
     (xs : List α) (init : β)
@@ -149,7 +152,7 @@ theorem Spec.forIn_init_le
       exact h_meet
     exact PartialOrder.rel_trans (PartialOrder.rel_trans (PartialOrder.rel_trans h1 h2) h3) h4
 
-theorem Spec.forIn'_list_inv_done
+public theorem Spec.forIn'_list_inv_done
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -204,7 +207,7 @@ theorem Spec.forIn'_list_inv_done
   exact PartialOrder.rel_trans (Spec.forIn_init_le xs init inv done) (by cases xs <;> exact h.le_wp)
 
 set_option linter.unusedVariables false in
-theorem Spec.forIn_list_inv_done
+public theorem Spec.forIn_list_inv_done
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -241,7 +244,7 @@ theorem Spec.forIn_list_inv_done
 
 set_option linter.unusedVariables false in
 @[spec]
-theorem Spec.forInPure
+public theorem Spec.forInPure
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -280,7 +283,7 @@ theorem Spec.forInPure
   exact Spec.forIn_list_inv_done (init := init) inv done step_mid step_last
 
 @[spec]
-theorem Spec.forInPure'
+public theorem Spec.forInPure'
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -318,7 +321,7 @@ theorem Spec.forInPure'
   rw [PureForIn'.forIn'_eq]
   exact Spec.forIn'_list_inv_done (xs := ForIn.toList xs) (init := init) (f := fun a h b => f a ((LawfulMemForInId.mem_toList_iff).mp h) b) inv done step_mid step_last
 
-theorem Spec.forIn'_list_state_inv
+public theorem Spec.forIn'_list_state_inv
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -355,7 +358,7 @@ theorem Spec.forIn'_list_state_inv
   · exact h
 
 set_option linter.unusedVariables false in
-theorem Spec.forIn_list_state_inv
+public theorem Spec.forIn_list_state_inv
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -381,7 +384,7 @@ theorem Spec.forIn_list_state_inv
 set_option linter.unusedVariables false in
 /-- Specification lemma for pure `forIn` loops with state invariants (independent of loop cursor). -/
 @[spec]
-theorem Spec.forInPure_state_inv
+public theorem Spec.forInPure_state_inv
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -410,7 +413,7 @@ theorem Spec.forInPure_state_inv
 set_option linter.unusedVariables false in
 /-- Specification lemma for pure `forIn'` loops with state invariants and membership proofs. -/
 @[spec]
-theorem Spec.forInPure'_state_inv
+public theorem Spec.forInPure'_state_inv
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -437,7 +440,7 @@ theorem Spec.forInPure'_state_inv
   exact Spec.forIn'_list_state_inv (init := init) inv step
 
 @[spec 1100]
-theorem bot_partial
+public theorem bot_partial
     {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -451,13 +454,14 @@ theorem bot_partial
   exact WPPartial.le_divergence_post (m := m) pre
 
 @[spec 1200]
-theorem Spec.whileLoop_partial
-    {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
-    {m : Type u → Type v}
-    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+public theorem Spec.whileLoop_partial
+    {m : Type u → Type v} {Pred EPred : Type u} {div_post : EPred} {div_pre : EPred → Pred}
+    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+    [Assertion EPred] [WPMonad m Pred EPred]
     [∀ α, CCPO (m α)] [MonoBind m] [WPPartial m Pred EPred div_post div_pre]
-    {β : Type u} {init : β} {f : Unit → β → m (ForInStep β)} {einv : EPred}
+    {β : Type u} {init : β}
     (inv : β → Pred) (done : β → Pred)
+    {f : Unit → β → m (ForInStep β)} {einv : EPred}
     (hdiv : ∀ b, inv b ⊑ div_pre einv)
     (step : ∀ b, Triple (f () b)
       (binderNameHint b inv <| inv b)
@@ -482,7 +486,7 @@ theorem Spec.whileLoop_partial
   exact forInLoop_partial f init inv' einv hdiv step'
 
 @[spec 1200]
-theorem Spec.whileLoop_total
+public theorem Spec.whileLoop_total
     {m : Type u → Type v} {Pred EPred : Type u}
     [Monad m] [Lean.Order.MonadTail m]
     [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -529,11 +533,11 @@ theorem Spec.whileLoop_total
   exact Spec.forIn_loop (l := Lean.Loop.mk) (init := init) loopMeasure inv' einv step'
 
 @[simp, grind =]
-theorem list_append_cons_ne_nil {α} (l1 : List α) (x : α) (l2 : List α) :
+public theorem list_append_cons_ne_nil {α} (l1 : List α) (x : α) (l2 : List α) :
     (l1 ++ x :: l2 = []) ↔ False := by simp
 
 @[grind →]
-theorem list_range_head {n : Nat} {cur : Nat} {rest : List Nat} (h : List.range n = cur :: rest) :
+public theorem list_range_head {n : Nat} {cur : Nat} {rest : List Nat} (h : List.range n = cur :: rest) :
     cur = 0 := by
   have : (List.range n)[0]? = (cur :: rest)[0]? := by rw [h]
   simp only [List.getElem?_cons_zero] at this
@@ -545,7 +549,7 @@ theorem list_range_head {n : Nat} {cur : Nat} {rest : List Nat} (h : List.range 
     · omega
 
 @[grind →]
-theorem list_range_mem {n : Nat} {pref : List Nat} {cur : Nat} {rest : List Nat}
+public theorem list_range_mem {n : Nat} {pref : List Nat} {cur : Nat} {rest : List Nat}
     (h : List.range n = pref ++ cur :: rest) : cur = pref.length ∧ cur < n := by
   have hcur : (List.range n)[pref.length]? = (pref ++ cur :: rest)[pref.length]? := by rw [h]
   rw [List.getElem?_append_right (by omega)] at hcur
@@ -559,7 +563,7 @@ theorem list_range_mem {n : Nat} {pref : List Nat} {cur : Nat} {rest : List Nat}
   omega
 
 @[grind →]
-theorem list_range_next {n : Nat} {pref : List Nat} {cur next : Nat} {rest : List Nat}
+public theorem list_range_next {n : Nat} {pref : List Nat} {cur next : Nat} {rest : List Nat}
     (h : List.range n = pref ++ cur :: next :: rest) : next = cur + 1 ∧ cur + 1 ≤ n := by
   have hcur : (List.range n)[pref.length]? = (pref ++ cur :: next :: rest)[pref.length]? := by rw [h]
   have hnext : (List.range n)[pref.length + 1]? = (pref ++ cur :: next :: rest)[pref.length + 1]? := by rw [h]
@@ -578,7 +582,7 @@ theorem list_range_next {n : Nat} {pref : List Nat} {cur next : Nat} {rest : Lis
   omega
 
 @[grind →]
-theorem list_range_last {n : Nat} {pref : List Nat} {cur : Nat}
+public theorem list_range_last {n : Nat} {pref : List Nat} {cur : Nat}
     (h : List.range n = pref ++ [cur]) : cur + 1 = n := by
   have hcur : (List.range n)[pref.length]? = (pref ++ [cur])[pref.length]? := by rw [h]
   rw [List.getElem?_append_right (by omega)] at hcur
@@ -591,6 +595,6 @@ theorem list_range_last {n : Nat} {pref : List Nat} {cur : Nat}
   cases hcur
   omega
 
-end Velvet.Loop
+end Loop
 
-export Velvet.Loop (list_range_head list_range_next list_range_last)
+export Loop (list_range_head list_range_next list_range_last)

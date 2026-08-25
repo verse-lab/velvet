@@ -1,2 +1,4 @@
-import Velvet.Core.Loop.Gadgets
-import Velvet.Core.Loop.Elaboration
+module
+
+public import Velvet.Core.Loop.Gadgets
+public import Velvet.Core.Loop.Elaboration

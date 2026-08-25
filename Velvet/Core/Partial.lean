@@ -1,2 +1,4 @@
-import Velvet.Core.Partial.Defs
-import Velvet.Core.Partial.Instances
+module
+
+public import Velvet.Core.Partial.Defs
+public import Velvet.Core.Partial.Instances

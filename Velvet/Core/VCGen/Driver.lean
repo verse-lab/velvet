@@ -16,8 +16,10 @@ public import Lean.Meta.Sym.InstantiateMVarsS
 
 open Lean Meta Elab Tactic Sym Sym.Internal Lean.Order
 open Lean.Elab.Tactic.Do.SpecAttr
+open Lean.Elab.Tactic.VCGen
+open VCGen
 
-namespace Lean.Elab.Tactic.VCGen
+namespace VCGen
 
 /-!
 Worklist driver for `vcgen`. Wraps `solve` with a queue of pending goals
@@ -107,7 +109,7 @@ private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := d
       -- normalization ran before this unwrapping, so normalize the exposed target once
       -- more while retaining the inherited Grind state.
       let mvarId ← match ← Sym.simpGoal mvarId
-          (← _root_.Velvet.VCGen.mkGeneratedControlSimpMethods) with
+          (← mkGeneratedControlSimpMethods) with
         | .closed => return none
         | .noProgress => pure mvarId
         | .goal mvarId => pure mvarId
@@ -127,9 +129,9 @@ so they never reach this path.
 public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
   goal ← processHypotheses goal
-  let some mvarId ← _root_.Velvet.VCGen.cleanupVC goal.mvarId | return
+  let some mvarId ← cleanupVC goal.mvarId | return
   let some emittedGoal ← processNamedGoal { goal with mvarId } | return
-  let some mvarId ← _root_.Velvet.VCGen.cleanupVC emittedGoal.mvarId | return
+  let some mvarId ← cleanupVC emittedGoal.mvarId | return
   let emittedGoal := { emittedGoal with mvarId }
   emittedGoal.mvarId.setKind .syntheticOpaque
   modify fun s => { s with vcs := s.vcs.push emittedGoal }
@@ -154,7 +156,7 @@ public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Unit := do
       -- simplification exposes a connective `solve` can split, put the goal back on the
       -- worklist so the split happens now; otherwise the goal is genuinely stuck and is
       -- emitted as a VC.
-      match ← Sym.simpGoal goal.mvarId (← _root_.Velvet.VCGen.mkGeneratedControlSimpMethods) with
+      match ← Sym.simpGoal goal.mvarId (← mkGeneratedControlSimpMethods) with
       | .closed => continue
       | .noProgress => emitVC goal
       | .goal mvarId =>
@@ -189,10 +191,10 @@ Return the VCs and invariant goals.
 
 `stepLimit?`, when `some n`, seeds the fuel counter to `n`; when `none`, fuel is unlimited.
 -/
-public partial def run (goal : Grind.Goal) (ctx : Context) (scope : Scope)
+public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.VCGen.Context) (scope : Scope)
     (stepLimit? : Option Nat := none) (frameDB : FrameDB := {}) :
     Grind.GrindM Result := do
-  let initState : State :=
+  let initState : Lean.Elab.Tactic.VCGen.State :=
     { fuel := match stepLimit? with | some n => .limited n | none => .unlimited, frameDB }
   -- VCGen temporarily violates the `SymM` folded-projections invariant: `reduceHead?`
   -- exposes kernel projections in intermediate terms and restores the invariant in its
@@ -218,4 +220,4 @@ public partial def run (goal : Grind.Goal) (ctx : Context) (scope : Scope)
     unmatchedFrames }
 
 
-end Lean.Elab.Tactic.VCGen
+end VCGen
