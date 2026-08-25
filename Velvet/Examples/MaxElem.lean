@@ -28,4 +28,4 @@ do
   return mx
 
 prove_correct maxElem by
-  vcgen_ [maxElem] with finish
+  velvet_vcgen [maxElem] with finish

@@ -17,14 +17,6 @@ open Lean Meta Elab Term
 
 namespace Velvet.VCGen
 
-initialize
-  unless (← getOptionDecls).contains `velvet.showProgress do
-    registerOption `velvet.showProgress {
-      name := `velvet.showProgress
-      defValue := (true : DataValue)
-      descr := "Show status and diagnostics for verification goals."
-    }
-
 /-- Clean up a specification theorem name (such as `Foo.bar.spec` -> `bar` or `Foo.bar`). -/
 public meta def cleanFunctionName (declName : Name) : String :=
   let baseName := match declName with

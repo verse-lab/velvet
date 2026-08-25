@@ -20,7 +20,7 @@ do
   return n + 1
 
 prove_correct bump by
-  vcgen_ [bump] with finish
+  velvet_vcgen [bump] with finish
 
 -- Program A: stateful wrapper around B.
 --
@@ -36,14 +36,14 @@ do
   return x
 
 prove_correct outerBump by
-  vcgen_ [outerBump] with finish
+  velvet_vcgen [outerBump] with finish
 
 /-- Explicit discharge: `'requires1'` is B's precondition surfacing at the lifted
 call site (its proof reuses the hypothesis recorded from B's contract), while
 `'signals1'` and `'ensures1'` are A's own obligations. -/
 theorem outerBump_explicit : outerBump.spec_triple := by
   unfold outerBump.spec_triple
-  vcgen_ [outerBump]
+  velvet_vcgen [outerBump]
   case requires1 => grind
   case signals1 => grind
   case ensures1 => grind
@@ -67,7 +67,7 @@ do
   return n / 2
 
 prove_correct checkedHalf by
-  vcgen_ [checkedHalf] with finish
+  velvet_vcgen [checkedHalf] with finish
 
 method outerHalf (n : Nat) returns (res : Nat) in StateT Nat (ExceptT String Option)
   requires (s : Nat) => True
@@ -80,14 +80,14 @@ do
   return h
 
 prove_correct outerHalf by
-  vcgen_ [outerHalf] with finish
+  velvet_vcgen [outerHalf] with finish
 
 /-- Explicit discharge: `'err_odd'` ties the error raised by the lifted call to
 A's `signals` clause (the hypothesis records B's own signal postcondition), and
 `'signals2'` composes the innermost `Option` failure channels. -/
 theorem outerHalf_explicit : outerHalf.spec_triple := by
   unfold outerHalf.spec_triple
-  vcgen_ [outerHalf]
+  velvet_vcgen [outerHalf]
   case err_odd => grind
   case signals2 => grind
   case ensures1 => grind
@@ -106,7 +106,7 @@ do
   return 3 * k
 
 prove_correct triple' by
-  vcgen_ [triple'] with finish
+  velvet_vcgen [triple'] with finish
 
 method addTriple (k : Nat) returns (res : Nat) in StateT Nat Id
   requires (s : Nat) => True
@@ -119,13 +119,13 @@ do
   return cur
 
 prove_correct addTriple by
-  vcgen_ [addTriple] with finish
+  velvet_vcgen [addTriple] with finish
 
 /-- Explicit discharge: no VCs remain after generation; the lifted pure call,
 the state reads/writes and the postconditions cancel definitionally. -/
 theorem addTriple_explicit : addTriple.spec_triple := by
   unfold addTriple.spec_triple
-  vcgen_ [addTriple]
+  velvet_vcgen [addTriple]
 
 /-! ## Scenario 4: a lift stdlib does not provide — `Option` → `ExceptT String _`
 
@@ -172,11 +172,11 @@ do
   return x
 
 prove_correct outerSafe by
-  vcgen_ [outerSafe] with finish
+  velvet_vcgen [outerSafe] with finish
 
 theorem outerSafe_explicit : outerSafe.spec_triple := by
   unfold outerSafe.spec_triple
-  vcgen_ [outerSafe]
+  velvet_vcgen [outerSafe]
   case requires1 => grind
   case ensures1 => grind
 

@@ -88,7 +88,7 @@ do
   return decoded
 
 prove_correct decodeStr by
-  vcgen_ [decodeStr] with finish
+  velvet_vcgen [decodeStr] with finish
 
 @[grind]
 def decodeStrLean (encoded_str : Array Encoding) : Array Char :=
@@ -122,4 +122,4 @@ do
   return encoding
 
 prove_correct encodeStr by
-  vcgen_ [encodeStr] with finish
+  velvet_vcgen [encodeStr] with finish

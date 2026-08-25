@@ -426,7 +426,7 @@ theorem mem_alloc_correct (block_size : addr → Nat) (size : Nat) (Ps : List ad
       (fun r => ∀ b, List.find? (fun x => decide (block_size x ≥ size)) Ps = some b →
           r.mem = b ∧ distPath r.next r.freeList (List.erase Ps b) 0)
       (fun (_ : Unit) => True) := by
-  vcgen_ [mem_alloc] with try finish
+  velvet_vcgen [mem_alloc] with try finish
   all_goals first
     | apply goal1 <;> assumption
     | apply goal2 <;> assumption

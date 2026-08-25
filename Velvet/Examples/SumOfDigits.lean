@@ -33,4 +33,4 @@ do
   return sum
 
 prove_correct sumOfDigits by
-  vcgen_ [sumOfDigits] with finish
+  velvet_vcgen [sumOfDigits] with finish

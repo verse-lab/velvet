@@ -21,7 +21,7 @@ do
   return x
 
 prove_correct countToTen by
-  vcgen_ [countToTen] with finish
+  velvet_vcgen [countToTen] with finish
 
 set_option velvet.semantics.termination "partial" in
 method skipEvens (a : Nat)
@@ -44,7 +44,7 @@ do
   return x
 
 prove_correct skipEvens by
-  vcgen_ [skipEvens] with finish
+  velvet_vcgen [skipEvens] with finish
 
 /- `while'` loop with early return. -/
 set_option velvet.semantics.termination "partial" in
@@ -62,7 +62,7 @@ do
   return false
 
 prove_correct searchArray by
-  vcgen_ [searchArray] with finish
+  velvet_vcgen [searchArray] with finish
 
 /- `for'` loop with `break`. -/
 set_option velvet.semantics.termination "partial" in
@@ -80,7 +80,7 @@ do
   return found
 
 prove_correct findFirstPositive by
-  vcgen_ [findFirstPositive] with finish
+  velvet_vcgen [findFirstPositive] with finish
 
 /- `for'` loop with `continue`. -/
 set_option velvet.semantics.termination "partial" in
@@ -97,7 +97,7 @@ do
   return s
 
 prove_correct sumPositives by
-  vcgen_ [sumPositives] with finish
+  velvet_vcgen [sumPositives] with finish
 
 /- `for'` loop with early `return`. -/
 set_option velvet.semantics.termination "partial" in
@@ -113,5 +113,5 @@ do
   return false
 
 prove_correct containsZero by
-  vcgen_ [containsZero] with finish
+  velvet_vcgen [containsZero] with finish
 

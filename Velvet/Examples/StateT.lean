@@ -27,7 +27,7 @@ method countState (n : Nat) returns (res: Nat) in CounterOption
   return i
 
 prove_correct countState by
-  vcgen_ [countState] with finish
+  velvet_vcgen [countState] with finish
 
 #check countState.spec
 
@@ -45,7 +45,7 @@ theorem boundedIncrement_correct (limit : Nat) :
       (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1)
       (fun (_ : Unit) => False) := by
-  vcgen_ [boundedIncrement] with finish
+  velvet_vcgen [boundedIncrement] with finish
 
 /-- A finite-range loop over `StateT Nat Option`. -/
 def countRange (n : Nat) : CounterOption Nat := do
@@ -64,7 +64,7 @@ theorem countRange_correct (n : Nat) :
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
       (fun (_ : Unit) => False) := by
-  vcgen_ [countRange] with finish
+  velvet_vcgen [countRange] with finish
 
 
 
@@ -84,7 +84,7 @@ method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption
   return current
 
 prove_correct checkedAdd by
-  vcgen_ [checkedAdd] with finish
+  velvet_vcgen [checkedAdd] with finish
   /- all_goals omega -/
   
 
@@ -115,7 +115,7 @@ On success the loop reaches `target`. Since `StateT` is outside `ExceptT`, an
 exception has no resulting state, so its postcondition observes only the error.
 -/
 prove_correct countUnlessBlocked by
-  vcgen_ [countUnlessBlocked] with finish
+  velvet_vcgen [countUnlessBlocked] with finish
 
 
 
@@ -146,7 +146,7 @@ theorem countToReaderLimit_correct :
       (fun state limit => state ≤ limit)
       (fun result state limit => result = limit ∧ state = limit)
       PUnit.unit := by
-  vcgen_ [countToReaderLimit] with finish
+  velvet_vcgen [countToReaderLimit] with finish
 
 /- A method without `signals` in a monad stack with 0 exception channels (`ReaderCounter`). -/
 method countToReaderLimitMethod returns (res : Nat) in ReaderCounter
@@ -157,7 +157,7 @@ method countToReaderLimitMethod returns (res : Nat) in ReaderCounter
 
 #print countToReaderLimitMethod.spec_triple
 prove_correct countToReaderLimitMethod by
-  vcgen_ [countToReaderLimitMethod] with finish
+  velvet_vcgen [countToReaderLimitMethod] with finish
 
 /-- The triangular number `0 + 1 + ... + n`. -/
 def triangular : Nat → Nat
@@ -195,7 +195,7 @@ theorem addToReaderLimit_correct :
       (fun initial final limit =>
         initial ≤ limit ∧ final = initial + triangular limit)
       PUnit.unit := by
-  vcgen_ [addToReaderLimit] with try finish
+  velvet_vcgen [addToReaderLimit] with try finish
   all_goals (dsimp [triangular]; omega)
 
 /- A zero-binder monad stack (`Id`): `requires`/`ensures` are plain `Prop`s with no binders. -/
@@ -207,7 +207,7 @@ do
 
 #check idNoBinders
 prove_correct idNoBinders by
-  vcgen_ [idNoBinders] with finish
+  velvet_vcgen [idNoBinders] with finish
 
 #print idNoBinders.spec_triple
 
@@ -223,7 +223,7 @@ do
 
 #check stateOptionTotal
 prove_correct stateOptionTotal by
-  vcgen_ [stateOptionTotal] with finish
+  velvet_vcgen [stateOptionTotal] with finish
 
 /- Partial correctness loop over `StateT Nat Option` without termination measure. -/
 set_option velvet.semantics.termination "partial" in
@@ -244,6 +244,6 @@ method countStatePartial (n : Nat) returns (res : Nat) in CounterOption
 
 #check countStatePartial
 prove_correct countStatePartial by
-  vcgen_ [countStatePartial] with finish
+  velvet_vcgen [countStatePartial] with finish
 
 end Velvet.Examples.StateT

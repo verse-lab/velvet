@@ -1,4 +1,4 @@
-import Velvet.Core.Options
+import Velvet.Frontend.Options
 import Velvet.Core.Specs
 import Lean.Parser
 

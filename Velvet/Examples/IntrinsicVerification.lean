@@ -4,7 +4,7 @@ import Velvet
 # Intrinsic Verification Examples
 
 Demonstrating intrinsic verification in Velvet: with `set_option velvet.verifyDuringElab true`,
-each `method` declaration is verified automatically during elaboration by `vcgen_ with finish`,
+each `method` declaration is verified automatically during elaboration by `velvet_vcgen with finish`,
 producing the verified `spec` theorem without requiring a separate `prove_correct` block.
 -/
 

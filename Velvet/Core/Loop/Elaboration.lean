@@ -1,7 +1,7 @@
 import Velvet.Core.Named
 import Velvet.Core.Specs
-import Velvet.Core.Options
 import Velvet.Core.Loop.Gadgets
+import Lean.Data.KVMap
 import Lean.Parser
 import Lean.Elab.Do
 import Lean.Elab.BuiltinDo.Let
@@ -361,14 +361,16 @@ def elabDoWhilePrime : DoElab := fun stx dec => do
 
   let forIn ← match m with
     | none =>
-      let termination := velvet.semantics.termination.get (← getOptions)
-      match termination with
-      | .totalCorrectness =>
-        throwError "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
-      | .partialCorrectness =>
+      let opts ← getOptions
+      let isPartial : Bool := match opts.get? `velvet.semantics.termination with
+        | some (Lean.DataValue.ofString s) => s == "partial"
+        | _ => false
+      if isPartial == true then
         let gadget := ``Velvet.Loop.Gadget.whileLoopPartial
         let call ← `($(mkIdent gadget) $(← Term.exprToSyntax preS) $(← Term.exprToSyntax body) $invLam $doneLam)
         Term.elabTermEnsuringType call (mkApp mi.m σ)
+      else
+        throwError "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
     | some m =>
       let measureName := hm.join.map (·.getId) |>.getD `termination
       let measureNameStr := Lean.Syntax.mkStrLit measureName.toString

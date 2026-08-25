@@ -28,7 +28,7 @@ do
 
     
 prove_correct isGreaterWithInvariants by
-  vcgen_ [isGreaterWithInvariants] with try finish
+  velvet_vcgen [isGreaterWithInvariants] with try finish
   case inv_ok =>
     rename_i n a
     constructor <;> intro h
@@ -56,7 +56,7 @@ theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
       (Named.mk `precond Option.none True)
       (Named.mk `postcond Option.none (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n))
       (fun (_ : Unit) => False) := by
-  vcgen_ [isGreaterNativeWhile] invariants
+  velvet_vcgen [isGreaterNativeWhile] invariants
   · Std.WP.WhileInvariant.mk fun
     | false, (ok, i) =>
         Named.mk `idx_nonneg Option.none (0 ≤ i) ∧
@@ -96,7 +96,7 @@ do
   return ok
 
 prove_correct isGreaterInlineAnnotations by
-  vcgen_ [isGreaterInlineAnnotations] with finish
+  velvet_vcgen [isGreaterInlineAnnotations] with finish
 
   
 method scanRangeVCGen (n : Nat)
@@ -112,7 +112,7 @@ do
   return ()
 
 prove_correct scanRangeVCGen by
-  vcgen_ [scanRangeVCGen] with finish
+  velvet_vcgen [scanRangeVCGen] with finish
 
 
 
@@ -132,7 +132,7 @@ do
   return acc
 
 prove_correct sumDoubleRange by
-  vcgen_ [sumDoubleRange] with finish
+  velvet_vcgen [sumDoubleRange] with finish
 
 /- Track the most recently visited value while preserving a simple bound. -/
 method boundedRangeValues (n : Nat)
@@ -148,7 +148,7 @@ do
   return last
 
 prove_correct boundedRangeValues by
-  vcgen_ [boundedRangeValues] with finish
+  velvet_vcgen [boundedRangeValues] with finish
 
 /- Pure state invariant over outer mutable variables:
 Invariants referencing only outer mutable variables (`x`, `y`) do NOT mention the loop variable `i`,
@@ -166,7 +166,7 @@ do
   return x + y
 
 prove_correct twoVarPureState by
-  vcgen_ [twoVarPureState] with finish
+  velvet_vcgen [twoVarPureState] with finish
 
 /- Loop over two mutable variables with loop-variable dependency:
 Because the invariant references the iteration-local loop variable `i` (`x = i ∧ y = i`),
@@ -185,7 +185,7 @@ do
   return x
 
 prove_correct twoVar by
-  vcgen_ [twoVar] with finish
+  velvet_vcgen [twoVar] with finish
 
 
 /-! ### Non-Membership Loop (`forIn`) -/
@@ -204,7 +204,7 @@ do
   return s
 
 prove_correct sumList by
-  vcgen_ [sumList] with finish
+  velvet_vcgen [sumList] with finish
 
 /-! ### Membership Loop (`forIn'`) -/
 
@@ -223,7 +223,7 @@ do
   return s
 
 prove_correct memberElementBound by
-  vcgen_ [memberElementBound] with finish
+  velvet_vcgen [memberElementBound] with finish
 
 
 /- Method-call composition: delegates to `isGreaterWithInvariants`. -/
@@ -236,7 +236,7 @@ do
   return res
 
 prove_correct isGreaterWithInvariants' by
-  vcgen_ [isGreaterWithInvariants'] with finish
+  velvet_vcgen [isGreaterWithInvariants'] with finish
 
 /- Partial correctness: a terminating `while'` loop still carries a `decreasing` measure and
 is fully provable. -/
@@ -254,7 +254,7 @@ do
   return i
 
 prove_correct partialCount by
-  vcgen_ [partialCount] with finish
+  velvet_vcgen [partialCount] with finish
 
 /- A genuinely non-terminating `while'` loop omits `decreasing`; it is only valid under partial
 correctness, and its spec is discharged by our least-fixed-point loop rule. -/
@@ -270,7 +270,7 @@ method spin returns (res : Nat)
   return 0
 
 prove_correct spin by
-  vcgen_ [spin] with finish
+  velvet_vcgen [spin] with finish
 
 /- A terminating loop that omits `decreasing`: the invariant plus the exit condition still pins
 the result, so partial correctness proves the same postcondition without a measure. -/
@@ -287,7 +287,7 @@ do
   return i
 
 prove_correct partialCountNoMeasure by
-  vcgen_ [partialCountNoMeasure] with finish
+  velvet_vcgen [partialCountNoMeasure] with finish
 
 /- A non-terminating loop still maintains a meaningful invariant. -/
 set_option velvet.semantics.termination "partial" in
@@ -302,7 +302,7 @@ method partialTick returns (res : Nat)
   return i
 
 prove_correct partialTick by
-  vcgen_ [partialTick] with finish
+  velvet_vcgen [partialTick] with finish
 
 set_option velvet.semantics.termination "partial" in
 method partialTick' returns (res : Nat)
@@ -319,5 +319,5 @@ method partialTick' returns (res : Nat)
   return i
 
 prove_correct partialTick' by
-  vcgen_ [partialTick'] with finish
+  velvet_vcgen [partialTick'] with finish
   

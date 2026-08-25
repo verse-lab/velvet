@@ -10,7 +10,7 @@ Velvet is a language for writing imperative programs with specifications, shallo
 
 The primary strength of Velvet is its nature as a **shallowly embedded language** within Lean. This enables a powerful hybrid verification workflow that combines automated solving with interactive theorem proving:
 
-1. **Automated Proof:** The `vcgen_` tactic with `finish` attempts to automatically prove the correctness of the method using Lean's `grind` tactic and arithmetic simplification. For many methods, this is all that is needed.
+1. **Automated Proof:** The `velvet_vcgen` tactic with `finish` attempts to automatically prove the correctness of the method using Lean's `grind` tactic and arithmetic simplification. For many methods, this is all that is needed.
 2. **Interactive Proving:** If automated solving leaves remaining goals, you are not stuck. You can use `case <name> => ...` to target specific verification conditions with interactive Lean tactics (`omega`, `induction`, `rcases`, etc.).
 
 ---
@@ -38,14 +38,14 @@ do
   return x
 
 prove_correct isqrt by
-  vcgen_ [isqrt] with finish
+  velvet_vcgen [isqrt] with finish
 ```
 
 This example shows:
 - **Method declaration** with typed parameters and return value (`returns (r : Nat)`).
 - **Pre- and postconditions** (`requires`, `ensures`).
 - **Loop annotations** (`invariant`, `decreasing` measure, `done_with`).
-- **Verification** using `prove_correct` and `vcgen_ ... with finish`.
+- **Verification** using `prove_correct` and `velvet_vcgen ... with finish`.
 
 ---
 
@@ -253,11 +253,11 @@ do
 
 ---
 
-## 8. Verification & Proving (`vcgen_`)
+## 8. Verification & Proving (`velvet_vcgen`)
 
 ### Clause Naming & Error Locations
 
-All specification clauses automatically track their source locations. If a verification obligation cannot be discharged by `vcgen_ [...] with finish`, Lean reports the error directly at the failing clause in your code (e.g. highlighting the exact `invariant` or `assert` that failed).
+All specification clauses automatically track their source locations. If a verification obligation cannot be discharged by `velvet_vcgen [...] with finish`, Lean reports the error directly at the failing clause in your code (e.g. highlighting the exact `invariant` or `assert` that failed).
 
 You can optionally label clauses with custom names:
 - `requires [<req_name> :]? ...`
@@ -276,7 +276,7 @@ When all verification conditions can be discharged automatically with `grind` an
 
 ```lean
 prove_correct <method_name> by
-  vcgen_ [<method_name> (, <callee>)*] with finish
+  velvet_vcgen [<method_name> (, <callee>)*] with finish
 ```
 
 ### Interactive Proofs (`with try finish`)
@@ -285,13 +285,13 @@ When some goals require interactive tactics, use `with try finish` to automatica
 
 ```lean
 prove_correct <method_name> by
-  vcgen_ [<method_name> (, <callee>)*] with try finish
+  velvet_vcgen [<method_name> (, <callee>)*] with try finish
   [case <tag> => <interactive_tactic>]*
 ```
 
 ### Progress Reporting & Diagnostics
 
-With `set_option velvet.showProgress true` (default), `vcgen_` reports real-time verification status in the Infoview:
+With `set_option velvet.showProgress true` (default), `velvet_vcgen` reports real-time verification status in the Infoview:
 
 ```text
 [velvet:isqrt] ℹ Generated 3 VCs:
@@ -303,7 +303,7 @@ With `set_option velvet.showProgress true` (default), `vcgen_` reports real-time
 
 ### Elaboration-Time (Intrinsic) Verification
 
-With `set_option velvet.verifyDuringElab true`, methods automatically run `vcgen_ with finish` during elaboration. If verification succeeds, `<name>.spec` is produced immediately without needing a separate `prove_correct` block:
+With `set_option velvet.verifyDuringElab true`, methods automatically run `velvet_vcgen with finish` during elaboration. If verification succeeds, `<name>.spec` is produced immediately without needing a separate `prove_correct` block:
 
 ```lean
 set_option velvet.verifyDuringElab true

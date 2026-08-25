@@ -1,4 +1,3 @@
-import Velvet.Core.Options
 import Velvet.Core.Ghost
 import Velvet.Core.GhostSyntax
 import Velvet.Core.Named

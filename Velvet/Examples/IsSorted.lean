@@ -49,4 +49,4 @@ do
   return sorted
 
 prove_correct isSorted by
-  vcgen_ [isSorted] with finish
+  velvet_vcgen [isSorted] with finish

@@ -23,7 +23,7 @@ do
   return x
 
 prove_correct velvetCallsIntrinsic by
-  vcgen_ [velvetCallsIntrinsic] with finish
+  velvet_vcgen [velvetCallsIntrinsic] with finish
 
 method velvetDouble (k : Nat) returns (res : Nat) in StateT Nat Id
   requires (s : Nat) => True
@@ -32,7 +32,7 @@ do
   return 2 * k
 
 prove_correct velvetDouble by
-  vcgen_ [velvetDouble] with finish
+  velvet_vcgen [velvetDouble] with finish
 
 def intrinsicCallsVelvet (k : Nat) : StateT Nat Id Nat
   requires _s => True

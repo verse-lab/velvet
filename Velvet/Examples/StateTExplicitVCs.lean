@@ -5,7 +5,7 @@ import Velvet.Examples.StateT
 
 Same contracts as `StateT.lean`, but each verification condition is discharged by
 name (`case … => …`) instead of the `finish` discharger, to catch VC-name/restructure
-regressions in `vcgen_`.
+regressions in `velvet_vcgen`.
 -/
 
 open Std.WP
@@ -14,7 +14,7 @@ namespace Velvet.Examples.StateT
 
 theorem countState_explicit : countState.spec_triple := by
   unfold countState.spec_triple
-  vcgen_ [countState]
+  velvet_vcgen [countState]
   case state_tracks => grind
   case ensures1 => grind
   case by_remaining => grind
@@ -25,13 +25,13 @@ theorem countState_explicit : countState.spec_triple := by
 theorem boundedIncrement_explicit (limit : Nat) :
     Triple (boundedIncrement limit) (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1) (fun (_ : Unit) => False) := by
-  vcgen_ [boundedIncrement]
+  velvet_vcgen [boundedIncrement]
   case within_limit => grind
   case vc2 => grind
 
 theorem countRange_explicit (n : Nat) :
     Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) (fun (_ : Unit) => False) := by
-  vcgen_ [countRange]
+  velvet_vcgen [countRange]
   case count_done => grind
   case count_tracks => grind
   case vc3 => grind
@@ -40,12 +40,12 @@ theorem countRange_explicit (n : Nat) :
 
 theorem checkedAdd_explicit : checkedAdd.spec_triple := by
   unfold checkedAdd.spec_triple
-  vcgen_ [checkedAdd]
+  velvet_vcgen [checkedAdd]
   case positive_delta => grind
 
 theorem countUnlessBlocked_explicit : countUnlessBlocked.spec_triple := by
   unfold countUnlessBlocked.spec_triple
-  vcgen_ [countUnlessBlocked]
+  velvet_vcgen [countUnlessBlocked]
   case progress => grind
   case ensures1 => grind
   case remaining => grind
@@ -56,7 +56,7 @@ theorem countUnlessBlocked_explicit : countUnlessBlocked.spec_triple := by
 theorem countToReaderLimit_explicit :
     Triple countToReaderLimit (fun state limit => state ≤ limit)
       (fun result state limit => result = limit ∧ state = limit) PUnit.unit := by
-  vcgen_ [countToReaderLimit]
+  velvet_vcgen [countToReaderLimit]
   case initial_bound => grind
   case reader_progress => grind
   case vc3 => grind
@@ -67,13 +67,13 @@ theorem countToReaderLimit_explicit :
 
 theorem countToReaderLimitMethod_explicit : countToReaderLimitMethod.spec_triple := by
   unfold countToReaderLimitMethod.spec_triple
-  vcgen_ [countToReaderLimitMethod]
+  velvet_vcgen [countToReaderLimitMethod]
 
 theorem addToReaderLimit_explicit :
     Triple addToReaderLimit (fun initial limit => initial ≤ limit)
       (fun initial final limit => initial ≤ limit ∧ final = initial + triangular limit)
       PUnit.unit := by
-  vcgen_ [addToReaderLimit]
+  velvet_vcgen [addToReaderLimit]
   all_goals try simp_all [triangular]
   all_goals try simp_all
   case accumulated_sum =>
@@ -85,7 +85,7 @@ theorem addToReaderLimit_explicit :
 
 theorem countStatePartial_explicit : countStatePartial.spec_triple := by
   unfold countStatePartial.spec_triple
-  vcgen_ [countStatePartial]
+  velvet_vcgen [countStatePartial]
   all_goals grind
 
 end Velvet.Examples.StateT

@@ -17,8 +17,8 @@ do
 prove_correct countUp by
   intro n
   induction n with
-  | zero => rw [countUp.eq_1]; vcgen_ with finish
-  | succ k ih => rw [countUp.eq_2]; vcgen_ [ih] with finish
+  | zero => rw [countUp.eq_1]; velvet_vcgen with finish
+  | succ k ih => rw [countUp.eq_2]; velvet_vcgen [ih] with finish
 
 @[grind]
 def fibAccSpec : Nat → Nat → Nat → Nat
@@ -49,8 +49,8 @@ do
 prove_correct fibAcc by
   intro n
   induction n with
-  | zero => intro a b; rw [fibAcc.eq_1]; vcgen_ with finish
-  | succ k ih => intro a b; rw [fibAcc.eq_2]; vcgen_ [ih] with finish
+  | zero => intro a b; rw [fibAcc.eq_1]; velvet_vcgen with finish
+  | succ k ih => intro a b; rw [fibAcc.eq_2]; velvet_vcgen [ih] with finish
 
 @[grind =]
 theorem fibAccSpec_succ_0 (n : Nat) : fibAccSpec (n + 1) 0 1 = fibAccSpec n 1 1 := rfl
@@ -81,7 +81,7 @@ do
   return a
 
 prove_correct fibWhile by
-  vcgen_ [fibWhile, fibAccSpec] with finish
+  velvet_vcgen [fibWhile, fibAccSpec] with finish
 
 method fibFor (n : Nat) returns (res : Nat)
   ensures res = fibAccSpec n 0 1
@@ -104,7 +104,7 @@ do
 
 theorem fibFor_correct : fibFor.spec_triple := by
   unfold fibFor.spec_triple
-  vcgen_ [fibFor, fibAccSpec] with finish
+  velvet_vcgen [fibFor, fibAccSpec] with finish
 
 method rec spinRec returns (res : Nat) in Option
   signals (u : Unit) => True
@@ -118,7 +118,7 @@ prove_correct spinRec by
     intro _
     simp [Named.mk]
   · intro p ih
-    vcgen_ [ih] with finish
+    velvet_vcgen [ih] with finish
 
 method rec spinRecStateM returns (res : Nat) in StateT Nat Option
   requires (s : Nat) => True
@@ -133,7 +133,7 @@ prove_correct spinRecStateM by
     intro _
     simp [Named.mk]
   · intro p ih
-    vcgen_ [ih] with finish
+    velvet_vcgen [ih] with finish
 
 /- Parameterized recursive method (1 argument) with automatically synthesized fixpoint_triple_motive -/
 method rec countdownRec (n : Nat) returns (res : Nat) in Option
@@ -152,7 +152,7 @@ prove_correct countdownRec by
     intro _
     simp [Named.mk]
   · intro p ih n
-    vcgen_ [ih] with finish
+    velvet_vcgen [ih] with finish
 
  
 

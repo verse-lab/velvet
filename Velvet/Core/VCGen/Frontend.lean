@@ -27,7 +27,7 @@ open Lean.Elab.Tactic.Do Lean.Elab.Tactic.VCGen.SpecAttr
 
 namespace Lean.Parser.Tactic
 
-syntax (name := vcgenVendoredTac) "vcgen_" optConfig
+syntax (name := vcgenVendoredTac) "velvet_vcgen" optConfig
   (" [" withoutPosition((simpStar <|> simpErase <|> simpLemma),*,?) "] ")?
   (&" until " term)?
   (&" frames " withPosition((colGe frameAlt)+))?
@@ -37,7 +37,7 @@ syntax (name := vcgenVendoredTac) "vcgen_" optConfig
 
 namespace Grind
 
-syntax (name := vcgenVendoredGrindTac) "vcgen_" optConfig
+syntax (name := vcgenVendoredGrindTac) "velvet_vcgen" optConfig
   (" [" withoutPosition((simpStar <|> simpErase <|> simpLemma),*,?) "] ")?
   (&" until " term)?
   (&" frames " withPosition((colGe frameAlt)+))?
@@ -464,7 +464,7 @@ public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun
     return invGoals ++ result.vcs.toList
   Lean.Elab.Tactic.Grind.replaceMainGoal newGoals
 
-/-- Apply a `with` discharger to every VC produced by `vcgen_`. This is the source-aware
+/-- Apply a `with` discharger to every VC produced by `velvet_vcgen`. This is the source-aware
 counterpart of Grind's `all_goals`: goals carrying named source metadata relocate a discharger
 failure to that annotation; unannotated goals use Grind's ordinary recovery path unchanged. -/
 private meta def dischargeVCGoals (g : TSyntax `grind) (declName? : Option Name := none) : Grind.GrindTacticM Unit := do
@@ -544,7 +544,7 @@ private meta def elabVCGenDischargeVendored (w? : Option (TSyntax `vcgenDischarg
 
 
 public meta def elabVCGenVendoredCore : Tactic := fun stx => withMainContext do
-  let `(tactic| vcgen_%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
+  let `(tactic| velvet_vcgen%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]? $[with $w:vcgenDischarge]?) := stx
     | throwUnsupportedSyntax
   let g? ← elabVCGenDischargeVendored w
@@ -555,7 +555,7 @@ public meta def elabVCGenVendoredCore : Tactic := fun stx => withMainContext do
     | none   => do
         let off ← `(optConfig| -internalize)
         pure (Lean.Parser.Tactic.appendConfig off cfg)
-  let core ← `(grind| vcgen_%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
+  let core ← `(grind| velvet_vcgen%$tk $cfg:optConfig $[[$lems,*]]? $[until $u:term]? $[frames $fas*]? $(invs)?
         $[simplifying_assumptions $(sa)? $[[$thms,*]]?]?)
   let goal ← getMainGoal
   -- `clean := false` keeps inaccessible binder names (no `exposeNames`), so users can
@@ -571,7 +571,7 @@ public meta def elabVCGenVendoredCore : Tactic := fun stx => withMainContext do
   replaceMainGoal (state.goals.map (·.mvarId))
 
 
-/-- Run `vcgen_` transactionally so a failing `with` discharger cannot leak a partially assigned
+/-- Run `velvet_vcgen` transactionally so a failing `with` discharger cannot leak a partially assigned
 proof skeleton containing its still-open VC metavariables into the enclosing declaration. -/
 @[tactic Lean.Parser.Tactic.vcgenVendoredTac]
 public meta def elabVCGenVendored : Tactic := fun stx => do

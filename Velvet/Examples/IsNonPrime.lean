@@ -60,7 +60,7 @@ do
   return ret
 
 prove_correct isNonPrime by
-  vcgen_ [isNonPrime] with try finish
+  velvet_vcgen [isNonPrime] with try finish
   case result_iff =>
     rename_i n
     cases ret

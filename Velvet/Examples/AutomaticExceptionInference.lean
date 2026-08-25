@@ -26,7 +26,7 @@ do
 #check maybeFail
 
 prove_correct maybeFail by
-  vcgen_ [maybeFail] with finish
+  velvet_vcgen [maybeFail] with finish
 
 /- One signal, returning `String`: `ExceptT String Option String`. -/
 method maybeFailString (b : Bool) returns (res : String)
@@ -43,7 +43,7 @@ do
 #check maybeFailString
 
 prove_correct maybeFailString by
-  vcgen_ [maybeFailString] with finish
+  velvet_vcgen [maybeFailString] with finish
 
 /- Two signals, returning `Int`: `ExceptT String (ExceptT Nat Option) Int`. -/
 method twoChannelsInt returns (res : Int)
@@ -59,7 +59,7 @@ do
 #check twoChannelsInt
 
 prove_correct twoChannelsInt by
-  vcgen_ [twoChannelsInt] with finish
+  velvet_vcgen [twoChannelsInt] with finish
 
 /- Three signals, returning a product:
 `ExceptT String (ExceptT Int (ExceptT Bool Option)) (Nat × String)`. -/
@@ -77,4 +77,4 @@ do
 #check threeChannelsProd
 
 prove_correct threeChannelsProd by
-  vcgen_ [threeChannelsProd] with finish
+  velvet_vcgen [threeChannelsProd] with finish

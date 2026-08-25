@@ -168,7 +168,7 @@ error: No spec applicable to program Gadget.whileLoopPartial 0
 -/
 #guard_msgs in
 prove_correct badWhileNoWPPartial by
-  vcgen_ [badWhileNoWPPartial] with finish
+  velvet_vcgen [badWhileNoWPPartial] with finish
 
 /- Signals with multiple binders when no `in` monad stack is provided. -/
 /-- error: expected exactly one explicit binder in `signals` when no `in` monad stack is given, got 2 -/

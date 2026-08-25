@@ -16,8 +16,8 @@ do
 prove_correct lengthMatch by
   intro n l
   induction l with
-  | nil => rw [lengthMatch.eq_1]; vcgen_ with finish
-  | cons head tail ih => rw [lengthMatch.eq_2]; vcgen_ [ih] with finish
+  | nil => rw [lengthMatch.eq_1]; velvet_vcgen with finish
+  | cons head tail ih => rw [lengthMatch.eq_2]; velvet_vcgen [ih] with finish
 
 set_option velvet.semantics.termination "partial" in
 method matchTriple (a : Nat) (b : Nat) (c : Nat)
@@ -29,4 +29,4 @@ do
   | _, _, _ => pure (a + b + c + 10)
 
 prove_correct matchTriple by
-  vcgen_ [matchTriple] with try finish
+  velvet_vcgen [matchTriple] with try finish

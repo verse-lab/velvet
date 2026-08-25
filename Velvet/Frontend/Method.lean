@@ -142,7 +142,7 @@ def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
     let lem : TSyntax `Lean.Parser.Tactic.simpLemma ← `(Lean.Parser.Tactic.simpLemma| $(ctx.name):ident)
     let proveCmd ← `(command|
       prove_correct $(ctx.name) by
-        vcgen_ [$lem] with finish)
+        velvet_vcgen [$lem] with finish)
     elabCommand proveCmd
 
 set_option linter.unusedVariables false in

@@ -47,7 +47,7 @@ do
     return i - 1
 
 prove_correct sqrt_total by
-  vcgen_ [sqrt_total] with try finish
+  velvet_vcgen [sqrt_total] with try finish
   case sqrt_max2 => rename_i x; intro i hi; have := le_of_mul_self_le hi; omega
   case sqrt_is =>
     rename_i x
@@ -84,7 +84,7 @@ do
     return i - 1
 
 prove_correct cbrt by
-  vcgen_ [cbrt] with try finish
+  velvet_vcgen [cbrt] with try finish
   case cbrt_max2 => rename_i x; intro i hi; have := le_of_mul_self_cube_le hi; omega
   case cbrt_is =>
     rename_i x
@@ -126,7 +126,7 @@ do
   return l
 
 prove_correct sqrt_bn by
-  vcgen_ [sqrt_bn] with try finish
+  velvet_vcgen [sqrt_bn] with try finish
   case bn_max2 =>
     rename_i x bnd
     intro i hi

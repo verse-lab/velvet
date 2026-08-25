@@ -49,7 +49,7 @@ do
   return res
 
 prove_correct insertionSort by
-  vcgen_ [insertionSort] with try finish
+  velvet_vcgen [insertionSort] with try finish
   case inner_sorted =>
     intro i j hij hj_bound hj
     by_cases hj_m : j = mind

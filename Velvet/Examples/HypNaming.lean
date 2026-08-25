@@ -16,7 +16,7 @@ do
   return a
 
 prove_correct maxOf by
-  vcgen_ [maxOf]
+  velvet_vcgen [maxOf]
   · grind
   · grind
 /- dependent `if` naming -/
@@ -28,7 +28,7 @@ do
   return a
 
 prove_correct depMaxOf by
-  vcgen_ [depMaxOf]
+  velvet_vcgen [depMaxOf]
   · grind
   · grind
 
@@ -43,7 +43,7 @@ do
   return 10
 
 prove_correct nestedIfs by
-  vcgen_ [nestedIfs]
+  velvet_vcgen [nestedIfs]
   · grind
   · grind
   · grind
@@ -57,7 +57,7 @@ do
   | y :: rest => return y
 
 prove_correct headOr by
-  vcgen_ [headOr]
+  velvet_vcgen [headOr]
   · grind
   · grind
 
@@ -71,7 +71,7 @@ do
   | y :: _ => return y
 
 prove_correct headOrH by
-  vcgen_ [headOrH]
+  velvet_vcgen [headOrH]
   · grind
   · grind
 
@@ -85,7 +85,7 @@ do
     return x
 
 prove_correct bifExample by
-  vcgen_ [bifExample]
+  velvet_vcgen [bifExample]
   · grind
   · grind
 

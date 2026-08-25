@@ -13,4 +13,4 @@ Their upstream location is
 customizations for named goal tags, simplifying assumptions, and enhanced reporting.
 
 This copy keeps the upstream `Lean.Elab.Tactic.VCGen` namespace and
-exposes the bundled frontend as `vcgen_`. Import `Velvet.VCGen.Frontend` to use it.
+exposes the bundled frontend as `velvet_vcgen`. Import `Velvet.VCGen.Frontend` to use it.
