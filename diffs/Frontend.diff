@@ -1,14 +1,13 @@
---- a/Lean/Elab/Tactic/Do/Internal/VCGen/Frontend.lean
-+++ b/Velvet2/VCGen/Frontend.lean
-@@ -6,24 +6,49 @@
+--- a/Lean/Elab/Tactic/VCGen/Frontend.lean
++++ b/Velvet/VCGen/Frontend.lean
+@@ -6,28 +6,47 @@
  module
  
  prelude
--public import Lean.Elab.Tactic.Do.VCGen.SuggestInvariant
 -public import Lean.Elab.Tactic.Do.VCGen
--public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
--public import Lean.Elab.Tactic.Do.Internal.VCGen.Driver
--public import Lean.Elab.Tactic.Do.Internal.VCGen.FrameProcAttr
+-public import Lean.Elab.Tactic.VCGen.Context
+-public import Lean.Elab.Tactic.VCGen.Driver
+-public import Lean.Elab.Tactic.VCGen.FrameProcAttr
 -public import Lean.Meta.Sym.Simp.Attr
 -public import Lean.Meta.Sym.Simp.ControlFlow
 -public import Lean.Meta.Sym.Simp.EvalGround
@@ -17,12 +16,12 @@
 -public import Lean.Meta.Sym.Simp.Simproc
 -public import Lean.Elab.Tactic.Grind.Main
 -public import Lean.Elab.Tactic.Grind.Basic
+-import Lean.Meta.Sym.ProofInstInfo
 +public meta import Init.Data.Prod
-+public meta import Lean.Elab.Tactic.Do.VCGen.SuggestInvariant
 +public meta import Lean.Elab.Tactic.Do.VCGen
-+public meta import Lean.Elab.Tactic.Do.Internal.VCGen.Context
-+public meta import Velvet2.VCGen.Driver
-+public meta import Lean.Elab.Tactic.Do.Internal.VCGen.FrameProcAttr
++public meta import Lean.Elab.Tactic.VCGen.Context
++public meta import Velvet.VCGen.Driver
++public meta import Lean.Elab.Tactic.VCGen.FrameProcAttr
 +public meta import Lean.Meta.Sym.Simp.Attr
 +public meta import Lean.Meta.Sym.Simp.ControlFlow
 +public meta import Lean.Meta.Sym.Simp.EvalGround
@@ -31,12 +30,17 @@
 +public meta import Lean.Meta.Sym.Simp.Simproc
 +public meta import Lean.Elab.Tactic.Grind.Main
 +public meta import Lean.Elab.Tactic.Grind.Basic
-+public meta import Velvet2.VCGen.Progress
- import Lean.Meta.Sym.ProofInstInfo
++public meta import Velvet.VCGen.Progress
++public meta import Lean.Meta.Sym.ProofInstInfo
  
  open Lean Parser Meta Elab Tactic Sym
- open Lean.Elab.Tactic.Do Lean.Elab.Tactic.Do.Internal.SpecAttr
+ open Lean.Elab.Tactic.Do Lean.Elab.Tactic.VCGen.SpecAttr
  
+-register_builtin_option experimental.vcgen : Bool := {
+-  defValue := false
+-  descr := "acknowledge that the `vcgen` tactic is experimental and subject to change; `true` \
+-silences the warning that each `vcgen` call reports"
+-}
 +namespace Lean.Parser.Tactic
 +
 +syntax (name := vcgenVendoredTac) "vcgen_" optConfig
@@ -59,11 +63,10 @@
 +
 +end Grind
 +end Lean.Parser.Tactic
-+
- namespace Lean.Elab.Tactic.Do.Internal
  
- /-!
-@@ -33,10 +58,12 @@
+ namespace Lean.Elab.Tactic.VCGen
+ 
+@@ -38,7 +57,7 @@
  -/
  
  /-- A local helper for running config elaborators in TermElabM. -/
@@ -71,31 +74,26 @@
 +private meta def runTacticM (x : TacticM α) (goals : List MVarId := [])  : TermElabM α :=
    x.run { elaborator := `mvcgen } |>.run' { goals }
  
- namespace VCGen
-+
-+open _root_.Lean.Elab.Tactic.Do.Internal.VCGen
  
- /--
- Parse the optional `[...]` argument list for `vcgen`, partitioning entries into
-@@ -44,7 +71,7 @@
+@@ -48,7 +67,7 @@
  `Lean.Elab.Tactic.Do.VCGen.mkContext`: each entry is first tried as a spec theorem,
  and on failure falls back to a simp/unfold lemma processed via `mkSimpContext`.
  -/
 -public def mkContext (lemmas : Syntax) (goal : MVarId) (ignoreStarArg := false) :
 +public meta def mkContext (lemmas : Syntax) (goal : MVarId) (ignoreStarArg := false) :
-     TermElabM (VCGen.Context × VCGen.Scope) := do
+     TermElabM (Context × Scope) := do
    let mut specThms ← getSpecTheorems
    let mut simpStuff := #[]
-@@ -148,7 +175,7 @@
+@@ -152,7 +171,7 @@
  rather than a deep-embedding program type with a bespoke `WP`. The `Pred`/`EPred` `outParam`s are left
  as metavariables for instance search to fill; instance search runs at default transparency, while the
  caller reduces types at reducible transparency. -/
 -private def isWPMonad (m : Expr) : MetaM Bool := withDefault do
 +private meta def isWPMonad (m : Expr) : MetaM Bool := withDefault do
    try
-     let wpm ← mkConstWithFreshMVarLevels ``Std.Internal.Do.WPMonad
+     let wpm ← mkConstWithFreshMVarLevels ``Std.WP.WPMonad
      let (args, _, _) ← forallMetaTelescopeReducing (← inferType wpm)
-@@ -162,7 +189,7 @@
+@@ -166,7 +185,7 @@
  with `m` a `WPMonad`, the monad `m` is returned (frameprocs are keyed by monad); otherwise the whole
  program type is returned, so deep embeddings key on their own head. Returns `none` when the goal
  exposes no program. -/
@@ -104,16 +102,21 @@
    forallTelescopeReducing goalType fun _ body => do
      let body := body.consumeMData
      let progTy? : Option Expr :=
-@@ -186,7 +213,7 @@
+@@ -184,12 +203,11 @@
+         return some progTy.appFn!
+     return some progTy
+ 
+-
+ /-- Warn about `vcgen` config options that are accepted by the parser but currently
  ignored at runtime. As more options gain implementation support, drop their checks
- here. Options with implemented semantics (`trivial`, `elimLets`, `stepLimit`,
- `invariants?`) are silently accepted. -/
--private def warnIgnoredConfig (config : VCGen.Config) : MetaM Unit := do
-+private meta def warnIgnoredConfig (config : VCGen.Config) : MetaM Unit := do
-   let default : VCGen.Config := {}
+ here. Options with implemented semantics (`elimLets`, `stepLimit`, `invariants?`) are silently
+ accepted. -/
+-private def warnIgnoredConfig (config : Do.VCGen.Config) : MetaM Unit := do
++private meta def warnIgnoredConfig (config : Do.VCGen.Config) : MetaM Unit := do
+   let default : Do.VCGen.Config := {}
    if config.leave != default.leave then
      logWarning "vcgen: the `leave` config option is currently ignored."
-@@ -196,7 +223,7 @@
+@@ -201,7 +219,7 @@
  Supports the anonymous (default) variant. Named variants require a public
  `elabSimpMethods` API in `Lean.Elab.Tactic.Grind.Sym` (see TODO below).
  -/
@@ -122,23 +125,22 @@
      (variantId? : Option (TSyntax `ident))
      (extraIds? : Option (Array (TSyntax `ident)))
      : MetaM Sym.Simp.Methods := do
-@@ -210,8 +237,13 @@
+@@ -215,8 +233,13 @@
      -- (the simproc elaborators only use `CoreM`/`MetaM` capabilities).
      throwError "named Sym.simp variants are not yet supported in `vcgen`; \
        use `vcgen simplifying_assumptions [thm₁, thm₂, ...]` with the default variant instead"
--  -- Resolve extra theorems (local hypotheses first, then global constants)
--  let mut extraThms : Array Sym.Simp.Theorem := #[]
 +  -- Lean's `do` elaborator packs the mutable variables of a loop into a single (possibly
 +  -- nested) product, so the loop body appears as `∀ state : σ₁ × … × σₙ, P state`. Curry it
 +  -- with `Prod.forall` so the symbolic intro sees individual `σᵢ` binders instead of one
 +  -- tuple, avoiding a `cases` and the context shrinking that would follow.
 +  let mut extraThms : Array Sym.Simp.Theorem :=
 +    #[← Sym.Simp.mkTheoremFromDecl ``Prod.forall]
-+  -- Resolve user-provided extra theorems (local hypotheses first, then global constants).
+   -- Resolve extra theorems (local hypotheses first, then global constants)
+-  let mut extraThms : Array Sym.Simp.Theorem := #[]
    if let some ids := extraIds? then
      let lctx ← getLCtx
      for id in ids do
-@@ -230,8 +262,9 @@
+@@ -235,8 +258,9 @@
      post := post >> thms.rewrite
    return { pre, post }
  
@@ -150,16 +152,16 @@
    let variantId? := if simpClause[1].getNumArgs != 0 then some ⟨simpClause[1][0]⟩ else none
    let extraIds? := if simpClause[2].getNumArgs != 0
      then some (simpClause[2][1].getSepArgs.map (⟨·⟩)) else none
-@@ -248,7 +281,7 @@
- forms (one or the other is enforced by the `dotOrCase` flag in the upstream
+@@ -253,7 +277,7 @@
+ mixed bullet/labelled forms (one or the other is enforced by the `dotOrCase` flag in the upstream
  elaborator; we replicate that check here).
  -/
 -private def parseInvariantMap (stx : Syntax) :
 +private meta def parseInvariantMap (stx : Syntax) :
      TermElabM (Option (Std.HashMap Nat Syntax)) := do
    let some altsStx := stx.getOptional? | return none
-   -- The `invariants?` (suggest) form is handled separately by upstream's `elabInvariants`.
-@@ -292,13 +325,13 @@
+   match altsStx with
+@@ -299,7 +323,7 @@
  tags consecutively), and elaborate the matching alt. Invariants that were already
  elaborated inline by `Driver.emitVC` (tracked in `inlineHandled`) are skipped, so
  we don't warn about alts that were already consumed there. -/
@@ -168,14 +170,7 @@
      (invariants : Array MVarId) (inlineHandled : Std.HashSet Nat) : SymM Unit := do
    let mut handled := inlineHandled
    for h : i in 0...invariants.size do
-     let n := i + 1
-     if handled.contains n then continue
--    let some alt := alts[n]? | continue
-+    let some _alt := alts[n]? | continue
-     handled := handled.insert n
-     discard <| VCGen.elabInvariant alts n invariants[i]
-   -- Warn on user-provided alts that matched no invariant goal (neither inline nor post-hoc).
-@@ -317,7 +350,7 @@
+@@ -324,7 +348,7 @@
  /-- Build a `Sym.Pattern` from `e` by abstracting the metavariables `xs` into pattern variables.
  `checkTypeMask?` is `none` because `until` holes appear as function arguments, whose types the
  enclosing application already constrains. -/
@@ -184,7 +179,7 @@
    let pattern := e.abstract xs
    let mut varTypes := #[]
    for h : i in [0:xs.size] do
-@@ -332,7 +365,7 @@
+@@ -339,7 +363,7 @@
  /-- Run a program-pattern elaboration in the goal context: ignore type-class failures, disable `sorry`
  elaboration, and restore the meta state afterwards while keeping info trees so hovers work on the
  pattern. Shared by `elabUntilPattern` and `elabFrameDB`. -/
@@ -193,7 +188,7 @@
    Term.withoutModifyingElabMetaStateWithInfo <|
    withTheReader Term.Context ({ · with ignoreTCFailures := true }) <|
    Term.withoutErrToSorry k
-@@ -340,7 +373,7 @@
+@@ -347,7 +371,7 @@
  /-- Elaborate a program pattern term `p` against the program monad `m` (expected type `m _`, so
  overloaded heads resolve), returning its pattern variables (the collected metavariables: holes and
  synthetic holes) and the resulting `Sym.Pattern`. -/
@@ -202,7 +197,7 @@
    -- A monad `m : Type → Type` expects the program at `m _` so its overloaded head resolves; a
    -- deep-embedding program type is already saturated and is used directly.
    let expectedTy ← if (← inferType progTy).isArrow
-@@ -351,7 +384,7 @@
+@@ -358,7 +382,7 @@
  
  /-- Build an `until` pattern (holes `_` allowed, as in `conv in $t`) against the goal program type
  `progTy` as expected type, so overloaded heads resolve. The holes become pattern variables. -/
@@ -211,7 +206,7 @@
    withPatternElab <| withRef p do
      return (← elabProgPattern progTy p).2
  
-@@ -359,7 +392,7 @@
+@@ -366,7 +390,7 @@
  alternative's program pattern (a head applied to binder/`_` arguments) is elaborated at `progTy`; a
  named binder `x` becomes a synthetic hole `?x` so its name can be recovered and bound to the matched
  argument when the frame term is elaborated in `solve`. -/
@@ -220,20 +215,20 @@
    withPatternElab do
      let mut tree : DiscrTree Nat := .empty
      let mut entries : Array FrameEntry := #[]
-@@ -384,10 +417,9 @@
+@@ -391,11 +415,7 @@
      return { tree, entries }
  
  /-- Parse `vcgen` arguments. -/
 -private def parseArgs (stx : Syntax) (goal : MVarId) : TermElabM ParsedArgs := goal.withContext do
-+private meta def parseArgs (stx : Syntax) (goal : MVarId) : TermElabM ParsedArgs := goal.withContext do
-   if mvcgen.warning.get (← getOptions) then
+-  unless experimental.vcgen.get (← getOptions) do
 -    logWarningAt stx "The `vcgen` tactic is an experimental drop-in replacement for `mvcgen` \
--      that will eventually replace it. Avoid using it in production projects."
-+    logWarningAt stx "The vendored `vcgen_` tactic is experimental and tracks Lean's internal VCGen implementation."
+-      that will eventually replace it; `set_option experimental.vcgen true` acknowledges its \
+-      experimental status and silences this warning."
++private meta def parseArgs (stx : Syntax) (goal : MVarId) : TermElabM ParsedArgs := goal.withContext do
    let config ← runTacticM <| elabConfig stx[1]
    warnIgnoredConfig config
    -- `elimLets` defaults to `false` in `vcgen` (vs. `true` in upstream `mvcgen`):
-@@ -420,8 +452,8 @@
+@@ -427,8 +447,8 @@
    return { config, ctx, scope, invariantAlts?, frameDB }
  
  /-- `vcgen` step inside `sym => …` blocks. -/
@@ -244,7 +239,7 @@
    let goal ← Lean.Elab.Tactic.Grind.getMainGoal
    let args ← parseArgs stx goal.mvarId
    let result ← Lean.Elab.Tactic.Grind.liftGrindM do
-@@ -440,11 +472,72 @@
+@@ -444,11 +464,73 @@
      return invGoals ++ result.vcs.toList
    Lean.Elab.Tactic.Grind.replaceMainGoal newGoals
  
@@ -257,7 +252,7 @@
 +  let total := activeGoals.length
 +  let opts ← liftMetaM getOptions
 +  let showProgress := opts.getBool `velvet.showProgress true
-+  let mut tracker := Velvet2.VCGen.ProgressTracker.init declName? total showProgress
++  let mut tracker := Velvet.VCGen.ProgressTracker.init declName? total showProgress
 +  let mut goalsNew := #[]
 +  let mut idx := 0
 +
@@ -280,13 +275,14 @@
 +          Grind.getUnsolvedGoals
 +        catch ex =>
 +          throwErrorAt source ex.toMessageData
-+
 +    let isSolved := residual.isEmpty && (← goal.mvarId.isAssigned)
 +    if isSolved then
 +      tracker := tracker.onSolved idx tagStr
 +    else
 +      tracker := tracker.onUnsolved idx tagStr
-+
++    for res in residual do
++      if (← res.mvarId.getTag).isAnonymous then
++        res.mvarId.setTag tag
 +    goalsNew := goalsNew ++ residual
 +
 +  liftMetaM tracker.onFinish
@@ -299,7 +295,7 @@
 +  let total := activeGoals.length
 +  let opts ← liftMetaM getOptions
 +  let showProgress := opts.getBool `velvet.showProgress true
-+  let tracker := Velvet2.VCGen.ProgressTracker.init declName? total showProgress
++  let tracker := Velvet.VCGen.ProgressTracker.init declName? total showProgress
 +  let mut tags := #[]
 +  let mut idx := 0
 +  for goal in activeGoals do
@@ -318,7 +314,7 @@
      TacticM (Option (TSyntax `grind)) :=
    match w? with
    | none   => return none
-@@ -456,17 +549,12 @@
+@@ -460,17 +542,12 @@
          m!"`vcgen … with` expects a `grind`-mode discharging step, not a general tactic"
            ++ MessageData.hint' m!"Examples: `vcgen … with finish`, `vcgen … with intro`."
  
@@ -340,7 +336,7 @@
    -- Without `with`, no downstream grind step will read the E-graph, so opt out of
    -- internalisation; `with` keeps the default `internalize := true`.
    let cfg ← match g? with
-@@ -474,17 +562,36 @@
+@@ -478,18 +555,36 @@
      | none   => do
          let off ← `(optConfig| -internalize)
          pure (Lean.Parser.Tactic.appendConfig off cfg)
@@ -354,10 +350,10 @@
    -- `clean := false` keeps inaccessible binder names (no `exposeNames`), so users can
    -- still rename them with `case vcN h => …`.
    let params ← Grind.mkDefaultParams { clean := false }
--  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) <|
--    Grind.evalGrindTactic step
 +  let declName? ← Term.getDeclName?
-+  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
+   let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
+-    unless (← Grind.getUnsolvedGoals).isEmpty do
+-      Grind.evalGrindTactic step
 +    Grind.evalGrindTactic core
 +    if let some g := g? then
 +      dischargeVCGoals g declName?
@@ -382,4 +378,4 @@
 +    Core.setMessageLog messages
 +    throw ex
 +
- end Lean.Elab.Tactic.Do.Internal
+ end Lean.Elab.Tactic.VCGen

@@ -1,16 +1,19 @@
---- a/Lean/Elab/Tactic/Do/Internal/VCGen/Driver.lean
-+++ b/Velvet2/VCGen/Driver.lean
-@@ -8,7 +8,8 @@
+--- a/Lean/Elab/Tactic/VCGen/Driver.lean
++++ b/Velvet/VCGen/Driver.lean
+@@ -8,8 +8,11 @@
  prelude
  public import Lean.Elab.Tactic.Meta
- public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
--public import Lean.Elab.Tactic.Do.Internal.VCGen.Solve
-+public import Velvet2.VCGen.Solve
-+public import Velvet2.Named
+ public import Lean.Elab.Tactic.VCGen.Context
+-public import Lean.Elab.Tactic.VCGen.Solve
++public import Velvet.VCGen.Solve
++public import Velvet.VCGen.Util
++public import Velvet.Named
  public import Lean.Meta.Sym.Grind
++public import Lean.Meta.Sym.InstantiateMVarsS
  
- open Lean Meta Elab Tactic Sym
-@@ -77,6 +78,47 @@
+ open Lean Meta Elab Tactic Sym Sym.Internal Lean.Order
+ open Lean.Elab.Tactic.Do.SpecAttr
+@@ -76,6 +79,46 @@
        others := others.push sg
    return others
  
@@ -33,17 +36,16 @@
 +  -- Refresh the metavariable itself, then simplify that exact target. Simplifying `target`
 +  -- separately and attaching its equality proof to the old raw target can leak context-local fvars.
 +  let mvarId ← preprocessMVar goal.mvarId
-+  let goal := { goal with mvarId }
-+  match ← Sym.simpGoal mvarId (← mkNamedSimpMethods) with
++  let mvarId ← match ← Sym.simpGoal mvarId (← mkNamedSimpMethods) with
 +  | .closed => return none
-+  | .noProgress => throwError "Failed to unwrap named goal {mvarId}"
-+  | .goal mvarId =>
++  | .noProgress => pure mvarId
++  | .goal mvarId => pure mvarId
 +      -- Removing `Named.mk` can expose a fresh beta-redex when a named StateT/ReaderT
 +      -- assertion is applied to its state/environment arguments. The worklist's final
 +      -- normalization ran before this unwrapping, so normalize the exposed target once
 +      -- more while retaining the inherited Grind state.
 +      let mvarId ← match ← Sym.simpGoal mvarId
-+          (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
++          (← _root_.Velvet.VCGen.mkGeneratedControlSimpMethods) with
 +        | .closed => return none
 +        | .noProgress => pure mvarId
 +        | .goal mvarId => pure mvarId
@@ -58,19 +60,24 @@
  /--
  Called when decomposing the goal further did not succeed; in this case we emit a VC for the goal.
  Invariant subgoals are handled separately by `handleInvariantSubgoals` directly inside `work`,
-@@ -94,8 +136,9 @@
-       pure mvarId
-     else
-       pure goal.mvarId
+@@ -84,10 +127,12 @@
+ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
+   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
+   goal ← processHypotheses goal
+-  if goal.inconsistent then return
+-  let some mvarId ← cleanupVC goal.mvarId | return
 -  mvarId.setKind .syntheticOpaque
 -  modify fun s => { s with vcs := s.vcs.push { goal with mvarId } }
++  let some mvarId ← _root_.Velvet.VCGen.cleanupVC goal.mvarId | return
 +  let some emittedGoal ← processNamedGoal { goal with mvarId } | return
++  let some mvarId ← _root_.Velvet.VCGen.cleanupVC emittedGoal.mvarId | return
++  let emittedGoal := { emittedGoal with mvarId }
 +  emittedGoal.mvarId.setKind .syntheticOpaque
 +  modify fun s => { s with vcs := s.vcs.push emittedGoal }
  
  private structure WorkItem where
    goal : Grind.Goal
-@@ -111,7 +154,17 @@
+@@ -103,7 +148,17 @@
      if goal.inconsistent then continue
      match ← solve s.scope goal.mvarId with
      | .stop _reason =>
@@ -81,7 +88,7 @@
 +      -- simplification exposes a connective `solve` can split, put the goal back on the
 +      -- worklist so the split happens now; otherwise the goal is genuinely stuck and is
 +      -- emitted as a VC.
-+      match ← Sym.simpGoal goal.mvarId (← _root_.Velvet2.VCGen.mkGeneratedControlSimpMethods) with
++      match ← Sym.simpGoal goal.mvarId (← _root_.Velvet.VCGen.mkGeneratedControlSimpMethods) with
 +      | .closed => continue
 +      | .noProgress => emitVC goal
 +      | .goal mvarId =>
@@ -89,7 +96,7 @@
      | .goals scope subgoals =>
        -- Handle invariant subgoals eagerly here, so that VC subgoals popped
        -- from the worklist later see the invariant MVar already assigned.
-@@ -154,7 +207,13 @@
+@@ -146,7 +201,13 @@
    _ ← state.invariants.mapIdxM fun idx mv => do
      mv.setTag (Name.mkSimple ("inv" ++ toString (idx + 1)))
    _ ← state.vcs.mapIdxM fun idx g => do

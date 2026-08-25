@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# generate_vcgen_diff — write per-file diffs of this repo's Velvet/VCGen
-# against the Lean toolchain's copy.
+# generate_loop_diff — write per-file diffs of this repo's loop elaboration
+# and loop specifications against the Lean toolchain's copies.
 #
 # Usage:
-#   generate_vcgen_diff [--full] [toolchain]
+#   generate_loop_diff [--full] [toolchain]
 #     --full    show the whole file (don't trim unchanged lines)
-#     toolchain # elan dir name, e.g. leanprover--lean4-nightly---nightly-2026-08-11
+#     toolchain # elan dir name, e.g. leanprover--lean4-nightly---nightly-2026-08-22
 #               # or a full path to a toolchain root; defaults to the active one
 #
-# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util.
+# Writes diffs/LoopElaboration.diff and diffs/Loop.diff.
 set -euo pipefail
 
 # Resolve the real location of this script (follow symlinks) so it works
@@ -20,7 +20,6 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 REPO_ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-VCGEN_DIR="$REPO_ROOT/Velvet/VCGen"
 DIFF_DIR="$REPO_ROOT/diffs"
 
 # Parse arguments: optional --full flag and/or a toolchain name/path.
@@ -44,41 +43,41 @@ elif [[ ! -d "$TOOLCHAIN" ]]; then
   TOOLCHAIN="$HOME/.elan/toolchains/$TOOLCHAIN"
 fi
 
-# Locate VCGen sources in current or legacy toolchain paths
-if [[ -d "$TOOLCHAIN/src/lean/Lean/Elab/Tactic/VCGen" ]]; then
-  SRC="$TOOLCHAIN/src/lean/Lean/Elab/Tactic/VCGen"
-  TC_LABEL="Lean/Elab/Tactic/VCGen"
-elif [[ -d "$TOOLCHAIN/src/lean/Lean/Elab/Tactic/Do/Internal/VCGen" ]]; then
-  SRC="$TOOLCHAIN/src/lean/Lean/Elab/Tactic/Do/Internal/VCGen"
-  TC_LABEL="Lean/Elab/Tactic/Do/Internal/VCGen"
-else
-  echo "error: VCGen sources not found under $TOOLCHAIN/src/lean/Lean/Elab/Tactic/{VCGen,Do/Internal/VCGen}" >&2
-  exit 1
-fi
+[[ -d "$TOOLCHAIN" ]] || { echo "error: toolchain not found at $TOOLCHAIN" >&2; exit 1; }
 
 mkdir -p "$DIFF_DIR"
 
-for f in Driver Solve Frontend Util; do
-  src="$SRC/$f.lean"
-  dst="$VCGEN_DIR/$f.lean"
+if [[ $FULL -eq 1 ]]; then
+  CONTEXT=100000   # effectively the whole file
+else
+  CONTEXT=3
+fi
+
+# Define mappings: toolchain relative path -> repo relative path -> output diff name
+# Format: "toolchain_path|repo_path|out_diff_name"
+MAPPINGS=(
+  "src/lean/Lean/Elab/BuiltinDo/For.lean|Velvet/Elab/LoopElaboration.lean|LoopElaboration"
+  "src/lean/Std/WP/Gadget/ForIn.lean|Velvet/Loop.lean|Loop"
+)
+
+for mapping in "${MAPPINGS[@]}"; do
+  IFS='|' read -r tc_rel repo_rel out_name <<< "$mapping"
+  src="$TOOLCHAIN/$tc_rel"
+  dst="$REPO_ROOT/$repo_rel"
+
   [[ -f "$src" ]] || { echo "warning: missing $src" >&2; continue; }
   [[ -f "$dst" ]] || { echo "warning: missing $dst" >&2; continue; }
 
-  out="$DIFF_DIR/$f.diff"
-  if [[ $FULL -eq 1 ]]; then
-    CONTEXT=100000   # effectively the whole file
-  else
-    CONTEXT=3
-  fi
+  out="$DIFF_DIR/$out_name.diff"
   rc=0
   diff -u -U "$CONTEXT" \
-    --label "a/$TC_LABEL/$f.lean" \
-    --label "b/Velvet/VCGen/$f.lean" \
+    --label "a/$tc_rel" \
+    --label "b/$repo_rel" \
     "$src" "$dst" > "$out" || rc=$?
 
   case $rc in
     0) echo "wrote $out (no differences)";;
     1) echo "wrote $out ($(wc -l < "$out" | tr -d ' ') lines)";;
-    *) echo "error: diff failed for $f (exit $rc)" >&2; rm -f "$out";;
+    *) echo "error: diff failed for $out_name (exit $rc)" >&2; rm -f "$out";;
   esac
 done

@@ -1,6 +1,6 @@
 {"version": "1.2.0",
  "packagesDir": ".lake/packages",
  "packages": [],
- "name": "velvet2",
+ "name": "velvet",
  "lakeDir": ".lake",
  "fixedToolchain": false}

@@ -1,4 +1,4 @@
-import Velvet2
+import Velvet
 
 def main : IO Unit :=
-  IO.println "Hello, Velvet2!"
+  IO.println "Hello, Velvet!"

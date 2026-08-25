@@ -1,14 +1,14 @@
---- a/Lean/Elab/Tactic/Do/Internal/VCGen/Util.lean
-+++ b/Velvet2/VCGen/Util.lean
-@@ -6,186 +6,107 @@
+--- a/Lean/Elab/Tactic/VCGen/Util.lean
++++ b/Velvet/VCGen/Util.lean
+@@ -6,155 +6,165 @@
  module
  
  prelude
 -public import Lean.Meta.Tactic.Grind.Main
 +public import Init.Data.Sum.Basic
- public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
--public import Lean.Elab.Tactic.Do.Internal.VCGen.Reduce
-+public import Lean.Elab.Tactic.Do.Internal.VCGen.Util
+ public import Lean.Elab.Tactic.VCGen.Context
+-public import Lean.Elab.Tactic.VCGen.Reduce
++public import Lean.Elab.Tactic.VCGen.Util
  public import Lean.Meta.Sym.AlphaShareBuilder
  public import Lean.Meta.Sym.Intro
 -public import Lean.Meta.Sym.Simp.Goal
@@ -17,35 +17,34 @@
 +public import Lean.Meta.Sym.Simp.ControlFlow
 +public import Lean.Meta.Sym.Simp.EvalGround
 +public import Lean.Meta.Sym.Simp.Rewrite
-+public import Velvet2.Named
++public import Velvet.Named
  
 -open Lean Meta Sym Lean.Order
 +open Lean Meta Sym Sym.Internal
-+open Lean.Elab.Tactic.Do.Internal
++open Lean.Elab.Tactic.VCGen
  
 -/-!
 -Generic `VCGenM` helpers: checked backward-rule application, telescope-aware `simp` driver,
--hygienic binder introduction, hypothesis-internalization for grind, and the trivial-conjunct
--collapser `solveTrivialConjuncts`. None of these know anything about the entailment shapes `solve`
--decomposes.
+-hygienic binder introduction, hypothesis-internalization for grind, and the emission-time cleanup
+-`cleanupVC`. None of these know anything about the entailment shapes `solve` decomposes.
 --/
-+namespace Velvet2.VCGen
++namespace Velvet.VCGen
  
--namespace Lean.Elab.Tactic.Do.Internal
-+private theorem prodFstMk {α : Type u} {β : Type v} (a : α) (b : β) :
+-namespace Lean.Elab.Tactic.VCGen
++public theorem prodFstMk {α : Type u} {β : Type v} (a : α) (b : β) :
 +    (a, b).fst = a := rfl
  
--/-- Change `goal`'s `Prop`-typed target to the definitionally-equal `targetNew`, mirroring the goal
--update in `Sym.Simp`: a fresh synthetic-opaque goal cast back through `@id`. Unlike
--`MVarId.replaceTargetDefEq` it skips the `instantiateMVars`/`Expr.equal` round-trip, so it neither
--detects a no-op change nor supports a non-`Prop` target; the caller must pass a genuinely different
--`targetNew` definitionally equal to the current target. -/
+-/-- Change `goal`'s `Prop`-typed target to the definitionally-equal `targetNew`, assigning `goal` a
+-fresh synthetic-opaque goal for `targetNew`, so the kernel checks the two types against each other.
+-Unlike `MVarId.replaceTargetDefEq` it skips the `instantiateMVars`/`Expr.equal` round-trip, so it
+-neither detects a no-op change nor supports a non-`Prop` target; the caller must pass a genuinely
+-different `targetNew` definitionally equal to the current target. -/
 -public def _root_.Lean.MVarId.replaceTargetDefEqFast (goal : MVarId) (targetNew : Expr) :
 -    MetaM MVarId := goal.withContext do
 -  let mvarNew ← mkFreshExprSyntheticOpaqueMVar targetNew (← goal.getTag)
--  goal.assign (mkApp2 (mkConst ``id [.zero]) (← goal.getType) mvarNew)
+-  goal.assign mvarNew
 -  return mvarNew.mvarId!
-+private theorem prodSndMk {α : Type u} {β : Type v} (a : α) (b : β) :
++public theorem prodSndMk {α : Type u} {β : Type v} (a : α) (b : β) :
 +    (a, b).snd = b := rfl
  
 -/-- Internalize a backward rule's pattern into the current `SymM` share table. See
@@ -55,18 +54,73 @@
 +/-- Narrow methods for simplifying generated concrete control flow and projections. -/
 +public def mkGeneratedControlSimpMethods : MetaM Sym.Simp.Methods := do
 +  let mut thms : Sym.Simp.Theorems := {}
-+  for declName in #[``Sum.isRight_inl, ``Sum.isRight_inr, ``prodFstMk, ``prodSndMk,
-+      ``true_and, ``and_true,
++  for declName in #[``Sum.isRight_inl, ``Sum.isRight_inr,
++      ``prodFstMk, ``prodSndMk,
 +      ``Lean.Order.CompleteLattice.ofProp_apply] do
 +    thms := thms.insert (← Sym.Simp.mkTheoremFromDecl declName)
 +  return {
 +    pre := fun e => do
++      if let some (_, _, structExpr) := e.app3? ``Prod.fst then
++        if let some (_, _, a, _) := structExpr.app4? ``Prod.mk then
++          return .step a (← mkAppM ``Eq.refl #[a]) (done := false)
++      if let some (_, _, structExpr) := e.app3? ``Prod.snd then
++        if let some (_, _, _, b) := structExpr.app4? ``Prod.mk then
++          return .step b (← mkAppM ``Eq.refl #[b]) (done := false)
++      if let .proj _ idx structExpr := e then
++        if let some (_, _, a, b) := structExpr.app4? ``Prod.mk then
++          let res := if idx == 0 then a else b
++          return .step res (← mkAppM ``Eq.refl #[res]) (done := false)
 +      let e' := e.headBeta
 +      if isSameExpr e e' then Sym.Simp.simpControl e else
 +        return .step e' (← mkAppM ``Eq.refl #[e']) (done := false)
-+    post := Sym.Simp.evalGround >> thms.rewrite
++    post := thms.rewrite
 +  }
  
++/-- Defeq reduction for tuple projections and simple control redexes. -/
++public partial def reduceDefEqProjs (e : Expr) : MetaM Expr := do
++  let e := e.headBeta
++  if let some (_, _, structExpr) := e.app3? ``Prod.fst then
++    let structExpr ← reduceDefEqProjs structExpr
++    if let some (_, _, a, _) := structExpr.app4? ``Prod.mk then
++      return ← reduceDefEqProjs a
++  if let some (_, _, structExpr) := e.app3? ``Prod.snd then
++    let structExpr ← reduceDefEqProjs structExpr
++    if let some (_, _, _, b) := structExpr.app4? ``Prod.mk then
++      return ← reduceDefEqProjs b
++  if let .proj _ idx structExpr := e then
++    let structExpr ← reduceDefEqProjs structExpr
++    if let some (_, _, a, b) := structExpr.app4? ``Prod.mk then
++      let res := if idx == 0 then a else b
++      return ← reduceDefEqProjs res
++  if let some (_, _, arg) := e.app3? ``Sum.isRight then
++    let arg ← reduceDefEqProjs arg
++    if arg.isAppOf ``Sum.inl then
++      return mkConst ``Bool.false
++    if arg.isAppOf ``Sum.inr then
++      return mkConst ``Bool.true
++  match e with
++  | .app f a =>
++    let f' ← reduceDefEqProjs f
++    let a' ← reduceDefEqProjs a
++    return e.updateApp! f' a'
++  | .lam _ type body bi =>
++    let type' ← reduceDefEqProjs type
++    let body' ← reduceDefEqProjs body
++    return e.updateLambda! bi type' body'
++  | .forallE _ type body bi =>
++    let type' ← reduceDefEqProjs type
++    let body' ← reduceDefEqProjs body
++    return e.updateForall! bi type' body'
++  | .letE _ type val body nondep =>
++    let type' ← reduceDefEqProjs type
++    let val' ← reduceDefEqProjs val
++    let body' ← reduceDefEqProjs body
++    return e.updateLet! type' val' body' nondep
++  | .mdata data val =>
++    let val' ← reduceDefEqProjs val
++    if isSameExpr val val' then pure e else pure (.mdata data val')
++  | _ => pure e
++
  /--
 -`VCGenM` wrapper around `BackwardRule.apply`. Behaves identically to
 -`rule.apply goal` unless the application fails and `Context.debug` is on.
@@ -90,7 +144,7 @@
 +   (non-`Named`) binders keep Lean's default naming.
  
 -Designed for dot notation: `rule.applyChecked goal`. Requires
--`open Lean.Elab.Tactic.Do.Internal` in scope so that the dot lookup resolves.
+-`open Lean.Elab.Tactic.VCGen` in scope so that the dot lookup resolves.
 --/
 -public def Lean.Meta.Sym.BackwardRule.applyChecked (rule : BackwardRule) (goal : MVarId)
 -    (ruleDesc? : Option MessageData := none) : VCGenM ApplyResult := do
@@ -118,50 +172,59 @@
 -        Re-run with `set_option pp.all true` to see the structural difference."
 -    return r
 +2. **Binder domains are cleaned up first.** Each binder's type is run through
-+   `mkGeneratedControlSimpMethods`, so leftover generated control flow (branch guards, tuple
-+   projections) and applied `⌜p⌝` wrappers are reduced before the binder is introduced.
++   `reduceDefEqProjs`, so leftover generated control flow (branch guards, tuple
++   projections) are reduced before the binder is introduced.
  
--namespace VCGen
 +`collectAndNormalizeBinders` rebuilds only the binders that actually changed (`mkForallS`/`mkLetS`)
 +and returns the rest unchanged, to avoid rebuilds and preserve sharing. `overrides[i]`, when given,
 +wins over both the `Named` name and the syntactic name for the `i`-th binder. Returns `goal`
 +unchanged when there are no leading binders.
  
 -open Sym Sym.Internal
--open Lean.Elab.Tactic.Do.Internal
+-open Lean.Elab.Tactic.VCGen
 -
 -/-- `Grind.processHypotheses` if `Context.internalize` is `true`, otherwise a no-op. -/
 -public def processHypotheses (goal : Grind.Goal) : VCGenM Grind.Goal := do
 -  if (← read).internalize then Grind.processHypotheses goal else return goal
 -
--/--
--Introduce all leading binders of `goal` in one pass, naming the `i`-th binder `overrides[i]` when
--given and the binder's own name otherwise. Accessibility is decided by `tactic.hygienic` via
--`mkFreshBinderNameForTactic`. The introduction itself is a single `Sym.intros` call (which keeps
--the memoized, sharing-correct intro); only the names are chosen here. Returns the goal unchanged
--when there are no leading binders.
-+Vendored from `Lean.Elab.Tactic.Do.Internal.VCGen.Util` (which only reads syntactic binder names
+-/-- Whether `n` is a program variable's own name: no macro scopes and no implementation-detail
+-`__` prefix. Such a name stays accessible in a verification condition. -/
+-public def isProgramName (n : Name) : Bool :=
+-  !n.hasMacroScopes && !n.isImplementationDetail
+-
+-/-- The leading binders of `type`, stopping at a binder over a product: `∀ (n : Nat) (p : α × β)`
+-counts one, because `solve` splits `p` into one binder per component first. -/
+-public def numBindersToIntro : Expr → Nat
+-  | .forallE _ d b _ => if d.isAppOf ``Prod then 0 else numBindersToIntro b + 1
+-  | .letE _ _ _ b _ => numBindersToIntro b + 1
+-  | _ => 0
+-
+-/-- Introduce the first `n` binders of `goal`, named by `mkFreshBinderNameForTactic`, which
+-`tactic.hygienic` makes inaccessible: `∀ acc, acc % 2 = 0` introduces `acc✝`. -/
+-public def introsHygienicN (goal : MVarId) (n : Nat) : VCGenM MVarId :=
++Vendored from `Lean.Elab.Tactic.VCGen.Util` (which only reads syntactic binder names
 +and neither normalizes domains nor understands `Named.mk`).
- -/
- public def introsHygienic (goal : MVarId) (overrides : Array Name := #[]) : VCGenM MVarId :=
++-/
++public def introsHygienic (goal : MVarId) (overrides : Array Name := #[]) : VCGenM MVarId :=
    goal.withContext do
--    let rec collectBinders (type : Expr) (acc : Array Name) : Array Name :=
+-    let rec collectBinders : Nat → Expr → Array Name → Array Name
+-      | 0, _, acc => acc
+-      | n+1, .forallE nm _ b _, acc => collectBinders n b (acc.push nm)
+-      | n+1, .letE nm _ _ b _, acc => collectBinders n b (acc.push nm)
+-      | _, _, acc => acc
+-    let binderNames := collectBinders n (← goal.getType) #[]
+-    if binderNames.isEmpty then return goal
 +    let rec collectAndNormalizeBinders (type : Expr) (acc : Array (Name × Bool)) :
 +        VCGenM (Expr × Array (Name × Bool)) := do
-       match type with
--      | .forallE n _ b _ => collectBinders b (acc.push n)
--      | .letE n _ _ b _ => collectBinders b (acc.push n)
--      | _ => acc
--    let binderNames := collectBinders (← goal.getType) #[]
--    if binderNames.isEmpty then return goal
++      match type with
 +      | .forallE binderName binderType body binderInfo =>
++          if binderType.isAppOf ``Prod && acc.size ≥ overrides.size then
++            return (type, acc)
 +          let binderTypeOrig := binderType
-+          let binderType ← match ← Sym.simp binderType (← mkGeneratedControlSimpMethods) with
-+            | .rfl .. => pure binderType
-+            | .step binderType _ .. => pure binderType
 +          let (binderType, entry) ← match ← Named.extract? binderType with
 +            | some (name, value) => pure (value, (name, true))
 +            | none => pure (binderType, (binderName, false))
++          let binderType ← reduceDefEqProjs binderType
 +          let (body', acc) ← collectAndNormalizeBinders body (acc.push entry)
 +          if isSameExpr binderTypeOrig binderType && isSameExpr body body' then
 +            return (type, acc)
@@ -180,8 +243,8 @@
 +      goal.replaceTargetDefEqFast target'
 +    let lctx ← getLCtx
      let mut names := #[]
--    for h : i in *...binderNames.size do
--      names := names.push (← Meta.mkFreshBinderNameForTactic (overrides[i]?.getD binderNames[i]))
+-    for nm in binderNames do
+-      names := names.push (← Meta.mkFreshBinderNameForTactic nm)
 +    for h : i in *...binders.size do
 +      let (binderName, isNamed) := binders[i]
 +      let name := overrides[i]?.getD binderName
@@ -193,7 +256,11 @@
      let .goal _ goal ← Sym.intros goal names | return goal
      return goal
  
--/--
+-/-- `introsHygienicN` for every non-`Prod` binder the goal leads with. -/
+-public def introsHygienic (goal : MVarId) : VCGenM MVarId := do
+-  introsHygienicN goal (numBindersToIntro (← goal.getType))
+-
+ /--
 -Simplify the goal's target with the configured hypothesis simp methods (a no-op without
 -`Context.hypSimpMethods`), threading the persistent simp cache through `VCGenM`'s state.
 -`.noProgress` is forwarded to the caller.
@@ -225,47 +292,48 @@
 -  return (← introsExcessArgs goal) <|> some goal
 -
 -/--
--Solves conjunctions whose leaves are `True` or `e₁ = e₂`, and returns a residual goal containing
--exactly the conjuncts that could not be solved.
--This procedure may assign metavariables in `e₁`/`e₂`, for example for `e = ?m` it will assign
--`?m := e`.
---/
--public partial def solveTrivialConjuncts (goal : MVarId) : VCGenM (Option MVarId) :=
--    goal.withContext do
--  let ctx ← read
--  let ty ← instantiateMVars (← goal.getType)
--  if ty.isAppOf ``True then
--    goal.assign (mkConst ``True.intro)
--    return none
--  else if ty.isAppOf ``And then
--    let .goals [g₁, g₂] ← ctx.backwardRules.andIntro.applyChecked goal
--      | throwError "solveTrivialConjuncts: failed to apply {.ofConstName ``And.intro} to{indentExpr ty}"
--    match ← solveTrivialConjuncts g₁, ← solveTrivialConjuncts g₂ with
--    | none,    none    => return none
+ Solves conjunctions whose leaves are `True` or `e₁ = e₂`, and returns a residual goal containing
+ exactly the conjuncts that could not be solved.
+ The goal is head-reduced first, so a conjunction that a `match` on a constructor or a projection
+@@ -166,25 +176,33 @@
+     goal.withContext do
+   let ctx ← read
+   let ty ← instantiateMVars (← goal.getType)
++  let ty := ty.consumeMData
+   let (goal, ty) ← match ← reduceHead? ty with
+     | some ty' => pure (← goal.replaceTargetDefEqFast ty', ty')
+     | none => pure (goal, ty)
++  let ty := ty.consumeMData
+   if ty.isAppOf ``True then
+     goal.assign (mkConst ``True.intro)
+     return none
+   else if ty.isAppOf ``And then
++    let tag ← goal.getTag
+     let .goals [g₁, g₂] ← ctx.backwardRules.andIntro.applyChecked goal
+       | throwError "cleanupVC: failed to apply {.ofConstName ``And.intro} to{indentExpr ty}"
+     match ← cleanupVC g₁, ← cleanupVC g₂ with
+     | none,    none    => return none
 -    | some g,  none    => return some g
 -    | none,    some g  => return some g
--    | some g₁', some g₂' =>
--      let t₁ ← g₁'.getType
--      let t₂ ← g₂'.getType
--      let combined ← mkFreshExprSyntheticOpaqueMVar (mkApp2 (mkConst ``And) t₁ t₂)
--      g₁'.assign (mkApp3 (mkConst ``And.left) t₁ t₂ combined)
--      g₂'.assign (mkApp3 (mkConst ``And.right) t₁ t₂ combined)
--      return some combined.mvarId!
--  else if let some (ty, lhs, rhs) := ty.app3? ``Eq then
--    let lhs ← reduceHead lhs
--    let rhs ← reduceHead rhs
--    let u ← Meta.getLevel ty
--    let goal ← goal.replaceTargetDefEqFast (mkApp3 (mkConst ``Eq [u]) ty lhs rhs)
--    -- Synthetic opaque metavariables (e.g. invariant holes) stay rigid; natural
--    -- metavariables may be assigned (e.g. `?m := e` for `e = ?m` leaves).
--    if ← isDefEqS lhs rhs then
--      goal.assign (mkApp2 (mkConst ``Eq.refl [← Meta.getLevel ty]) ty lhs)
--      return none
--    else
--      return some goal
--  else
--    return some goal
--
--end VCGen
--end Lean.Elab.Tactic.Do.Internal
-+end Velvet2.VCGen
++    | some g,  none    => do
++      if (← g.getTag).isAnonymous then g.setTag tag
++      return some g
++    | none,    some g  => do
++      if (← g.getTag).isAnonymous then g.setTag tag
++      return some g
+     | some g₁', some g₂' =>
+       let t₁ ← g₁'.getType
+       let t₂ ← g₂'.getType
+       let combined ← mkFreshExprSyntheticOpaqueMVar (mkApp2 (mkConst ``And) t₁ t₂)
+       g₁'.assign (mkApp3 (mkConst ``And.left) t₁ t₂ combined)
+       g₂'.assign (mkApp3 (mkConst ``And.right) t₁ t₂ combined)
++      combined.mvarId!.setTag tag
+       return some combined.mvarId!
+   else if let some (ty, lhs, rhs) := ty.app3? ``Eq then
+     let lhs ← reduceHead lhs
+@@ -201,4 +219,4 @@
+   else
+     return some goal
+ 
+-end Lean.Elab.Tactic.VCGen
++end Velvet.VCGen

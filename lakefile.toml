@@ -1,10 +1,10 @@
-name = "velvet2"
+name = "velvet"
 version = "0.1.0"
-defaultTargets = ["velvet2"]
+defaultTargets = ["velvet"]
 
 [[lean_lib]]
-name = "Velvet2"
+name = "Velvet"
 
 [[lean_exe]]
-name = "velvet2"
+name = "velvet"
 root = "Main"
