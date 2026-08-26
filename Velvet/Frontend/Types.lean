@@ -21,16 +21,12 @@ public structure AssertionInfo where
   term : TSyntax `term
   stx : TSyntax `velvSpecTerm
 
-/-- A method parameter binder, e.g. `(n : Nat)` or `{n : Nat}`. -/
-public structure MethodParam where
-  ident : Ident
-  type : TSyntax `term
-  stx : TSyntax `Lean.Parser.Term.bracketedBinder
-
 /-- All flags parsed from a `method` declaration, before the `def`/`spec` are generated. -/
 public structure MethodElabContext where
+  doc : Option (TSyntax `Lean.Parser.Command.docComment) := none
   name : Ident
-  binders : Array MethodParam
+  binders : TSyntaxArray [`ident, ``Lean.Parser.Term.hole, ``Lean.Parser.Term.bracketedBinder]
+  givenBinders : TSyntaxArray [`ident, ``Lean.Parser.Term.hole, ``Lean.Parser.Term.bracketedBinder] := #[]
   retId : Ident
   retType : TSyntax `term
   monadStack : Option (TSyntax `term)

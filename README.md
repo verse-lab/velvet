@@ -73,6 +73,7 @@ set_option velvet_vcgen.showProgress true
 
 ```lean
 method [rec]? <name> (<params>...)* returns (<ret_name> : <RetType>) [in <Monad>]?
+  [given (<ghost_binders>...)+]?
   [requires [<name> :]? [(<state_binders>) =>]? <Predicate>]*
   [signals [<name> :]? [(<err_binder>) =>]? <ErrorPredicate>]*
   [ensures [<name> :]? [(<state_binders>) =>]? <PostPredicate>]*
@@ -85,6 +86,55 @@ do
 - **Pure Methods (`Option`)**: When `in <Monad>` is omitted and no `signals` clause is provided, methods default to `Option`.
 - **Stateful Methods (`StateT`)**: Initial and final state binders are specified using `(s : σ) => ...`.
 - **Exceptions (`ExceptT`)**: Error conditions are specified using `signals (e : ε) => ...`.
+
+### Method Parameter Binders
+
+Velvet supports all native Lean 4 binder formats in method signatures:
+
+- **Explicit typed binders**: `(x : Nat)`
+- **Multi-variable binders**: `(x y : Nat)`
+- **Implicit parameters**: `{α : Type}`, `{α β : Type}`
+- **Typeclass instance binders**: `[Inhabited α]`, `[inst : Add α]`
+- **Strict implicit binders**: `⦃α : Type⦄`
+- **Dependent binders**: `(n : Nat) (xs : List (Fin (n + 1)))`
+
+```lean
+method combinedMethod (x y : Nat) {α : Type} [Inhabited α] (val : α)
+    returns (res : Nat × α) in StateT Nat Id
+  requires (s : Nat) => True
+  ensures (s : Nat) => res = (x + y, val)
+do
+  return (x + y, val)
+```
+
+### Logical / Ghost Variables (`given` Clause)
+
+The `given` clause introduces **logical (ghost) variables** for the specification triple.
+
+- **Specification Scope**: `given` variables are quantified in the generated specification theorem (`<name>.spec_triple` / `<name>.spec`) and can be referenced in `requires`, `signals`, and `ensures` clauses.
+- **Program Isolation**: They are **not** parameters to the executable function and **cannot** be referenced inside the `do` body.
+- **Binder Types**: `given` supports all Lean binder types (e.g. `given (s₀ : Nat)`, `given (lo hi : Nat) {d : Nat}`).
+
+#### Canonical Pattern: Capturing Initial State `s₀` in `StateM`
+
+The classic Hoare logic pattern for stateful programs is capturing the initial state `s₀` before mutation, and specifying that the final state differs from the initial state by a given delta `x`:
+
+```lean
+method incrementBy (x : Nat) returns (res : PUnit) in StateM Nat
+  given (s₀ : Nat)
+  requires (s : Nat) => s = s₀
+  ensures (s : Nat) => s = s₀ + x
+do
+  let s ← get
+  set (s + x)
+
+prove_correct incrementBy by
+  velvet_vcgen [incrementBy] with finish
+
+#check @incrementBy.spec
+-- incrementBy.spec : ∀ (x s₀ : Nat),
+--   ⦃ fun s => s = s₀ ⦄ incrementBy x ⦃ fun res s => s = s₀ + x ⦄
+```
 
 ### Automatic `ExceptT` Inference
 
@@ -106,8 +156,10 @@ If you write `signals` clauses without an explicit `in <Monad>` stack, Velvet au
 
 > 📁 **Examples**:
 > - Basic arithmetic: [`Sqrt.lean`](Velvet/Examples/Sqrt.lean)
-> - Recursion: [`Recursion.lean`](Velvet/Examples/Recursion.lean), [`MatchRecursion.lean`](Velvet/Examples/MatchRecursion.lean)
+> - Binder types: [`BindersTest.lean`](Velvet/Examples/BindersTest.lean)
+> - Recursion & `given`: [`Recursion.lean`](Velvet/Examples/Recursion.lean), [`MatchRecursion.lean`](Velvet/Examples/MatchRecursion.lean)
 > - State & Exceptions: [`StateT.lean`](Velvet/Examples/StateT.lean), [`AutomaticExceptionInference.lean`](Velvet/Examples/AutomaticExceptionInference.lean)
+> - Intrinsic verification: [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean)
 
 ---
 
@@ -354,6 +406,7 @@ All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 | [`RunLengthEncoding.lean`](Velvet/Examples/RunLengthEncoding.lean) | Run-length list encoding |
 | [`Loops.lean`](Velvet/Examples/Loops.lean) | Loop patterns (`while'`, `for in`, multi-state) |
 | [`LoopsExplicitVCs.lean`](Velvet/Examples/LoopsExplicitVCs.lean) | Explicit subgoal proofs with `case <tag>` |
+| [`BindersTest.lean`](Velvet/Examples/BindersTest.lean) | All supported parameter binder kinds and `given` clauses |
 | [`Recursion.lean`](Velvet/Examples/Recursion.lean) | Recursive `method rec` definitions |
 | [`MatchRecursion.lean`](Velvet/Examples/MatchRecursion.lean) | Pattern matching recursion |
 | [`StateT.lean`](Velvet/Examples/StateT.lean) | Stateful verification (`StateT`, `ReaderT`) |
@@ -363,5 +416,5 @@ All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 | [`LiftingExamples.lean`](Velvet/Examples/LiftingExamples.lean) | Monad lifting across transformer stacks |
 | [`MemAlloc.lean`](Velvet/Examples/MemAlloc.lean) | Linked-list allocator with ghost pointers |
 | [`IntrinsicVerification.lean`](Velvet/Examples/IntrinsicVerification.lean) | Elaboration-time automatic verification (`velvet.verifyDuringElab`) |
-| [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean) | Interoperability with intrinsic contracts |
+| [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean) | Interoperability with intrinsic contracts and `given` |
 | [`ErrorMsgs.lean`](Velvet/Examples/ErrorMsgs.lean) | Compiler error diagnostic tests |

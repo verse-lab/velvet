@@ -157,5 +157,49 @@ prove_correct countdownRec by
   · intro p ih n
     velvet_vcgen [ih] with finish
 
- 
+/-! Recursive method using `partial_fixpoint` with ghost variable `given (g : Nat)` -/
+method rec spinWithGiven returns (res : Nat) in Option
+  given (g : Nat)
+  signals (u : Unit) => True
+  ensures res = 2 ∧ g = g
+do
+  spinWithGiven
 
+prove_correct spinWithGiven by
+  refine spinWithGiven.fixpoint_induct (motive := spinWithGiven.fixpoint_triple_motive) ?_ ?_
+  · apply admissible_pi
+    intro g
+    apply admissible_triple
+    intro _
+    simp [Named.mk]
+  · intro p ih g
+    have ih_g := ih g
+    velvet_vcgen [ih_g] with finish
+
+#check @spinWithGiven.spec
+
+/-! Parameterized recursive method with program parameter `(n : Nat)` and ghost `given (g : Nat)` -/
+method rec countdownWithGiven (n : Nat) returns (res : Nat) in Option
+  given (g : Nat)
+  signals (u : Unit) => True
+  ensures res = 0 ∧ g = g
+do
+  if n = 0 then
+    return 0
+  else
+    countdownWithGiven (n - 1)
+
+prove_correct countdownWithGiven by
+  refine countdownWithGiven.fixpoint_induct (motive := countdownWithGiven.fixpoint_triple_motive) ?_ ?_
+  · apply admissible_pi_apply (P := fun _ c => ∀ (g : Nat), ⦃ True ⦄ c ⦃ fun res => ⌜⟪ensures1 : res = 0 ∧ g = g⟫⌝; fun u => ⌜⟪signals1 : (fun u => True) u⟫⌝ ⦄)
+    intro n
+    apply admissible_pi
+    intro g
+    apply admissible_triple
+    intro _
+    simp [Named.mk]
+  · intro p ih n g
+    have ih_n_g := ih (n - 1) g
+    velvet_vcgen [ih_n_g] with finish
+
+#check @countdownWithGiven.spec

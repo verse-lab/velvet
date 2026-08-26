@@ -34,6 +34,20 @@ prove_correct countState by
 
 #check countState.spec
 
+/-- Capturing the initial state `s₀` with `given` to relate old state and new state across mutation. -/
+method incrementBy (x : Nat) returns (res : PUnit) in StateM Nat
+  given (s₀ : Nat)
+  requires (s : Nat) => s = s₀
+  ensures (s : Nat) => s = s₀ + x
+do
+  let s ← get
+  set (s + x)
+
+prove_correct incrementBy by
+  velvet_vcgen [incrementBy] with finish
+
+#check @incrementBy.spec
+
 
 /-- A `StateT Nat Option` program with assertions before and after mutation. -/
 @[expose] public def boundedIncrement (limit : Nat) : CounterOption Nat := do

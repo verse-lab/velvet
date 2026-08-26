@@ -35,8 +35,9 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
   | .totalCorrectness => checkWhileTermination ctx.body.raw
   | .partialCorrectness => pure ()
   let (defCmd, specCmd, motiveCmd?, statement) ← Command.runTermElabM fun _vs => do
-    let ids := ctx.binders.map (·.ident)
-    let binderStxs := ctx.binders.map (·.stx)
+    let ids := ctx.binders.flatMap (fun b => contractBinderIdents b.raw)
+    let binderStxs := ctx.binders
+    let allBinderStxs := binderStxs ++ ctx.givenBinders
     let reqNames := makeNameArrayFromIdents (ctx.requiresClauses.map (·.name)) "requires"
     let ensNames := makeNameArrayFromIdents (ctx.ensuresClauses.map (·.name)) "ensures"
     let reqTerms ← liftMacroM <| ctx.requiresClauses.mapM (fun c => buildFun c.binders c.term)
@@ -88,21 +89,45 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     let sigs ← liftMacroM <| mkSignalsList sigTerms sigNames
     let defCmd ←
       if ctx.isRec then
-        `(command|
-          set_option linter.unusedVariables false in
-          @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body)
-            partial_fixpoint)
+        match ctx.doc with
+        | some doc =>
+          `(command|
+            set_option linter.unusedVariables false in
+            $doc:docComment
+            @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body)
+              partial_fixpoint)
+        | none =>
+          `(command|
+            set_option linter.unusedVariables false in
+            @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body)
+              partial_fixpoint)
       else
-        `(command|
-          set_option linter.unusedVariables false in
-          @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body))
+        match ctx.doc with
+        | some doc =>
+          `(command|
+            set_option linter.unusedVariables false in
+            $doc:docComment
+            @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body))
+        | none =>
+          `(command|
+            set_option linter.unusedVariables false in
+            @[expose] public def $(ctx.name) $binderStxs* : ($monadStack') := do $(ctx.body))
     let specId := mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple)
-    let statement ← `(term|
-      ∀ $binderStxs*, Std.WP.Triple
-        ($(ctx.name) $ids*)
-        $pre
-        ($post)
-        ($sigs))
+    let statement ←
+      if allBinderStxs.isEmpty then
+        `(term|
+          Std.WP.Triple
+            ($(ctx.name) $ids*)
+            $pre
+            ($post)
+            ($sigs))
+      else
+        `(term|
+          ∀ $allBinderStxs*, Std.WP.Triple
+            ($(ctx.name) $ids*)
+            $pre
+            ($post)
+            ($sigs))
     let specCmd ← `(command|
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
@@ -112,15 +137,24 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
         let motiveId := mkIdentFrom ctx.name (ctx.name.getId ++ `fixpoint_triple_motive)
         let motiveStatement ←
           if binderStxs.isEmpty then
-            `(term|
-              fun (p : $monadStack') => Std.WP.Triple
-                p
-                $pre
-                ($post)
-                ($sigs))
+            if ctx.givenBinders.isEmpty then
+              `(term|
+                fun (p : $monadStack') => Std.WP.Triple
+                  p
+                  $pre
+                  ($post)
+                  ($sigs))
+            else
+              let givenBinders := ctx.givenBinders
+              `(term|
+                fun (p : $monadStack') => ∀ $givenBinders*, Std.WP.Triple
+                  p
+                  $pre
+                  ($post)
+                  ($sigs))
           else
             `(term|
-              fun (p : ∀ $binderStxs*, $monadStack') => ∀ $binderStxs*, Std.WP.Triple
+              fun (p : ∀ $binderStxs*, $monadStack') => ∀ $allBinderStxs*, Std.WP.Triple
                 (p $ids*)
                 $pre
                 ($post)
@@ -150,17 +184,26 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
 set_option linter.unusedVariables false in
 elab_rules : command
   | `(command|
-      method $[rec%$recTk]? $name:ident $binders:bracketedBinder* returns ($retId:ident : $retType:term) $[in $monadStack:term]?
+      $[$doc:docComment]?
+      method $[rec%$recTk]? $name:ident $binders* returns ($retId:ident : $retType:term) $[in $monadStack:term]?
+        $[given $givenBinders*]?
         $[requires $[$reqNs : ]? $req]* $[signals $[$sigNs : ]? $sig]*
         $[ensures $[$ensNs : ]? $ens]* do $body:doSeq) => do
     let termination := velvet.semantics.termination.get (← getOptions)
-    let methodBinders ← binders.mapM parseMethodParam
+    let binderStxs : TSyntaxArray [`ident, ``Lean.Parser.Term.hole, ``Lean.Parser.Term.bracketedBinder] :=
+      binders.map (⟨·.raw⟩)
+    let givenBindersArr : TSyntaxArray [`ident, ``Lean.Parser.Term.hole, ``Lean.Parser.Term.bracketedBinder] :=
+      match givenBinders with
+      | some arr => arr.map (⟨·.raw⟩)
+      | none => #[]
     let requiresClauses ← (Array.zip reqNs req).mapM fun (nm, stx) => parseSpecTerm nm stx
     let signalsClauses ← (Array.zip sigNs sig).mapM fun (nm, stx) => parseSpecTerm nm stx
     let ensuresClauses ← (Array.zip ensNs ens).mapM fun (nm, stx) => parseSpecTerm nm stx
     elaborateMethod {
+      doc := doc
       name := name
-      binders := methodBinders
+      binders := binderStxs
+      givenBinders := givenBindersArr
       retId := retId
       retType := retType
       monadStack := monadStack

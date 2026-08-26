@@ -54,13 +54,12 @@ public meta def mkExceptTStackType (retType : TSyntax `term) (exTypes : Array (T
     stack ← `(term| ExceptT $t $stack)
   `(term| $stack $retType)
 
-/-- Parse a `bracketedBinder` into a `MethodParam`. Only single-identifier, explicitly typed
-binders are supported. -/
-public meta def parseMethodParam (stx : TSyntax `Lean.Parser.Term.bracketedBinder) : CommandElabM MethodParam := do
-  match stx with
-  | `(bracketedBinder| ($id:ident : $ty:term)) => pure { ident := id, type := ty, stx }
-  | `(bracketedBinder| {$id:ident : $ty:term}) => pure { ident := id, type := ty, stx }
+/-- The identifiers bound by an explicit `(…)` or bare identifier binder, used to apply the definition in its spec. -/
+public meta def contractBinderIdents (binder : Syntax) : Array Ident :=
+  match binder with
+  | `(Lean.Parser.Term.bracketedBinderF| ($ids* $[: $_]? $(_annot?)?)) =>
+      ids.filterMap fun b => if b.raw.isIdent then some ⟨b.raw⟩ else none
   | _ =>
-      /- Fires for unsupported method parameters, e.g. `method m [inst] ...`,
-         `method m ⦃x : T⦄ ...`, or a multi-identifier binder `method m (x y : T) ...`. -/
-      throwErrorAt stx "expected a method binder of the form (x : T) or an implicit binder"
+      if binder.isIdent then #[⟨binder⟩]
+      else if binder.isOfKind ``Lean.binderIdent && binder[0].isIdent then #[⟨binder[0]⟩]
+      else #[]

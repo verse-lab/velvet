@@ -51,4 +51,30 @@ public def intrinsicCallsVelvet (k : Nat) : StateT Nat Id Nat
 
 example : (intrinsicCallsVelvet 5).run 100 = ((110, 100) : Nat × Nat) := by rfl
 
+method mkFreshNat returns (r : Nat) in StateT Nat Id
+  given (n : Nat)
+  requires (s : Nat) => s = n
+  ensures (s : Nat) => r = n ∧ s = n + 1
+do
+  let m ← get
+  set (m + 1)
+  return m
+
+prove_correct mkFreshNat by
+  velvet_vcgen with finish
+
+#check @mkFreshNat.spec
+
+method widen (k : Nat) returns (res : Unit) in StateT Nat Id
+  given (lo hi : Nat) {d : Nat}
+  requires (s : Nat) => lo ≤ s ∧ s ≤ hi ∧ d = k
+  ensures (s : Nat) => lo ≤ s + k ∧ s ≤ hi + d
+do
+  modify (· + k)
+
+prove_correct widen by
+  velvet_vcgen with finish
+
+#check @widen.spec
+
 end Velvet.Examples.VelvetAndIntrinsic
