@@ -23,3 +23,4 @@ public import Velvet.Examples.MemAlloc
 public import Velvet.Examples.HypNaming
 public import Velvet.Examples.LiftingExamples
 public import Velvet.Examples.VelvetAndIntrinsicVerification
+public import Velvet.Examples.SimplestSort
