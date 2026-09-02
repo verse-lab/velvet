@@ -75,21 +75,6 @@ do
 
 #eval (simplestSort #[11,21,12,15, 10])
 
-theorem simplestSort_correct (arr : Array Int) :
-    Triple (simplestSort arr)
-      (arr.size > 0)
-      (fun res => SortedUpTo res res.size ∧ sameElems res arr)
-      (fun (_ : Unit) => False) := by
-  velvet_vcgen [simplestSort] with try finish
-  all_goals (
-    intro hj1 u hu
-    have hj_step := inv_right_sorted (by grind) j (j + 1) (by grind) (by grind) hj1
-    grind)
-
--- Potential bug in Lean incremental elaboration
--- Making changes to tactics script here feels much slower than in the theorem above
--- The prove_correct elaborator basically elaborates to the same thign as above(+ map lookup and constructing some identifiers).
--- Despite that, there's a significant degradation in experience
 prove_correct simplestSort by
   velvet_vcgen [simplestSort] with try finish
   all_goals (
