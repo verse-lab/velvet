@@ -6,4 +6,4 @@ public import Velvet.Frontend
 public meta import Velvet.Frontend
 
 open scoped GhostSyntax Std.WP Lean.Order
-open Std.WP Named Loop Specs WPPartial
+open Std.WP Named Loop Specs WPPartial NonDetT

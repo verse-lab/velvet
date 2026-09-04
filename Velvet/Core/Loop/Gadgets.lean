@@ -111,7 +111,7 @@ set_option linter.unusedVariables false in
   forIn.loop f init
 
 set_option linter.unusedVariables false in
-@[inline] public def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
+@[expose, inline] public def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
     (inv : β → Pred) (done : β → Pred) (measure : β → Named.Measure) : m β :=
   forIn Lean.Loop.mk init f
