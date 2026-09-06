@@ -63,3 +63,14 @@ public meta def contractBinderIdents (binder : Syntax) : Array Ident :=
       if binder.isIdent then #[⟨binder⟩]
       else if binder.isOfKind ``Lean.binderIdent && binder[0].isIdent then #[⟨binder[0]⟩]
       else #[]
+
+/-- Conjoin an array of assertion terms into a pure `Prop` conjunction `t₁ ∧ t₂ ∧ …`, or `True` if empty. -/
+public meta def mkConjunction (ts : Array (TSyntax `term)) : MacroM (TSyntax `term) := do
+  if ts.isEmpty then
+    `(term| True)
+  else
+    let mut res := ts[ts.size - 1]!
+    for t in ts.pop.reverse do
+      res ← `(term| $t ∧ $res)
+    return res
+

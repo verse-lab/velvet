@@ -50,3 +50,24 @@ public initialize methodSpecExt : SimplePersistentEnvExtension MethodSpecEntry (
     addEntryFn := addMethodSpecEntry
     addImportedFn := fun entries =>
       mkStateFromImportedEntries addMethodSpecEntry {} entries }
+
+/-- Context stored for a method to support testing, decidability proofs, and tester derivation. -/
+public structure VelvetTestingCtx where
+  name : Name
+  binders : TSyntaxArray [`ident, ``Lean.Parser.Term.hole, ``Lean.Parser.Term.bracketedBinder]
+  ids : Array Ident
+  retId : Ident
+  retType : TSyntax `term
+  monadStack : Option (TSyntax `term)
+  pre : TSyntax `term
+  post : TSyntax `term
+
+private def addVelvetTestingCtx (state : Std.HashMap Name VelvetTestingCtx) (entry : VelvetTestingCtx) :=
+  state.insert entry.name entry
+
+public initialize velvetTestingExt : SimplePersistentEnvExtension VelvetTestingCtx (Std.HashMap Name VelvetTestingCtx) ←
+  registerSimplePersistentEnvExtension {
+    addEntryFn := addVelvetTestingCtx
+    addImportedFn := fun entries =>
+      mkStateFromImportedEntries addVelvetTestingCtx {} entries }
+

@@ -9,3 +9,5 @@ public import Velvet.Frontend.Method
 public meta import Velvet.Frontend.Method
 public import Velvet.Frontend.ProveCorrect
 public meta import Velvet.Frontend.ProveCorrect
+public import Velvet.Frontend.Tester
+public meta import Velvet.Frontend.Tester

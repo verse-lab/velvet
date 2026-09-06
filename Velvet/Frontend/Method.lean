@@ -34,7 +34,7 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
   match ctx.termination with
   | .totalCorrectness => checkWhileTermination ctx.body.raw
   | .partialCorrectness => pure ()
-  let (defCmd, specCmd, motiveCmd?, statement) ← Command.runTermElabM fun _vs => do
+  let (defCmd, specCmd, motiveCmd?, statement, preProp, postProp, ids) ← Command.runTermElabM fun _vs => do
     let ids := ctx.binders.flatMap (fun b => contractBinderIdents b.raw)
     let binderStxs := ctx.binders
     let allBinderStxs := binderStxs ++ ctx.givenBinders
@@ -42,6 +42,8 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     let ensNames := makeNameArrayFromIdents (ctx.ensuresClauses.map (·.name)) "ensures"
     let reqTerms ← liftMacroM <| ctx.requiresClauses.mapM (fun c => buildFun c.binders c.term)
     let ensTerms ← liftMacroM <| ctx.ensuresClauses.mapM (fun c => buildFun c.binders c.term)
+    let preProp ← liftMacroM <| mkConjunction reqTerms
+    let postProp ← liftMacroM <| mkConjunction ensTerms
     let pre ← liftMacroM <| mkAssertionList reqTerms reqNames
     let postBody ← liftMacroM <| mkAssertionList ensTerms ensNames
     -- The `fun retId =>` wrapper stays outside `mkAssertionList` so the named ensures clauses
@@ -166,13 +168,27 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
         pure (some cmd)
       else
         pure none
-    return (defCmd, specCmd, motiveCmd?, statement)
+    return (defCmd, specCmd, motiveCmd?, statement, preProp, postProp, ids)
   elabCommand defCmd
   elabCommand specCmd
   if let some motiveCmd := motiveCmd? then
     elabCommand motiveCmd
   let specName ← liftCoreM <| realizeGlobalConstNoOverload (mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple))
   modifyEnv (methodSpecExt.addEntry · { name := specName, statement := statement })
+  let methodDeclName ← liftCoreM <| realizeGlobalConstNoOverload ctx.name
+  let testingCtx : VelvetTestingCtx := {
+    name := methodDeclName
+    binders := ctx.binders
+    ids := ids
+    retId := ctx.retId
+    retType := ctx.retType
+    monadStack := ctx.monadStack
+    pre := preProp
+    post := postProp
+  }
+  modifyEnv (velvetTestingExt.addEntry · testingCtx)
+  if methodDeclName != ctx.name.getId then
+    modifyEnv (velvetTestingExt.addEntry · { testingCtx with name := ctx.name.getId })
   let verifyDuringElab := (← getOptions).getBool `velvet.verifyDuringElab false
   if verifyDuringElab then
     let lem : TSyntax `Lean.Parser.Tactic.simpLemma ← `(Lean.Parser.Tactic.simpLemma| $(ctx.name):ident)
