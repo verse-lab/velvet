@@ -25,5 +25,3 @@ public import Velvet.Examples.LiftingExamples
 public import Velvet.Examples.VelvetAndIntrinsicVerification
 public import Velvet.Examples.SimplestSort
 public import Velvet.Examples.NonDet
-public import Velvet.Examples.Tester
-public meta import Velvet.Examples.Tester

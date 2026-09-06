@@ -20,9 +20,18 @@ export NondetMode (demonic angelic)
 
 
 /-- Non-determinism monad transformer parameterized by `NondetMode`.
+
+NOTE: `NonDetT` is designed using an Interaction Tree (ITree) / Freer monad approach,
+acting as an AST that sits at the **top of the monad stack** (e.g. `DemonicT (StateT σ Option)`
+or `DemonicT Option`). Having `NonDetT` at the top allows:
+1. Constructive execution via handler/interpreter evaluation (`NonDetT.run`).
+2. Syntax-directed weakest-precondition generation (`NonDetT.wp`).
+Base effects from the underlying monad `m` are freely embedded into tree leaves via `.vis`
+(`MonadLift m (NonDetT mode m)`), following the Freer monad pattern.
+
 Constructors:
 - `pure`: standard monadic pure
-- `vis`: embedding effects from base monad `m`
+- `vis`: embedding effects from base monad `m` (Freer effect node)
 - `pickCont`: non-deterministic choice satisfying predicate `p` with continuation `f` and optional runtime finder `find`
 - `repeatCont`: loop iteration with state `init`, body `f`, and post-loop continuation `cont`
 -/
@@ -103,9 +112,13 @@ public instance {mode : NondetMode} {m : Type u → Type v} : LawfulMonad (NonDe
 public protected def pick {mode : NondetMode} {m : Type u → Type v} (τ : Type u) [Inhabited τ] : NonDetT mode m τ :=
   NonDetT.pickCont τ (fun _ => True) (fun _ => some default) pure
 
-/-- Assume a decidable proposition `as`. -/
-public protected def «assume» {mode : NondetMode} {m : Type u → Type v} (as : Prop) [Decidable as] : NonDetT mode m PUnit.{u+1} :=
-  NonDetT.pickCont PUnit.{u+1} (fun _ => as) (fun _ => if as then some PUnit.unit else none) (fun _ => pure .unit)
+/-- Assume a proposition `as`.
+If a `FindHint` or `Decidable` instance is available in scope, it is used for runtime
+interpretation; otherwise it defaults to `none`. In logical verification (`wp`),
+`as` can be any proposition (including noncomputable ones). -/
+public protected def «assume» {mode : NondetMode} {m : Type u → Type v} (as : Prop)
+    [hint : FindHint (fun (_ : PUnit.{u+1}) => as)] : NonDetT mode m PUnit.{u+1} :=
+  NonDetT.pickCont PUnit.{u+1} (fun _ => as) hint.find (fun _ => pure .unit)
 
 /-- Pick a value of type `τ` satisfying property `p`. -/
 public protected def pickSuchThat {mode : NondetMode} {m : Type u → Type v} (τ : Type u) (p : τ → Prop)
@@ -119,20 +132,7 @@ public def «repeat» {mode : NondetMode} {m : Type u → Type v} {α : Type u}
 
 end NonDetT
 
-/-- Non-determinism effect class. -/
-public class MonadNonDet (m : Type u → Type v) where
-  pick : (τ : Type u) → [Inhabited τ] → m τ
-  pickSuchThat : (τ : Type u) → (p : τ → Prop) → [_hint : FindHint p] → (name : Lean.Name := .anonymous) → m τ
-  assume : (as : Prop) → [Decidable as] → m PUnit.{u+1}
-  rep {α : Type u} : α → (α → m (ForInStep α)) → m α
-
-export MonadNonDet (pick pickSuchThat assume rep)
-
-public instance {mode : NondetMode} {m : Type u → Type v} : MonadNonDet (NonDetT mode m) where
-  pick := NonDetT.pick
-  assume := NonDetT.«assume»
-  pickSuchThat τ p [FindHint p] (name := .anonymous) := NonDetT.pickSuchThat τ p name
-  rep := NonDetT.repeat
+export NonDetT (pick pickSuchThat «assume» «repeat»)
 
 /-- Loop iteration instance for `NonDetT mode m`, routing loops to `repeatCont`. -/
 public instance instForInLoopNonDetT {mode : NondetMode} {m : Type u → Type v} :
@@ -169,6 +169,6 @@ macro_rules
       | none => extractChoiceName x.raw
     let nameStr := Lean.Syntax.mkStrLit name.toString
     let nameTerm : Lean.TSyntax `term ← `(Lean.Name.mkSimple $nameStr)
-    `(doElem| let $x:term ← MonadNonDet.pickSuchThat _ (fun $x => $t) $nameTerm)
+    `(doElem| let $x:term ← NonDetT.pickSuchThat _ (fun $x => $t) $nameTerm)
 
 end

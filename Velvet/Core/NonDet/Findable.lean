@@ -97,16 +97,37 @@ public instance (priority := 10) defaultFindHint {α : Type u} (p : α → Prop)
 public instance (priority := 100) findHintOfWeakFindable {α : Type u} (p : α → Prop) [wf : WeakFindable p] : FindHint p where
   find := wf.find
 
+/-- Search auxiliary function scanning from index `i` up to `maxSteps`. -/
+public def findNatAux (p : Nat → Prop) [DecidablePred p] (maxSteps : Nat) (i : Nat) : Option Nat :=
+  if h : i ≥ maxSteps then none
+  else if hp : p i then some i
+  else findNatAux p maxSteps (i + 1)
+termination_by maxSteps - i
+decreasing_by omega
+
+public theorem findNatAux_some {p : Nat → Prop} [DecidablePred p] {maxSteps i : Nat} {res : Nat}
+    (h : findNatAux p maxSteps i = some res) : p res := by
+  unfold findNatAux at h
+  split at h
+  · contradiction
+  · split at h
+    · cases h; assumption
+    · exact findNatAux_some h
+termination_by maxSteps - i
+decreasing_by omega
+
 /-- Search for a natural number satisfying a decidable predicate up to `maxSteps` (default 10000). -/
 public def findNat (p : Nat → Prop) [DecidablePred p] (maxSteps : Nat := 10000) : Option Nat :=
-  let rec aux (i : Nat) : Option Nat :=
-    if i ≥ maxSteps then none
-    else if p i then some i
-    else aux (i + 1)
-  aux 0
+  findNatAux p maxSteps 0
 
-public instance (priority := 50) findHintNat (p : Nat → Prop) [DecidablePred p] : FindHint p where
+public theorem findNat_some {p : Nat → Prop} [DecidablePred p] {maxSteps : Nat} {res : Nat}
+    (h : findNat p maxSteps = some res) : p res :=
+  findNatAux_some h
+
+public instance (priority := 50) findNatWeakFindable (p : Nat → Prop) [DecidablePred p] :
+    WeakFindable p where
   find _ := findNat p
+  find_some_p := findNat_some
 
 end
 

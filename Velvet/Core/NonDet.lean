@@ -2,5 +2,6 @@ module
 
 public import Velvet.Core.NonDet.Findable
 public import Velvet.Core.NonDet.Defs
-public import Velvet.Core.NonDet.Extract
+public import Velvet.Core.NonDet.Run
 public import Velvet.Core.NonDet.WP
+public import Velvet.Core.NonDet.Extract
