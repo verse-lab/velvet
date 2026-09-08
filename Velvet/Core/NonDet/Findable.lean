@@ -86,48 +86,119 @@ public instance (priority := low) Findable.of_finitary {α : Type u} (p : α →
     simp at hsome
     exact hsome
 
-/-- FindHint provides an optional heuristic search for non-deterministic choice extraction.
-If a `WeakFindable` or `Findable` instance is available, it is used; otherwise it falls back to `none`. -/
-public class FindHint {α : Type u} (p : α → Prop) where
-  find : Unit → Option α
+/-- Construct a complete `Findable` instance from a finder and its two correctness proofs. -/
+@[instance_reducible]
+public def Findable.ofFn {α : Type u} {p : α → Prop}
+    (find : Unit → Option α)
+    (hnone : (find ()).isNone → ∀ x, ¬ p x)
+    (hsome : ∀ x, find () = some x → p x) : Findable p :=
+  ⟨find, hnone, fun h => hsome _ h⟩
 
-public instance (priority := 10) defaultFindHint {α : Type u} (p : α → Prop) : FindHint p where
-  find _ := none
+/-- Accessibility witness for an unbounded natural-number search. -/
+public inductive AccFrom (p : Nat → Prop) : Nat → Prop where
+  | now : p i → AccFrom p i
+  | later : ¬ p i → AccFrom p (i + 1) → AccFrom p i
 
-public instance (priority := 100) findHintOfWeakFindable {α : Type u} (p : α → Prop) [wf : WeakFindable p] : FindHint p where
-  find := wf.find
+/-- Unbounded semidecision search starting at `i`. If no witness exists, it diverges. -/
+public def findNatAux (p : Nat → Prop) [DecidablePred p] (i : Nat) : Option Nat :=
+  if p i then some i else findNatAux p (i + 1)
+  partial_fixpoint
 
-/-- Search auxiliary function scanning from index `i` up to `maxSteps`. -/
-public def findNatAux (p : Nat → Prop) [DecidablePred p] (maxSteps : Nat) (i : Nat) : Option Nat :=
-  if h : i ≥ maxSteps then none
-  else if hp : p i then some i
-  else findNatAux p maxSteps (i + 1)
-termination_by maxSteps - i
+/-- Search for the least natural number satisfying `p`; diverges when no witness exists. -/
+public def findNat (p : Nat → Prop) [DecidablePred p] : Option Nat :=
+  findNatAux p 0
+
+public theorem AccFrom.findNatAux_isSome (p : Nat → Prop) [DecidablePred p] (i : Nat) :
+    AccFrom p i → (findNatAux p i).isSome := by
+  intro h
+  induction h with
+  | now hp => unfold findNatAux; simp [hp]
+  | later hpi _ ih => unfold findNatAux; simp [hpi, ih]
+
+public theorem AccFrom.of_le (p : Nat → Prop) [DecidablePred p] {i x : Nat}
+    (hix : i ≤ x) (hp : p x) : AccFrom p i := by
+  by_cases hi : p i
+  · exact .now hi
+  · by_cases heq : i = x
+    · subst x; contradiction
+    · exact .later hi (AccFrom.of_le p (i := i + 1) (x := x) (by omega) hp)
+termination_by x - i
 decreasing_by omega
 
-public theorem findNatAux_some {p : Nat → Prop} [DecidablePred p] {maxSteps i : Nat} {res : Nat}
-    (h : findNatAux p maxSteps i = some res) : p res := by
-  unfold findNatAux at h
-  split at h
-  · contradiction
-  · split at h
-    · cases h; assumption
-    · exact findNatAux_some h
-termination_by maxSteps - i
-decreasing_by omega
+public theorem findNat_some {p : Nat → Prop} [DecidablePred p] {res : Nat}
+    (h : findNat p = some res) : p res := by
+  apply findNatAux.partial_correctness (motive := fun _ r => p r) p
+  · intro aux ih i r hr
+    split at hr
+    · rename_i hp; cases hr; exact hp
+    · exact ih _ _ hr
+  · exact h
 
-/-- Search for a natural number satisfying a decidable predicate up to `maxSteps` (default 10000). -/
-public def findNat (p : Nat → Prop) [DecidablePred p] (maxSteps : Nat := 10000) : Option Nat :=
-  findNatAux p maxSteps 0
+public theorem exists_findNat (p : Nat → Prop) [DecidablePred p] :
+    (∃ x, p x) ↔ (findNat p).isSome := by
+  constructor
+  · rintro ⟨x, px⟩
+    exact AccFrom.findNatAux_isSome p 0 (AccFrom.of_le p (Nat.zero_le x) px)
+  · simp only [Option.isSome_iff_exists]
+    rintro ⟨x, hx⟩
+    exact ⟨x, findNat_some hx⟩
 
-public theorem findNat_some {p : Nat → Prop} [DecidablePred p] {maxSteps : Nat} {res : Nat}
-    (h : findNat p maxSteps = some res) : p res :=
-  findNatAux_some h
+public theorem findNat_none (p : Nat → Prop) [DecidablePred p] :
+    (findNat p).isNone → ∀ x, ¬ p x := by
+  intro hn x hp
+  have hs : (findNat p).isSome := (exists_findNat p).mp ⟨x, hp⟩
+  simp only [Option.isNone_iff_eq_none] at hn
+  simp [hn] at hs
 
-public instance (priority := 50) findNatWeakFindable (p : Nat → Prop) [DecidablePred p] :
-    WeakFindable p where
+public instance (priority := 50) findNatFindable (p : Nat → Prop) [DecidablePred p] :
+    Findable p where
   find _ := findNat p
+  find_none := findNat_none p
   find_some_p := findNat_some
+
+/-- Candidate generator for integer search, alternating non-negative and negative:
+`0, -1, 1, -2, 2, -3, 3, ...` -/
+public def intCand (i : Nat) : Int :=
+  if i % 2 = 0 then (i / 2 : Nat) else -((i + 1) / 2 : Nat)
+
+/-- Position of an integer in `intCand`'s enumeration. -/
+public def intIndex : Int → Nat
+  | .ofNat n => 2 * n
+  | .negSucc n => 2 * n + 1
+
+public theorem intCand_intIndex (z : Int) : intCand (intIndex z) = z := by
+  cases z with
+  | ofNat n => simp [intCand, intIndex]
+  | negSucc n => simp [intCand, intIndex]; omega
+
+/-- Complete integer search obtained from the unbounded natural-number search. -/
+public def findInt (p : Int → Prop) [DecidablePred p] : Option Int :=
+  (findNat (fun n => p (intCand n))).map intCand
+
+public theorem findInt_none (p : Int → Prop) [DecidablePred p] :
+    (findInt p).isNone → ∀ z, ¬ p z := by
+  intro hn z hp
+  have hs : (findNat (fun n => p (intCand n))).isSome :=
+    (exists_findNat _).mp ⟨intIndex z, by simpa [intCand_intIndex] using hp⟩
+  simp only [findInt, Option.isNone_map] at hn
+  simp only [Option.isNone_iff_eq_none] at hn
+  simp [hn] at hs
+
+public theorem findInt_some {p : Int → Prop} [DecidablePred p] {res : Int}
+    (h : findInt p = some res) : p res := by
+  unfold findInt at h
+  cases hs : findNat (fun n => p (intCand n)) with
+  | none => simp [hs] at h
+  | some n =>
+      simp only [hs, Option.map_some, Option.some.injEq] at h
+      subst res
+      exact findNat_some hs
+
+public instance (priority := 50) findIntFindable (p : Int → Prop) [DecidablePred p] :
+    Findable p where
+  find _ := findInt p
+  find_none := findInt_none p
+  find_some_p := findInt_some
 
 end
 

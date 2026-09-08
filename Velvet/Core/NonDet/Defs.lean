@@ -32,13 +32,13 @@ Base effects from the underlying monad `m` are freely embedded into tree leaves 
 Constructors:
 - `pure`: standard monadic pure
 - `vis`: embedding effects from base monad `m` (Freer effect node)
-- `pickCont`: non-deterministic choice satisfying predicate `p` with continuation `f` and optional runtime finder `find`
+- `pickCont`: non-deterministic choice satisfying predicate `p` with continuation `f`, backed by complete `Findable p`
 - `repeatCont`: loop iteration with state `init`, body `f`, and post-loop continuation `cont`
 -/
 public inductive NonDetT (mode : NondetMode) (m : Type u → Type v) : (α : Type u) → Type (max (u + 1) v) where
   | pure {α : Type u} (ret : α) : NonDetT mode m α
   | vis {α : Type u} {β : Type u} (x : m β) (f : β → NonDetT mode m α) : NonDetT mode m α
-  | pickCont {α : Type u} (τ : Type u) (p : τ → Prop) (find : Unit → Option τ) (f : τ → NonDetT mode m α) : NonDetT mode m α
+  | pickCont {α : Type u} (τ : Type u) (p : τ → Prop) [wf : Findable p] (f : τ → NonDetT mode m α) : NonDetT mode m α
   | repeatCont {α : Type u} {β : Type u} (init : β) (f : β → NonDetT mode m (ForInStep β)) (cont : β → NonDetT mode m α) : NonDetT mode m α
 
 /-- Shorthand alias for demonic non-determinism. -/
@@ -54,7 +54,7 @@ public def bind {mode : NondetMode} {m : Type u → Type v} {α β : Type u}
   match x with
   | pure ret => f ret
   | vis x f' => vis x fun y => bind (f' y) f
-  | pickCont τ p find f' => pickCont τ p find fun t => bind (f' t) f
+  | pickCont τ p f' => pickCont τ p fun t => bind (f' t) f
   | repeatCont init f' cont => repeatCont init f' fun t => bind (cont t) f
 
 public instance {mode : NondetMode} {m : Type u → Type v} : Monad (NonDetT mode m) where
@@ -71,8 +71,8 @@ theorem bind_pure {mode : NondetMode} {m : Type u → Type v} {α : Type u} (x :
   | vis x f ih =>
     show vis x (fun y => f y >>= pure) = vis x f
     congr 1; funext y; exact ih y
-  | pickCont τ p find f ih =>
-    show pickCont τ p find (fun t => f t >>= pure) = pickCont τ p find f
+  | pickCont τ p f ih =>
+    show pickCont τ p (fun t => f t >>= pure) = pickCont τ p f
     congr 1; funext t; exact ih t
   | repeatCont init f' cont _ ih =>
     show repeatCont init f' (fun t => cont t >>= pure) = repeatCont init f' cont
@@ -95,8 +95,8 @@ theorem bind_assoc' {mode : NondetMode} {m : Type u → Type v} {α β γ : Type
   | vis x f' ih =>
     show vis x (fun y => (f' y >>= f) >>= g) = vis x (fun y => f' y >>= fun z => f z >>= g)
     congr 1; funext y; exact ih y f
-  | pickCont τ p find f' ih =>
-    show pickCont τ p find (fun t => (f' t >>= f) >>= g) = pickCont τ p find (fun t => f' t >>= fun z => f z >>= g)
+  | pickCont τ p f' ih =>
+    show pickCont τ p (fun t => (f' t >>= f) >>= g) = pickCont τ p (fun t => f' t >>= fun z => f z >>= g)
     congr 1; funext t; exact ih t f
   | repeatCont init f' cont _ ih =>
     show repeatCont init f' (fun t => (cont t >>= f) >>= g) = repeatCont init f' (fun t => cont t >>= fun z => f z >>= g)
@@ -110,65 +110,31 @@ public instance {mode : NondetMode} {m : Type u → Type v} : LawfulMonad (NonDe
 
 /-- Pick an arbitrary value of type `τ`. -/
 public protected def pick {mode : NondetMode} {m : Type u → Type v} (τ : Type u) [Inhabited τ] : NonDetT mode m τ :=
-  NonDetT.pickCont τ (fun _ => True) (fun _ => some default) pure
+  NonDetT.pickCont τ (fun _ => True) pure
 
 /-- Assume a proposition `as`.
-If a `FindHint` or `Decidable` instance is available in scope, it is used for runtime
-interpretation; otherwise it defaults to `none`. In logical verification (`wp`),
-`as` can be any proposition (including noncomputable ones). -/
-public protected def «assume» {mode : NondetMode} {m : Type u → Type v} (as : Prop)
-    [hint : FindHint (fun (_ : PUnit.{u+1}) => as)] : NonDetT mode m PUnit.{u+1} :=
-  NonDetT.pickCont PUnit.{u+1} (fun _ => as) hint.find (fun _ => pure .unit)
+If a `Decidable as` instance is available in scope, it is used for runtime
+interpretation; otherwise it fails at runtime with `none`. -/
+public def assume' {mode : NondetMode} {m : Type u → Type v} (as : Prop) [Decidable as] : NonDetT mode m PUnit.{u+1} :=
+  NonDetT.pickCont PUnit.{u+1} (fun _ => as) (fun _ => pure .unit)
 
-/-- Pick a value of type `τ` satisfying property `p`. -/
-public protected def pickSuchThat {mode : NondetMode} {m : Type u → Type v} (τ : Type u) (p : τ → Prop)
-    [hint : FindHint p] (_name : Lean.Name := .anonymous) : NonDetT mode m τ :=
-  NonDetT.pickCont τ p hint.find pure
+/-- Pick a value of type `τ` satisfying property `p`, equipped with a complete `Findable` generator. -/
+public def pickSuchThat {mode : NondetMode} {m : Type u → Type v} (τ : Type u) (p : τ → Prop)
+    [wf : Findable p] (_name : Lean.Name := .anonymous) : NonDetT mode m τ :=
+  NonDetT.pickCont τ p pure
 
 /-- Repeat a loop step until completion. -/
-public def «repeat» {mode : NondetMode} {m : Type u → Type v} {α : Type u}
+public def repeat' {mode : NondetMode} {m : Type u → Type v} {α : Type u}
     (init : α) (f : α → NonDetT mode m (ForInStep α)) : NonDetT mode m α :=
   NonDetT.repeatCont init f pure
 
 end NonDetT
 
-export NonDetT (pick pickSuchThat «assume» «repeat»)
+export NonDetT (pick pickSuchThat assume' repeat')
 
 /-- Loop iteration instance for `NonDetT mode m`, routing loops to `repeatCont`. -/
 public instance instForInLoopNonDetT {mode : NondetMode} {m : Type u → Type v} :
     ForIn (NonDetT mode m) Lean.Loop Unit where
   forIn _ init f := NonDetT.repeatCont init (f ()) pure
-
-/-- Extract a meaningful identifier name from a choice binder syntax,
-falling back to `"choice"` if no identifier is found. -/
-public meta partial def extractChoiceName (stx : Lean.Syntax) : Lean.Name :=
-  match stx with
-  | Lean.Syntax.ident _ _ val _ => val.eraseMacroScopes
-  | Lean.Syntax.node _ ``Lean.Parser.Term.typeAscription args =>
-      if h : 1 < args.size then
-        match args[1] with
-        | Lean.Syntax.ident _ _ val _ => val.eraseMacroScopes
-        | other => extractChoiceName other
-      else `choice
-  | Lean.Syntax.node _ ``Lean.Parser.Term.paren args =>
-      if h : 1 < args.size then
-        match args[1] with
-        | Lean.Syntax.ident _ _ val _ => val.eraseMacroScopes
-        | other => extractChoiceName other
-      else `choice
-  | _ => `choice
-
-/-- Hilbert choice operator notation: `let x :| p` inside `do` blocks,
-optionally with an explicit name label: `let name : x :| p`. -/
-syntax "let" (atomic(ident " : "))? term ":|" term : doElem
-
-macro_rules
-  | `(doElem| let $[$nm:ident :]? $x:term :| $t) => do
-    let name := match nm with
-      | some n => n.getId
-      | none => extractChoiceName x.raw
-    let nameStr := Lean.Syntax.mkStrLit name.toString
-    let nameTerm : Lean.TSyntax `term ← `(Lean.Name.mkSimple $nameStr)
-    `(doElem| let $x:term ← NonDetT.pickSuchThat _ (fun $x => $t) $nameTerm)
 
 end

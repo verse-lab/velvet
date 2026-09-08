@@ -18,13 +18,19 @@ universe u u₁ u₂ v w
 namespace Loop
 
 /-- Our own least-fixed-point loop: `partial_fixpoint` over the loop body. -/
-public def forIn.loop {β : Type u} {m : Type u → Type v}
+@[expose] public def forIn.loop {β : Type u} {m : Type u → Type v}
     [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m]
     (f : Unit → β → m (ForInStep β)) (b : β) : m β := do
     match ← f () b with
       | ForInStep.done b  => pure b
       | ForInStep.yield b => forIn.loop f b
   partial_fixpoint
+
+@[instance high]
+public instance instForInLoopOfCCPO {m : Type u → Type v}
+    [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] :
+    ForIn m Lean.Loop Unit where
+  forIn _ init f := forIn.loop f init
 
 /-- Generic partial-correctness rule for `forIn.loop` over any monad satisfying `WPPartial`. -/
 public theorem forInLoop_partial
@@ -72,6 +78,57 @@ public theorem forInLoop_partial
   have h3 : wp (f () b) (fun r => wp (k r) post einv) einv ⊑ wp (f () b >>= k) post einv := by
     exact WPMonad.bind_le_wp_bind (f () b) k post einv
   exact PartialOrder.rel_trans h1 (PartialOrder.rel_trans h2 h3)
+
+/-- Total-correctness rule for the least-fixed-point loop, justified by a
+strictly decreasing natural-number measure. -/
+public theorem forInLoop_total
+    {m : Type u → Type v} {Pred : Type u₁} {EPred : Type u₂}
+    [Monad m] [∀ α, CCPO (m α)] [MonoBind m]
+    [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {β : Type u} (f : Unit → β → m (ForInStep β)) (init : β)
+    (inv : ForInStep β → Pred) (measure : β → Nat) (einv : EPred)
+    (step : ∀ b,
+      Triple (f () b) (inv (.yield b))
+        (fun r => match r with
+          | .yield b' => inv (.yield b') ⊓ ⌜measure b' < measure b⌝
+          | .done b' => inv (.done b')) einv) :
+    Triple (Loop.forIn.loop f init) (inv (.yield init))
+      (fun b => inv (.done b)) einv := by
+  have measure_induction (C : β → Prop) (a : β)
+      (h : ∀ x, (∀ y, measure y < measure x → C y) → C x) : C a := by
+    have aux : ∀ n : Nat, ∀ x, measure x ≤ n → C x := by
+      intro n
+      induction n with
+      | zero =>
+        intro x hx
+        exact h x (fun y hy => by omega)
+      | succ n ih =>
+        intro x hx
+        by_cases hle : measure x ≤ n
+        · exact ih x hle
+        · exact h x (fun y hy => ih y (by omega))
+    exact aux (measure a) a (by omega)
+  apply measure_induction
+    (fun b => Triple (Loop.forIn.loop f b) (inv (.yield b))
+      (fun b => inv (.done b)) einv) init
+  intro b ih
+  rw [Loop.forIn.loop.eq_def]
+  apply Triple.bind (mid := fun r => match r with
+    | .yield b' => inv (.yield b') ⊓ ⌜measure b' < measure b⌝
+    | .done b' => inv (.done b'))
+  · exact step b
+  · intro r
+    cases r with
+    | done b' => exact Triple.pure b' PartialOrder.rel_refl
+    | yield b' =>
+      apply Triple.intro
+      change inv (.yield b') ⊓ ⌜measure b' < measure b⌝ ⊑
+        wp (Loop.forIn.loop f b') (fun b => inv (.done b)) einv
+      rw [meet_comm]
+      apply ofProp_meet_le_left
+      intro hlt
+      exact (ih b' hlt).le_wp
+
 namespace Gadget
 
 set_option linter.unusedVariables false in
@@ -104,11 +161,11 @@ set_option linter.unusedVariables false in
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-@[inline] public def whileLoopPartial {β : Type u} {m : Type u → Type v}
-    [Monad m] [∀ α, CCPO (m α)] [MonoBind m]
+@[expose, inline] public def whileLoopPartial {β : Type u} {m : Type u → Type v}
+    [ForIn m Lean.Loop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
     (inv : β → Pred) (done : β → Pred) : m β :=
-  forIn.loop f init
+  forIn Lean.Loop.mk init f
 
 set_option linter.unusedVariables false in
 @[expose, inline] public def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
@@ -474,6 +531,7 @@ public theorem Spec.whileLoop_partial
       (fun b => binderNameHint b done <| done b)
       einv := by
   unfold whileLoopPartial
+  change Triple (Loop.forIn.loop f init) (inv init) (fun b => done b) einv
   let inv' : β ⊕ β → Pred := fun
     | .inl b => inv b
     | .inr b => done b

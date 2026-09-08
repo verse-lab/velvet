@@ -1,6 +1,9 @@
 module
 
 public import Velvet.Core.NonDet.Defs
+public import Velvet.Core.Loop.Gadgets
+
+open Lean.Order
 
 universe u v
 
@@ -35,43 +38,48 @@ This acts as the canonical ITree / Freer effect handler, interpreting:
 - `.pickCont`: by querying the runtime witness finder `find ()`
 - `.repeatCont`: by running loop iterations in `m`
 -/
-public def run {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m] [ForIn m Lean.Loop Unit]
+public def run {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m]
+    [∀ γ, CCPO (m γ)] [MonoBind m]
     {α : Type u} : NonDetT mode m α → m α
   | .pure x => Pure.pure x
   | .vis x f => x >>= (fun y => (f y).run)
-  | .pickCont _ _ find f =>
-    match find () with
+  | @NonDetT.pickCont _ _ _ _ _ wf f =>
+    match wf.find () with
     | none => CCPOBot.compBot
     | some x => (f x).run
   | .repeatCont init f cont =>
-    forIn Lean.Loop.mk init (fun _ x => (f x).run) >>= (fun x => (cont x).run)
+    Loop.forIn.loop (fun _ x => (f x).run) init >>= (fun x => (cont x).run)
 
 @[simp]
-public theorem run_pure {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m] [ForIn m Lean.Loop Unit]
+public theorem run_pure {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m]
+    [∀ γ, CCPO (m γ)] [MonoBind m]
     {α : Type u} (x : α) :
     (NonDetT.pure (mode := mode) (m := m) x).run = Pure.pure x := by
   rw [NonDetT.run]
 
 @[simp]
-public theorem run_vis {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m] [ForIn m Lean.Loop Unit]
+public theorem run_vis {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m]
+    [∀ γ, CCPO (m γ)] [MonoBind m]
     {α β : Type u} (x : m β) (f : β → NonDetT mode m α) :
     (NonDetT.vis x f).run = x >>= (fun y => (f y).run) := by
   rw [NonDetT.run]
 
 @[simp]
-public theorem run_pickCont {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m] [ForIn m Lean.Loop Unit]
-    {α τ : Type u} (p : τ → Prop) (find : Unit → Option τ) (f : τ → NonDetT mode m α) :
-    (NonDetT.pickCont τ p find f).run =
-      match find () with
+public theorem run_pickCont {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m]
+    [∀ γ, CCPO (m γ)] [MonoBind m]
+    {α τ : Type u} (p : τ → Prop) [wf : Findable p] (f : τ → NonDetT mode m α) :
+    (NonDetT.pickCont τ p f).run =
+      match wf.find () with
       | none => CCPOBot.compBot
       | some x => (f x).run := by
   rw [NonDetT.run]
 
 @[simp]
-public theorem run_repeatCont {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m] [ForIn m Lean.Loop Unit]
+public theorem run_repeatCont {mode : NondetMode} {m : Type u → Type v} [Monad m] [CCPOBot m]
+    [∀ γ, CCPO (m γ)] [MonoBind m]
     {α β : Type u} (init : β) (f : β → NonDetT mode m (ForInStep β)) (cont : β → NonDetT mode m α) :
     (NonDetT.repeatCont init f cont).run =
-      forIn Lean.Loop.mk init (fun _ x => (f x).run) >>= (fun x => (cont x).run) := by
+      Loop.forIn.loop (fun _ x => (f x).run) init >>= (fun x => (cont x).run) := by
   rw [NonDetT.run]
 
 end NonDetT
