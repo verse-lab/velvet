@@ -55,6 +55,11 @@ public theorem choice_angelic {τ : Type u} (p : τ → Prop) (post : τ → Pre
 
 namespace NonDetT
 
+/-- Partial loops over `NonDetT` are represented in its syntax tree. -/
+public instance instForInPartialLoopNonDetT :
+    ForIn (NonDetT mode m) Loop.PartialLoop Unit where
+  forIn _ init f := NonDetT.repeatCont init (f ()) pure
+
 theorem meet_mono {Pred : Type w} [Assertion Pred] {P P' Q Q' : Pred}
     (hP : P ⊑ P') (hQ : Q ⊑ Q') : P ⊓ Q ⊑ P' ⊓ Q' :=
   le_meet _ _ _ (meet_le_of_left_le hP) (meet_le_of_right_le hQ)
@@ -453,14 +458,14 @@ public theorem Spec.whileLoop_partial
   have hyield : ∀ b b', stepPost b (.yield b') ⊑ inv b' := by
     intro b b'; exact PartialOrder.rel_refl
   have hdone : ∀ b b', stepPost b (.done b') ⊑
-      (Pure.pure (f := NonDetT mode m) b').wp (fun b => done b) einv := by
+      (pure b' : NonDetT mode m β).wp (fun b => done b) einv := by
     intro b b'; exact PartialOrder.rel_refl
   have eqBody : (⌜∀ b, inv b ⊑ (f () b).wp (stepPost b) einv⌝ : Pred) = ⊤ := by
     simp [hbody]
   have eqYield : (⌜∀ b b', stepPost b (.yield b') ⊑ inv b'⌝ : Pred) = ⊤ := by
     simp [hyield]
   have eqDone : (⌜∀ b b', stepPost b (.done b') ⊑
-      (Pure.pure (f := NonDetT mode m) b').wp (fun b => done b) einv⌝ : Pred) = ⊤ := by
+      (pure b' : NonDetT mode m β).wp (fun b => done b) einv⌝ : Pred) = ⊤ := by
     simp [hdone]
   have eqDiv : (⌜∀ b, inv b ⊑ div_pre einv⌝ : Pred) = ⊤ := by
     simp [hdiv]

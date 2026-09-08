@@ -1,5 +1,11 @@
-import Velvet
+module
+
+public import Velvet
+public meta import Velvet
+
 open Std.WP
+
+namespace SimplestSort
 
 /-!
 # "I Can't Believe It Can Sort" (https://arxiv.org/pdf/2110.01111)
@@ -14,17 +20,17 @@ for i in 0..n do
 -/
 
 @[grind, simp]
-def cnt (arr : Array Int) (x : Int) : Nat := arr.toList.count x
+public def cnt (arr : Array Int) (x : Int) : Nat := arr.toList.count x
 
 @[grind, simp]
-def sameElems (a b : Array Int) : Prop := ∀ x, cnt a x = cnt b x
+public def sameElems (a b : Array Int) : Prop := ∀ x, cnt a x = cnt b x
 
 @[grind, simp]
-def SortedUpTo (arr : Array Int) (n : Nat) : Prop :=
+public def SortedUpTo (arr : Array Int) (n : Nat) : Prop :=
   ∀ i j, i ≤ j → j < n → arr[i]! ≤ arr[j]!
 
 @[grind =, simp]
-theorem getElem!_swap (a : Array Int) (i j k : Nat) (hi : i < a.size) (hj : j < a.size) :
+public theorem getElem!_swap (a : Array Int) (i j k : Nat) (hi : i < a.size) (hj : j < a.size) :
   ((a.set! i a[j]!).set! j a[i]!)[k]! =
     if k = j then a[i]! else if k = i then a[j]! else a[k]! := by
   grind
@@ -81,4 +87,6 @@ prove_correct simplestSort by
     intro hj1 u hu
     have hj_step := inv_right_sorted (by grind) j (j + 1) (by grind) (by grind) hj1
     grind)
+
+end SimplestSort
 

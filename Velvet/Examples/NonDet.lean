@@ -178,6 +178,49 @@ prove_correct loopDemonic by
 
 example : (loopDemonic 5).run = some 5 := by native_decide
 
+-- For positive `n`, the only permitted choice is `step = 0`, so this loop
+-- actually diverges. Partial correctness can therefore prove an unreachable
+-- normal postcondition.
+set_option velvet.semantics.termination "partial" in
+method zeroStepForever (n : Nat) returns (res : Nat) in DemonicT Option
+  requires positive : 0 < n
+  signals divergence_allowed : (_ : Unit) => True
+  ensures unreachable : False
+do
+  let mut i : Nat := 0
+  while' running : i < n
+    invariant positive : 0 < n
+    invariant stuck : i = 0
+    done_with reached : i = n
+  do
+    let (step : Nat) :| step = 0
+    i := i + step
+  return i
+
+set_option velvet.semantics.termination "partial" in
+prove_correct zeroStepForever by
+  velvet_vcgen [zeroStepForever] with finish
+
+-- The extracted finder always chooses `step = 0`, so for `n > 0` this loop
+-- stutters forever. Its partial specification only describes terminating runs.
+set_option velvet.semantics.termination "partial" in
+method stutteringLoop (n : Nat) returns (res : Nat) in DemonicT Option
+  signals divergence_allowed : (_ : Unit) => True
+  ensures reached_end : res = n
+do
+  let mut i : Nat := 0
+  while' running : i < n
+    invariant bounded : i ≤ n
+    done_with reached : i = n
+  do
+    let (step : Nat) :| step ≤ 1
+    i := i + step
+  return i
+
+set_option velvet.semantics.termination "partial" in
+prove_correct stutteringLoop by
+  velvet_vcgen [stutteringLoop] with finish
+
 /-- A loop with non-deterministic choice inside the loop body. -/
 method loopWithChoice (n : Nat) returns (res : Nat) in DemonicT Option
   signals (_ : Unit) => False

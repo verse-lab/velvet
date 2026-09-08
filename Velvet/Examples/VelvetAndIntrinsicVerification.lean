@@ -61,7 +61,7 @@ do
   return m
 
 prove_correct mkFreshNat by
-  velvet_vcgen with finish
+  velvet_vcgen [mkFreshNat] with finish
 
 #check @mkFreshNat.spec
 
@@ -73,7 +73,7 @@ do
   modify (· + k)
 
 prove_correct widen by
-  velvet_vcgen with finish
+  velvet_vcgen [widen] with finish
 
 #check @widen.spec
 

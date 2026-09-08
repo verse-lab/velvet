@@ -26,10 +26,15 @@ namespace Loop
       | ForInStep.yield b => forIn.loop f b
   partial_fixpoint
 
-@[instance high]
-public instance instForInLoopOfCCPO {m : Type u → Type v}
+/-- Dedicated collection marker for partial `while'` loops. Using a distinct
+collection type lets `ForIn` dispatch to fixed-point execution without
+replacing the ordinary `ForIn m Lean.Loop Unit` instance. -/
+public structure PartialLoop where
+  mk ::
+
+public instance instForInPartialLoopOfCCPO {m : Type u → Type v}
     [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m] :
-    ForIn m Lean.Loop Unit where
+    ForIn m PartialLoop Unit where
   forIn _ init f := forIn.loop f init
 
 /-- Generic partial-correctness rule for `forIn.loop` over any monad satisfying `WPPartial`. -/
@@ -162,10 +167,10 @@ set_option linter.unusedVariables false in
 
 set_option linter.unusedVariables false in
 @[expose, inline] public def whileLoopPartial {β : Type u} {m : Type u → Type v}
-    [ForIn m Lean.Loop Unit]
+    [ForIn m PartialLoop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
     (inv : β → Pred) (done : β → Pred) : m β :=
-  forIn Lean.Loop.mk init f
+  forIn PartialLoop.mk init f
 
 set_option linter.unusedVariables false in
 @[expose, inline] public def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]

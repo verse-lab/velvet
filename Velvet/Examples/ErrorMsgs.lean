@@ -114,14 +114,14 @@ do
     i := i + 1
   return 0
 
-/- Partial correctness while loop in a monad stack lacking CCPO instance. -/
+/- Partial correctness while loop in a monad stack lacking a partial-loop instance. -/
 @[expose] public def NoCCPOMonad (α : Type) : Type := Option α
 public instance : Monad NoCCPOMonad := inferInstanceAs (Monad Option)
 public instance : WPMonad NoCCPOMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
 
 /--
 error: failed to synthesize instance of type class
-  (α : Type) → CCPO (NoCCPOMonad α)
+  ForIn NoCCPOMonad PartialLoop Unit
 
 Hint: Type class instance resolution failures can be inspected with the `set_option trace.Meta.synthInstance true` command.
 -/
