@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 @[grind →]
 public theorem adjacent_to_global_sorted {a : Array Int}

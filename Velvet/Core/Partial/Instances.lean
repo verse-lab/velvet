@@ -2,15 +2,15 @@ module
 
 public import Velvet.Core.Partial.Defs
 
-open Std.WP
-open Std.WP.Assertion
+open Std.Internal.Do
+open Std.Internal.Do.Assertion
 open Lean.Order
 
 universe u u₁ u₂ v w
 
 namespace WPPartial
 
-public theorem Option.wp_csup_lift {α : Type u} {c : Option α → Prop} (hc : chain c) (hne : ∃ x, c x) (Q : α → Prop) (E : Unit → Prop) :
+public theorem Option.wp_csup_lift {α : Type u} {c : Option α → Prop} (hc : chain c) (hne : ∃ x, c x) (Q : α → Prop) (E : Prop) :
     (⨅ (x : {x : Option α // c x}), (wp (Prog := Option α) x.val Q E : Prop)) ⊑ (wp (Prog := Option α) (CCPO.csup hc) Q E : Prop) := by
   by_cases h : ∃ a, c (some a)
   · rcases h with ⟨a, ha⟩
@@ -48,8 +48,8 @@ public theorem Option.wp_csup_lift {α : Type u} {c : Option α → Prop} (hc : 
     exact iInf_le (fun (x : {x : Option α // c x}) => (wp (Prog := Option α) x.val Q E : Prop)) ⟨none, hy⟩
 
 @[simp, grind =]
-public theorem Option.wp_bot {α : Type u} {Q : α → Prop} {E : Unit → Prop} :
-    wp (Prog := Option α) (CCPO.csup (α := Option α) (c := fun _ => False) emptyChain) Q E = E () := by
+public theorem Option.wp_bot {α : Type u} {Q : α → Prop} {E : Prop} :
+    wp (Prog := Option α) (CCPO.csup (α := Option α) (c := fun _ => False) emptyChain) Q E = E := by
   have hcsup : CCPO.csup (α := Option α) (c := fun _ => False) emptyChain = none := by
     apply PartialOrder.rel_antisymm
     · apply csup_le emptyChain
@@ -108,7 +108,7 @@ public theorem ExceptT.csup_bot {ε : Type u} {m : Type u → Type v} [∀ α, C
     CCPO.csup (α := m (Except ε α)) (c := fun _ => False) emptyChain := by
   rfl
 
-public instance Option.instWPPartial : WPPartial (Option.{u}) Prop (Unit → Prop) (fun _ => True) (fun E => E ()) where
+public instance Option.instWPPartial : WPPartial (Option.{u}) Prop Prop True (fun e => e) where
   csup_lift hc hne Q E := Option.wp_csup_lift hc hne Q E
   wp_bot _ _ := Option.wp_bot
   le_divergence_post pre := by intro _; trivial
@@ -182,10 +182,10 @@ public instance [Monad m] [∀ α, CCPO (m α)] [MonoBind m] {ε : Type u} : Mon
 
 public noncomputable instance [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
     [∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre] {ε : Type u} :
-    WPPartial (ExceptT ε m) Pred ((ε → Pred) × EPred) (fun _ => ⊥, div_post) (fun E => div_pre E.snd) where
+    WPPartial (ExceptT ε m) Pred (EPost.Cons (ε → Pred) EPred) ⟨(fun _ => ⊥), div_post⟩ (fun E => div_pre E.tail) where
   csup_lift {α} {c} hc hne Q E := by
     rw [ExceptT.wp_apply_eq]
-    have h1 := WPPartial.csup_lift (m := m) (α := Except ε α) (c := c) hc hne (pushExcept Q E.fst) E.snd
+    have h1 := WPPartial.csup_lift (m := m) (α := Except ε α) (c := c) hc hne (E.pushExcept Q) E.tail
     apply PartialOrder.rel_trans _ h1
     apply le_iInf
     rintro ⟨x, hx⟩

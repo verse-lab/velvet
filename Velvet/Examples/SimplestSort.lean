@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 namespace SimplestSort
 
@@ -76,8 +76,6 @@ do
       j := j + 1
     i := i + 1
   return res
-
-
 
 #eval (simplestSort #[11,21,12,15, 10])
 

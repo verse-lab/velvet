@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 set_option velvet.semantics.termination "partial" in
 method countToTen (a : Nat)

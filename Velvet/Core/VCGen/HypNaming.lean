@@ -1,8 +1,8 @@
 module
 
 prelude
-public import Lean.Elab.Tactic.VCGen.Context
-public import Lean.Elab.Tactic.VCGen.Util
+public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
+public import Lean.Elab.Tactic.Do.Internal.VCGen.Util
 public import Lean.Elab.Tactic.Do.VCGen.Split
 public import Lean.Meta.Sym.AbstractS
 public import Lean.Meta.Sym.AlphaShareBuilder
@@ -10,7 +10,8 @@ public import Lean.Meta.Sym.InstantiateS
 public import Velvet.Core.Named
 
 open Lean Meta Sym Sym.Internal
-open Lean.Elab.Tactic.VCGen
+open Lean.Elab.Tactic.Do.Internal
+open Lean.Elab.Tactic.Do.Internal.VCGen
 
 namespace VCGen
 
@@ -58,7 +59,6 @@ binders name themselves. -/
 private def guardName? (splitInfo : SplitInfo) : Option Name :=
   match splitInfo with
   | .ite _ => defaultIfGuardName
-  | .cond _ => defaultIfGuardName
   | .dite e =>
       let binderName (alt : Expr) : Option Name :=
         match alt with

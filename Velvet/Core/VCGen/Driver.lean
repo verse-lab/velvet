@@ -7,25 +7,25 @@ module
 
 prelude
 public import Lean.Elab.Tactic.Meta
-public import Lean.Elab.Tactic.VCGen.Context
+public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
 public import Velvet.Core.VCGen.Solve
 public import Velvet.Core.VCGen.Util
 public import Velvet.Core.Named
-public import Lean.Meta.Sym.Grind
 public import Lean.Meta.Sym.InstantiateMVarsS
+public import Lean.Meta.Sym.Grind
 
-open Lean Meta Elab Tactic Sym Sym.Internal Lean.Order
+open Lean Meta Elab Tactic Sym
 open Lean.Elab.Tactic.Do.SpecAttr
-open Lean.Elab.Tactic.VCGen
-open VCGen
 
-namespace VCGen
+open Lean.Elab.Tactic.Do.Internal
+open Lean.Elab.Tactic.Do.Internal.VCGen
 
 /-!
 Worklist driver for `vcgen`. Wraps `solve` with a queue of pending goals
 and emits VCs (or invariant holes) for those `solve` cannot decompose further.
 -/
 
+namespace VCGen
 
 /--
 Try to elaborate the user's invariant alt for invariant number `n` inline,
@@ -104,22 +104,22 @@ private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := d
   | .closed => return none
   | .noProgress => pure mvarId
   | .goal mvarId => pure mvarId
-      -- Removing `Named.mk` can expose a fresh beta-redex when a named StateT/ReaderT
-      -- assertion is applied to its state/environment arguments. The worklist's final
-      -- normalization ran before this unwrapping, so normalize the exposed target once
-      -- more while retaining the inherited Grind state.
-      let mvarId ← match ← Sym.simpGoal mvarId
-          (← mkGeneratedControlSimpMethods) with
-        | .closed => return none
-        | .noProgress => pure mvarId
-        | .goal mvarId => pure mvarId
-      let mvarId ← match info.source? with
-        | none => pure mvarId
-        | some source =>
-            let target ← mvarId.getType
-            mvarId.replaceTargetDefEqFast (Named.annotateSourceRef target source)
-      mvarId.setTag name
-      return some { goal with mvarId }
+  -- Removing `Named.mk` can expose a fresh beta-redex when a named StateT/ReaderT
+  -- assertion is applied to its state/environment arguments. The worklist's final
+  -- normalization ran before this unwrapping, so normalize the exposed target once
+  -- more while retaining the inherited Grind state.
+  let mvarId ← match ← Sym.simpGoal mvarId
+      (← mkGeneratedControlSimpMethods) with
+    | .closed => return none
+    | .noProgress => pure mvarId
+    | .goal mvarId => pure mvarId
+  let mvarId ← match info.source? with
+    | none => pure mvarId
+    | some source =>
+        let target ← mvarId.getType
+        mvarId.replaceTargetDefEqFast (Named.annotateSourceRef target source)
+  mvarId.setTag name
+  return some { goal with mvarId }
 
 /--
 Called when decomposing the goal further did not succeed; in this case we emit a VC for the goal.
@@ -129,12 +129,24 @@ so they never reach this path.
 public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
   goal ← processHypotheses goal
-  let some mvarId ← cleanupVC goal.mvarId | return
+  if goal.inconsistent then return
+  -- `trivial`: when false, skip `solveTrivialConjuncts` (which collapses And-chains via rfl);
+  -- naming and generated-control simplification still run.
+  let mvarId ←
+    if (← read).trivial then
+      let some mvarId ← solveTrivialConjuncts goal.mvarId | return
+      pure mvarId
+    else
+      pure goal.mvarId
   let some emittedGoal ← processNamedGoal { goal with mvarId } | return
-  let some mvarId ← cleanupVC emittedGoal.mvarId | return
-  let emittedGoal := { emittedGoal with mvarId }
-  emittedGoal.mvarId.setKind .syntheticOpaque
-  modify fun s => { s with vcs := s.vcs.push emittedGoal }
+  let mvarId ←
+    if (← read).trivial then
+      let some mvarId ← solveTrivialConjuncts emittedGoal.mvarId | return
+      pure mvarId
+    else
+      pure emittedGoal.mvarId
+  mvarId.setKind .syntheticOpaque
+  modify fun s => { s with vcs := s.vcs.push { emittedGoal with mvarId } }
 
 private structure WorkItem where
   goal : Grind.Goal
@@ -149,13 +161,9 @@ public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Unit := do
     let goal ← processHypotheses s.goal
     if goal.inconsistent then continue
     match ← solve s.scope goal.mvarId with
-    | .stop _reason =>
-      -- `solve` has finished decomposing everything it recognizes. Before emitting a
-      -- verification condition, clear any remaining *concrete* control flow that the
-      -- do-elaborator generated for loops (branch guards, tuple projections). If that
-      -- simplification exposes a connective `solve` can split, put the goal back on the
-      -- worklist so the split happens now; otherwise the goal is genuinely stuck and is
-      -- emitted as a VC.
+    | .stop .outOfFuel | .stop (.untilPatternMatched _) =>
+      emitVC goal
+    | .stop _ =>
       match ← Sym.simpGoal goal.mvarId (← mkGeneratedControlSimpMethods) with
       | .closed => continue
       | .noProgress => emitVC goal
@@ -191,10 +199,10 @@ Return the VCs and invariant goals.
 
 `stepLimit?`, when `some n`, seeds the fuel counter to `n`; when `none`, fuel is unlimited.
 -/
-public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.VCGen.Context) (scope : Scope)
+public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.Do.Internal.VCGen.Context) (scope : VCGen.Scope)
     (stepLimit? : Option Nat := none) (frameDB : FrameDB := {}) :
     Grind.GrindM Result := do
-  let initState : Lean.Elab.Tactic.VCGen.State :=
+  let initState : Lean.Elab.Tactic.Do.Internal.VCGen.State :=
     { fuel := match stepLimit? with | some n => .limited n | none => .unlimited, frameDB }
   -- VCGen temporarily violates the `SymM` folded-projections invariant: `reduceHead?`
   -- exposes kernel projections in intermediate terms and restores the invariant in its
@@ -218,6 +226,5 @@ public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.VCGen.Context
     vcs,
     inlineHandledInvariants := state.inlineHandledInvariants,
     unmatchedFrames }
-
 
 end VCGen

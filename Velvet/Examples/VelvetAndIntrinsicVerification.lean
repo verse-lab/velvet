@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 namespace Velvet.Examples.VelvetAndIntrinsic
 
@@ -18,7 +18,7 @@ public def safeInc (n : Nat) : Option Nat
 
 method velvetCallsIntrinsic (n : Nat) returns (res : Nat) in StateT Nat Option
   requires (s : Nat) => n ≠ 0
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => res = n + 1 ∧ s = res
 do
   let x ← safeInc n

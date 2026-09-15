@@ -25,7 +25,7 @@ private meta def withContract (name : Ident)
   let spec ← mkConstWithFreshMVarLevels specName
   forallTelescopeReducing spec fun args body => do
     let body ← whnf body
-    let_expr Std.WP.Triple _ _ _ _ _ _ program wpInst pre post signals := body
+    let_expr Std.Internal.Do.Triple _ _ _ _ _ _ program wpInst pre post signals := body
       | throwError "expected a method Triple, got {body}"
     k args program wpInst pre post signals
 
@@ -39,10 +39,13 @@ private meta partial def decisionType (p : Expr) : TermElabM Expr := do
     withLocalDecl name bi domain fun arg => do
       mkForallFVars #[arg] (← decisionType (mkApp p arg))
   | _ =>
+    if type.isAppOf ``Std.Internal.Do.EPost.Cons then
+      return ← mkAppM ``Prod #[← decisionType (mkProj ``Std.Internal.Do.EPost.Cons 0 p),
+        ← decisionType (mkProj ``Std.Internal.Do.EPost.Cons 1 p)]
     if type.isAppOf ``Prod then
       return ← mkAppM ``Prod #[← decisionType (mkProj ``Prod 0 p),
         ← decisionType (mkProj ``Prod 1 p)]
-    if ← isDefEq type (mkConst ``Unit) then return mkConst ``Unit
+    if type.isConstOf ``Std.Internal.Do.EPost.Nil then return mkConst ``Unit
     throwError "unsupported assertion type for pointwise decisions: {type}"
 
 syntax (name := testingDecisionType) "testing_decision_type% " ident ident : term
@@ -75,7 +78,7 @@ public meta def elabChecker : TermElab := fun stx _ => do
     let postDec ← getDecision `postDecidable
     let signalsDec ← getDecision `signalsDecidable
     let wpDec ← mkAppM ``decideWP #[program, post, signals, postDec, signalsDec]
-    let contractWP ← mkAppOptM ``Std.WP.WP.wp #[none, none, none, none, none, none,
+    let contractWP ← mkAppOptM ``Std.Internal.Do.WP.wp #[none, none, none, none, none, none,
       some wpInst, some program, some post, some signals]
     let expected ← mkAppM ``PointwiseDecidable #[contractWP]
     unless ← isDefEq (← inferType wpDec) expected do

@@ -4,7 +4,7 @@ public import Velvet
 public meta import Velvet
 
 open scoped GhostSyntax
-open Std.WP Lean.Order
+open Std.Internal.Do Lean.Order
 
 namespace Velvet.Examples.BindersTest
 

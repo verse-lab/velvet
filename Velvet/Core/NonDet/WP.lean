@@ -2,9 +2,9 @@ module
 
 public import Velvet.Core.NonDet.Defs
 public import Velvet.Core.Loop.Gadgets
-public import Std.WP
+public import Std.Internal.Do
 
-open Std.WP Lean.Order Loop.Gadget WPPartial
+open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order Loop.Gadget WPPartial
 
 universe u v w z
 
@@ -13,7 +13,7 @@ universe u v w z
 variable {mode : NondetMode}
 variable {m : Type u → Type v} {Pred : Type w} {EPred : Type z}
 variable {div_post : EPred} {div_pre : EPred → Pred}
-variable [Monad m] [Assertion Pred] [Heyting Pred] [Assertion EPred]
+variable [Monad m] [Assertion Pred] [∀ P : Pred, PreservesSup (meet P)] [Assertion EPred]
 
 /-- Non-deterministic choice quantifier. Demonic choice requires all valid
 branches and requires `fallback` whenever no valid branch exists. Angelic
@@ -38,7 +38,7 @@ theorem choice_mono (mode : NondetMode) {τ : Type u} (p : τ → Prop)
         exact iInf_mono (fun (a : { a // p a }) => hpost a.val)
   | angelic => exact iSup_mono (fun (a : { a // p a }) => hpost a.val)
 
-omit [Heyting Pred] in
+omit [∀ P : Pred, PreservesSup (meet P)] in
 @[simp]
 public theorem choice_demonic {τ : Type u} (p : τ → Prop) (post : τ → Pred)
     (fallback : Pred) :
@@ -46,7 +46,7 @@ public theorem choice_demonic {τ : Type u} (p : τ → Prop) (post : τ → Pre
       (⌜¬ ∃ a, p a⌝ ⇨ fallback) ⊓
         ⨅ (a : { a : τ // p a }), post a.val := rfl
 
-omit [Heyting Pred] in
+omit [∀ P : Pred, PreservesSup (meet P)] in
 @[simp]
 public theorem choice_angelic {τ : Type u} (p : τ → Prop) (post : τ → Pred)
     (fallback : Pred) :
@@ -78,7 +78,7 @@ public noncomputable def wp [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     (x : NonDetT mode m α) (post : α → Pred) (epost : EPred) : Pred :=
   match x with
   | .pure ret => post ret
-  | .vis c f => Std.WP.wp c (fun b => wp (f b) post epost) epost
+  | .vis c f => Std.Internal.Do.wp c (fun b => wp (f b) post epost) epost
   | @NonDetT.pickCont _ _ _ _ p _ f =>
       mode.choice p (fun t => wp (f t) post epost) (div_pre epost)
   | .repeatCont (β := β) init f cont =>
@@ -107,7 +107,7 @@ public noncomputable abbrev wpAngelic [WPMonad m Pred EPred] [∀ γ, CCPO (m γ
     [WPPartial m Pred EPred div_post div_pre] {α : Type u} :=
   wp (mode := .angelic) (m := m) (α := α)
 
-omit [Heyting Pred] in
+omit [∀ P : Pred, PreservesSup (meet P)] in
 public theorem wp_bind [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] {α β : Type u}
     (x : NonDetT mode m α) (f : α → NonDetT mode m β)
@@ -116,8 +116,8 @@ public theorem wp_bind [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
   induction x generalizing post epost with
   | pure ret => rfl
   | vis c g ih =>
-      show Std.WP.wp c (fun b => wp (g b >>= f) post epost) epost =
-        Std.WP.wp c (fun b => wp (g b)
+      show Std.Internal.Do.wp c (fun b => wp (g b >>= f) post epost) epost =
+        Std.Internal.Do.wp c (fun b => wp (g b)
           (fun a => wp (f a) post epost) epost) epost
       congr 1
       funext b
@@ -159,7 +159,7 @@ public theorem wp_bind [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
             wp (cont b) (fun a => wp (f a) post epost) epost⌝))
       simp only [ih]
 
-omit [Heyting Pred] in
+omit [∀ P : Pred, PreservesSup (meet P)] in
 public theorem div_pre_mono [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] {epost epost' : EPred}
     (h : epost ⊑ epost') : div_pre epost ⊑ div_pre epost' := by
@@ -256,14 +256,14 @@ public theorem wp_pickSuchThat [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] (τ : Type u) (p : τ → Prop)
     [wf : Findable p] (name : Lean.Name)
     (post : τ → Pred) (epost : EPred) :
-    Std.WP.wp (NonDetT.pickSuchThat (m := m) (mode := mode) τ p (wf := wf) name) post epost =
+    Std.Internal.Do.wp (NonDetT.pickSuchThat (m := m) (mode := mode) τ p (wf := wf) name) post epost =
       mode.choice p post (div_pre epost) := rfl
 
 @[simp]
 public theorem wp_pick (τ : Type u) [Inhabited τ] [WPMonad m Pred EPred]
     [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
     (post : τ → Pred) (epost : EPred) :
-    Std.WP.wp (NonDetT.pick (m := m) (mode := mode) τ) post epost =
+    Std.Internal.Do.wp (NonDetT.pick (m := m) (mode := mode) τ) post epost =
       match mode with
       | .demonic => ⨅ (a : τ), post a
       | .angelic => ⨆ (a : τ), post a := by
@@ -283,7 +283,7 @@ public theorem wp_pick (τ : Type u) [Inhabited τ] [WPMonad m Pred EPred]
 public theorem wp_assume' [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] (as : Prop)
     [Decidable as] (post : PUnit.{u+1} → Pred) (epost : EPred) :
-    Std.WP.wp (NonDetT.assume' (m := m) (mode := mode) as) post epost =
+    Std.Internal.Do.wp (NonDetT.assume' (m := m) (mode := mode) as) post epost =
       match mode with
       | .demonic => (⌜¬as⌝ ⇨ div_pre epost) ⊓ (⌜as⌝ ⇨ post .unit)
       | .angelic => ⌜as⌝ ⊓ post .unit := by
@@ -342,7 +342,7 @@ public theorem wp_assume' [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
 @[spec]
 public theorem demonic_pickSuchThat_spec {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
-    [Monad m] [Assertion Pred] [Heyting Pred] [Assertion EPred]
+    [Monad m] [Assertion Pred] [∀ P : Pred, PreservesSup (meet P)] [Assertion EPred]
     [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre]
     (name : Lean.Name) (τ : Type u) (p : τ → Prop) [wf : Findable p]
@@ -356,7 +356,7 @@ public theorem demonic_pickSuchThat_spec {m : Type u → Type v} {Pred EPred : T
 @[spec]
 public theorem demonic_pick_spec {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
-    [Monad m] [Assertion Pred] [Heyting Pred] [Assertion EPred]
+    [Monad m] [Assertion Pred] [∀ P : Pred, PreservesSup (meet P)] [Assertion EPred]
     [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre]
     (τ : Type u) [Inhabited τ] {post : τ → Pred} {epost : EPred} :
@@ -368,7 +368,7 @@ public theorem demonic_pick_spec {m : Type u → Type v} {Pred EPred : Type u}
 @[spec]
 public theorem demonic_assume_spec {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
-    [Monad m] [Assertion Pred] [Assertion EPred] [Heyting Pred] [WPMonad m Pred EPred]
+    [Monad m] [Assertion Pred] [Assertion EPred] [∀ P : Pred, PreservesSup (meet P)] [WPMonad m Pred EPred]
     [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
     (as : Prop) [Decidable as] {post : PUnit.{u+1} → Pred} {epost : EPred} :
     Triple (NonDetT.assume' (mode := .demonic) (m := m) as)
@@ -383,7 +383,7 @@ public theorem demonic_assume_spec {m : Type u → Type v} {Pred EPred : Type u}
 @[spec]
 public theorem angelic_pickSuchThat_spec {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
-    [Monad m] [Assertion Pred] [Assertion EPred] [Heyting Pred] [WPMonad m Pred EPred]
+    [Monad m] [Assertion Pred] [Assertion EPred] [∀ P : Pred, PreservesSup (meet P)] [WPMonad m Pred EPred]
     [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
     (name : Lean.Name) (τ : Type u) (p : τ → Prop) [wf : Findable p]
     (w : τ)
@@ -393,7 +393,7 @@ public theorem angelic_pickSuchThat_spec {m : Type u → Type v} {Pred EPred : T
       ((⌜(Named.mk name none (p w) : Prop)⌝ ⇨ post w) : Pred) post epost := by
   apply Triple.intro
   change (⌜(Named.mk name none (p w) : Prop)⌝ ⇨ post w) ⊑
-    Std.WP.wp (NonDetT.pickSuchThat (m := m) (mode := .angelic) τ p (wf := wf) name) post epost
+    Std.Internal.Do.wp (NonDetT.pickSuchThat (m := m) (mode := .angelic) τ p (wf := wf) name) post epost
   rw [wp_pickSuchThat, choice_angelic]
   have hpw : p w := h
   have hp : (⌜(Named.mk name none (p w) : Prop)⌝ : Pred) = ⊤ := by
@@ -404,7 +404,7 @@ public theorem angelic_pickSuchThat_spec {m : Type u → Type v} {Pred EPred : T
 @[spec]
 public theorem angelic_pick_spec {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
-    [Monad m] [Assertion Pred] [Heyting Pred] [Assertion EPred]
+    [Monad m] [Assertion Pred] [∀ P : Pred, PreservesSup (meet P)] [Assertion EPred]
     [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre]
     (τ : Type u) [Inhabited τ] (w : τ) {post : τ → Pred} {epost : EPred} :
@@ -417,7 +417,7 @@ public theorem angelic_pick_spec {m : Type u → Type v} {Pred EPred : Type u}
 @[spec]
 public theorem angelic_assume_spec {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
-    [Monad m] [Assertion Pred] [Assertion EPred] [Heyting Pred] [WPMonad m Pred EPred]
+    [Monad m] [Assertion Pred] [Assertion EPred] [∀ P : Pred, PreservesSup (meet P)] [WPMonad m Pred EPred]
     [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
     (as : Prop) [Decidable as] {post : PUnit.{u+1} → Pred} {epost : EPred} :
     Triple (NonDetT.assume' (mode := .angelic) (m := m) as)

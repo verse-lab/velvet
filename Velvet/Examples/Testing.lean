@@ -57,7 +57,7 @@ example : Nat → Nat → Bool → Nat → TestVerdict := stacked.check
 method checked (bad : Bool) returns (result : Nat) in ExceptT String (StateT Nat Option)
   requires (s : Nat) => s < 100
   signals (e : String) (s : Nat) => e = "bad" ∧ s = 42
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => result = s
 do
   set 42
@@ -154,15 +154,26 @@ do
 #guard explicitFailure.check == .fail
 
 -- Changing the exception contract changes the verdict for the same outcome.
-method permittedFailure returns (result : Nat) in Option
+method permittedFailure returns (result : Nat)
   requires True
-  signals (_ : Unit) => True
+  signals True
   ensures result = 0
 do
   failure
 
 #derive_tester_for permittedFailure
 #guard permittedFailure.check == .pass
+
+-- Unit is still a real exception value for Except Unit, unlike Option failure.
+method unitException returns (result : Nat) in Except Unit
+  requires True
+  signals (e : Unit) => e = ()
+  ensures False
+do
+  throw ()
+
+#derive_tester_for unitException
+#guard unitException.check == .pass
 
 method lostState (bad : Bool) returns (result : Nat) in StateT Nat (Except String)
   requires (s : Nat) => s < 100
@@ -208,8 +219,8 @@ do
 
 method optional (present : Bool) returns (result : Nat) in OptionT (ReaderT Nat Option)
   requires (env : Nat) => env < 10
-  signals (_ : Unit) (env : Nat) => env = 0
-  signals (_ : Unit) => False
+  signals (env : Nat) => env = 0
+  signals False
   ensures (env : Nat) => result = env
 do
   if present then return ← read
@@ -245,7 +256,7 @@ section AlternativeWP
 
 -- A direct WP instance can override the one from WPMonad. Do not silently test a
 -- different interpretation, even when both have the same assertion types.
-@[instance_reducible] public def alternativeWP : Std.WP.WP (Id Nat) Nat Prop Unit where
+@[instance_reducible] public def alternativeWP : Std.Internal.Do.WP (Id Nat) Nat Prop Std.Internal.Do.EPost.Nil where
   wpTrans _ := ⟨fun _ _ => True⟩
   wp_trans_monotone _ := fun _ _ _ _ _ _ => id
 

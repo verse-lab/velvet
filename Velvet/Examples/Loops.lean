@@ -55,24 +55,24 @@ def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
 
 /- A native `vcgen` proof with the loop invariant and variant. -/
 theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
-    Std.WP.Triple (isGreaterNativeWhile n a)
+    Std.Internal.Do.Triple (isGreaterNativeWhile n a)
       (Named.mk `precond Option.none True)
       (Named.mk `postcond Option.none (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n))
-      (fun (_ : Unit) => False) := by
+      False := by
   velvet_vcgen [isGreaterNativeWhile] invariants
-  · Std.WP.WhileInvariant.mk fun
-    | false, (ok, i) =>
+  · fun
+    | .inl (ok, i) =>
         Named.mk `idx_nonneg Option.none (0 ≤ i) ∧
         Named.mk `idx_bounded Option.none (i ≤ a.size) ∧
         Named.mk `ok_iff_prefix Option.none
           (ok = true ↔ ∀ j, j < i → a[j]! < n)
-    | true, (ok, i) =>
+    | .inr (ok, i) =>
         (Named.mk `idx_nonneg Option.none (0 ≤ i) ∧
          Named.mk `idx_bounded Option.none (i ≤ a.size) ∧
          Named.mk `ok_iff_prefix Option.none
            (ok = true ↔ ∀ j, j < i → a[j]! < n)) ∧
         Named.mk `loop_done Option.none (a.size ≤ i)
-  · Std.WP.Variant.ofMeasure (Pred := Prop)
+  · Std.Internal.Do.RepeatVariant.ofMeasure (Pred := Prop)
       (fun ((_ok : Bool), (i : Nat)) => a.size - i)
   with finish
 
@@ -116,9 +116,6 @@ do
 
 prove_correct scanRangeVCGen by
   velvet_vcgen [scanRangeVCGen] with finish
-
-
-
 
 /- Accumulate even contributions over a finite range.
 Demonstrates pure state invariant: invariant holds at entry, step, and exit without `done_with`. -/
@@ -190,7 +187,6 @@ do
 prove_correct twoVar by
   velvet_vcgen [twoVar] with finish
 
-
 /-! ### Non-Membership Loop (`forIn`) -/
 
 /- Summing a list of natural numbers with standard `forIn` (no membership proof bound, pure state invariant). -/
@@ -227,7 +223,6 @@ do
 
 prove_correct memberElementBound by
   velvet_vcgen [memberElementBound] with finish
-
 
 /- Method-call composition: delegates to `isGreaterWithInvariants`. -/
 method isGreaterWithInvariants' (n : Int) (a : Array Int)
@@ -323,6 +318,5 @@ method partialTick' returns (res : Nat)
 
 prove_correct partialTick' by
   velvet_vcgen [partialTick'] with finish
-
 
   

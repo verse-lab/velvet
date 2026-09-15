@@ -3,6 +3,8 @@ module
 public import Velvet.Examples.StateT
 public meta import Velvet.Examples.StateT
 
+open Std.Internal.Do
+
 /-!
 # StateT examples — explicit VC discharge
 
@@ -10,8 +12,6 @@ Same contracts as `StateT.lean`, but each verification condition is discharged b
 name (`case … => …`) instead of the `finish` discharger, to catch VC-name/restructure
 regressions in `velvet_vcgen`.
 -/
-
-open Std.WP
 
 namespace Velvet.Examples.StateT
 
@@ -27,13 +27,13 @@ theorem countState_explicit : countState.spec_triple := by
 
 theorem boundedIncrement_explicit (limit : Nat) :
     Triple (boundedIncrement limit) (fun s => s < limit)
-      (fun current s => current < limit ∧ s = current + 1) (fun (_ : Unit) => False) := by
+      (fun current s => current < limit ∧ s = current + 1) False := by
   velvet_vcgen [boundedIncrement]
   case within_limit => grind
   case vc2 => grind
 
 theorem countRange_explicit (n : Nat) :
-    Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) (fun (_ : Unit) => False) := by
+    Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) False := by
   velvet_vcgen [countRange]
   case count_done => grind
   case count_tracks => grind
@@ -58,7 +58,7 @@ theorem countUnlessBlocked_explicit : countUnlessBlocked.spec_triple := by
 
 theorem countToReaderLimit_explicit :
     Triple countToReaderLimit (fun state limit => state ≤ limit)
-      (fun result state limit => result = limit ∧ state = limit) PUnit.unit := by
+      (fun result state limit => result = limit ∧ state = limit) EPost.Nil.mk := by
   velvet_vcgen [countToReaderLimit]
   case initial_bound => grind
   case reader_progress => grind
@@ -75,7 +75,7 @@ theorem countToReaderLimitMethod_explicit : countToReaderLimitMethod.spec_triple
 theorem addToReaderLimit_explicit :
     Triple addToReaderLimit (fun initial limit => initial ≤ limit)
       (fun initial final limit => initial ≤ limit ∧ final = initial + triangular limit)
-      PUnit.unit := by
+      EPost.Nil.mk := by
   velvet_vcgen [addToReaderLimit]
   all_goals try simp_all [triangular]
   all_goals try simp_all

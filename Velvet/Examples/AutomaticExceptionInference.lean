@@ -3,16 +3,47 @@ module
 public import Velvet
 public meta import Velvet
 
+open Std.Internal.Do
+
 /-
 # Automatic `ExceptT` inference
 
-Without an `in <MonadStack>` override, each `signals` clause must have exactly one
-explicit binder; its type becomes an `ExceptT` layer wrapped around the base `Option`
-monad. The base `Option` failure postcondition is the innermost signal, defaulting to
-`False`/`True` according to the termination semantics.
+Without an `in <MonadStack>` override, a typed `signals` binder adds an `ExceptT`
+layer around the base `Option` monad. An optional final binderless clause describes
+Option failure directly; otherwise it defaults to `False`/`True` according to the
+termination semantics.
 
 -/
-open Std.WP
+
+/- A binderless signal specifies Option failure without adding an ExceptT layer. -/
+method noFailure (n : Nat) returns (res : Nat)
+  signals cannot_fail : False
+  ensures res = n
+do
+  return n
+
+/-- info: noFailure (n : Nat) : Option Nat -/
+#guard_msgs in
+#check noFailure
+
+prove_correct noFailure by
+  velvet_vcgen [noFailure] with finish
+
+/- A final binderless signal supplies the base Option contract of an inferred stack. -/
+method maybeFailWithBaseSignal (b : Bool) returns (res : Nat)
+  signals boom : (e : String) => e = "boom"
+  signals allowed_failure : True
+  ensures res = 0
+do
+  if b then throw "boom"
+  return 0
+
+/-- info: maybeFailWithBaseSignal (b : Bool) : ExceptT String Option Nat -/
+#guard_msgs in
+#check maybeFailWithBaseSignal
+
+prove_correct maybeFailWithBaseSignal by
+  velvet_vcgen [maybeFailWithBaseSignal] with finish
 
 /- One signal, returning `Nat`: `ExceptT String Option Nat`. -/
 method maybeFail (b : Bool) returns (res : Nat)

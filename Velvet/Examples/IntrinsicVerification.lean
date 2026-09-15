@@ -3,6 +3,8 @@ module
 public import Velvet
 public meta import Velvet
 
+open scoped GhostSyntax
+
 /-!
 # Intrinsic Verification Examples
 
@@ -12,8 +14,6 @@ producing the verified `spec` theorem without requiring a separate `prove_correc
 -/
 
 namespace Velvet.Examples.IntrinsicVerification
-
-open scoped GhostSyntax
 
 set_option velvet.verifyDuringElab true
 
@@ -219,11 +219,10 @@ right✝ : ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
     [assign] a✝.size := 1
     [assign] a✝[i] := 0
 [grind] Diagnostics
-  [ematch] E-matching Diagnostics
-    [thm] Theorem Instance Count
-      [thm] local_0 ↦ 7
-      [thm] getElem!_neg ↦ 4
-      [thm] getElem!_pos ↦ 4
+  [thm] E-Matching instances
+    [thm] local_0 ↦ 7
+    [thm] getElem!_neg ↦ 4
+    [thm] getElem!_pos ↦ 4
 -/
 #guard_msgs (error) in
 method isGreaterWithCompoundInvariant (n : Int) (a : Array Int)

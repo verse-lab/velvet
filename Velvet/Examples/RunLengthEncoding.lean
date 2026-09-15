@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 public structure Encoding where
   cnt : Nat

@@ -7,8 +7,8 @@ module
 
 prelude
 public import Init.Data.Sum.Basic
-public import Lean.Elab.Tactic.VCGen.Context
-public import Lean.Elab.Tactic.VCGen.Util
+public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
+public import Lean.Elab.Tactic.Do.Internal.VCGen.Util
 public import Lean.Meta.Sym.AlphaShareBuilder
 public import Lean.Meta.Sym.Intro
 public import Lean.Meta.Sym.Simp.ControlFlow
@@ -17,7 +17,8 @@ public import Lean.Meta.Sym.Simp.Rewrite
 public import Velvet.Core.Named
 
 open Lean Meta Sym Sym.Internal
-open Lean.Elab.Tactic.VCGen
+open Lean.Elab.Tactic.Do.Internal
+open Lean.Elab.Tactic.Do.Internal.VCGen
 
 namespace VCGen
 
@@ -97,6 +98,13 @@ public partial def reduceDefEqProjs (e : Expr) : MetaM Expr := do
     if isSameExpr val val' then pure e else pure (.mdata data val')
   | _ => pure e
 
+/-- Count leading binders, stopping before a product that `solve` must split first.
+Backported from the newer Lean VCGen alongside `splitProdBinder`. -/
+public def numBindersToIntro : Expr → Nat
+  | .forallE _ d b _ => if d.isAppOf ``Prod then 0 else numBindersToIntro b + 1
+  | .letE _ _ _ b _ => numBindersToIntro b + 1
+  | _ => 0
+
 /--
 Introduce all leading `∀`/`let` binders of `goal` in a single `Sym.intros` pass (keeping the
 introduction sharing-correct and memoized), with two localisations over the upstream
@@ -119,7 +127,7 @@ and returns the rest unchanged, to avoid rebuilds and preserve sharing. `overrid
 wins over both the `Named` name and the syntactic name for the `i`-th binder. Returns `goal`
 unchanged when there are no leading binders.
 
-Vendored from `Lean.Elab.Tactic.VCGen.Util` (which only reads syntactic binder names
+Vendored from `Lean.Elab.Tactic.Do.Internal.VCGen.Util` (which only reads syntactic binder names
 and neither normalizes domains nor understands `Named.mk`).
 -/
 public def introsHygienic (goal : MVarId) (overrides : Array Name := #[]) : VCGenM MVarId :=
@@ -172,7 +180,7 @@ of a tuple leaves behind a redex is still recognized.
 This procedure may assign metavariables in `e₁`/`e₂`, for example for `e = ?m` it will assign
 `?m := e`.
 -/
-public partial def cleanupVC (goal : MVarId) : VCGenM (Option MVarId) :=
+public partial def solveTrivialConjuncts (goal : MVarId) : VCGenM (Option MVarId) :=
     goal.withContext do
   let ctx ← read
   let ty ← instantiateMVars (← goal.getType)
@@ -187,8 +195,8 @@ public partial def cleanupVC (goal : MVarId) : VCGenM (Option MVarId) :=
   else if ty.isAppOf ``And then
     let tag ← goal.getTag
     let .goals [g₁, g₂] ← ctx.backwardRules.andIntro.applyChecked goal
-      | throwError "cleanupVC: failed to apply {.ofConstName ``And.intro} to{indentExpr ty}"
-    match ← cleanupVC g₁, ← cleanupVC g₂ with
+      | throwError "solveTrivialConjuncts: failed to apply {.ofConstName ``And.intro} to{indentExpr ty}"
+    match ← solveTrivialConjuncts g₁, ← solveTrivialConjuncts g₂ with
     | none,    none    => return none
     | some g,  none    => do
       if (← g.getTag).isAnonymous then g.setTag tag

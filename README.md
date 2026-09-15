@@ -4,7 +4,7 @@
 
 ### What is Velvet?
 
-Velvet is a language for writing imperative programs with specifications, shallowly embedded in Lean 4 on top of `Std.WP`. It allows you to prove the correctness of your programs with respect to their specifications using Lean's proof capabilities. The syntax is inspired by Dafny.
+Velvet is a language for writing imperative programs with specifications, shallowly embedded in Lean 4 on top of `Std.Internal.Do`. It allows you to prove the correctness of your programs with respect to their specifications using Lean's proof capabilities. The syntax is inspired by Dafny.
 
 ### The Velvet Advantage: Hybrid Verification
 
@@ -16,6 +16,39 @@ The primary strength of Velvet is its nature as a **shallowly embedded language*
 ---
 
 ## 2. Quick Start
+
+`import Velvet` is enough for ordinary `method` declarations and `prove_correct`
+proofs. Their elaborators handle the generated WP specifications.
+
+Open additional namespaces only when your own code uses their names or notation:
+
+```lean
+import Velvet
+
+-- For `let ghost` and `*x := ...` inside do blocks:
+open scoped GhostSyntax
+
+-- For handwritten `Triple`, `wp`, and `⦃ ... ⦄` specifications:
+open Std.Internal.Do
+
+-- For handwritten assertion-lattice expressions such as `⊑`, `⊓`, and `⌜P⌝`:
+open Lean.Order
+```
+
+`open scoped GhostSyntax` enables ghost syntax without opening its helper names.
+These opens apply to the current file or section; they do not carry across imports.
+For example:
+
+```lean
+import Velvet
+
+open scoped GhostSyntax
+
+def ghostExample (n : Nat) : Id Nat := do
+  let ghost remembered := n;
+  *remembered := n + 1
+  return n
+```
 
 ### Your First Velvet Method
 
@@ -178,7 +211,13 @@ WP interpretation. Instances cover `Id`, `Option`, `Except`, `EStateM`, and the
 
 ### Automatic `ExceptT` Inference
 
-If you write `signals` clauses without an explicit `in <Monad>` stack, Velvet automatically infers and stacks the required `ExceptT` monad transformers around `Option`:
+Option failure has no exception value: write `signals False` to forbid it or
+`signals True` to allow it. With no explicit `in <Monad>`, a bare signal keeps the
+base monad as `Option`. Typed exception binders infer `ExceptT` layers around it;
+an optional final bare signal specifies the base Option failure condition.
+If omitted, that condition defaults to `False` for total correctness and `True`
+for partial correctness:
+
 
 - A single signal `signals boom : (e : String) => ...` infers `ExceptT String Option α`:
   ```lean
@@ -206,7 +245,7 @@ If you write `signals` clauses without an explicit `in <Monad>` stack, Velvet au
 ## 5. Total vs. Partial Correctness
 
 - **Total Correctness (Default)**: Guarantees termination. Loops require a `decreasing` measure.
-- **Partial Correctness**: Allows non-termination. Configured with `set_option velvet.semantics.termination "partial" in` (or `signals (_ : Unit) => True`). Loops do not require a `decreasing` measure.
+- **Partial Correctness**: Allows non-termination. Configured with `set_option velvet.semantics.termination "partial" in`. Loops do not require a `decreasing` measure.
 
 > 📁 **Examples**:
 > - Total correctness: [`IsSorted.lean`](Velvet/Examples/IsSorted.lean), [`IsNonPrime.lean`](Velvet/Examples/IsNonPrime.lean)

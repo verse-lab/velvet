@@ -1,11 +1,11 @@
 module
 
 public import Velvet.Core.Specs
-public import Std.WP
-public import Std.WP.Triple.SpecLemmas
+public import Std.Internal.Do
+public import Std.Internal.Do.Triple.SpecLemmas
 
-open Std.WP
-open Std.WP.Assertion
+open Std.Internal.Do
+open Std.Internal.Do.Assertion
 open Lean.Order
 
 universe u u₁ u₂ v w

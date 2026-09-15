@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 open Lean.Order
 
 namespace Velvet.Examples.Lifting
@@ -31,7 +31,7 @@ prove_correct bump by
 -- `n ≠ 0` here leaves B's precondition `¬n = 0` as an unsolved call-site VC.
 method outerBump (n : Nat) returns (res : Nat) in StateT Nat Option
   requires (s : Nat) => n ≠ 0
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => res = n + 1 ∧ s = res
 do
   let x ← bump n
@@ -56,7 +56,7 @@ theorem outerBump_explicit : outerBump.spec_triple := by
 B is an auto-stacked exception method throwing `"n is odd"`; A adds a state
 dimension. Under the lift, B's error channel flows into A's error channel, so
 A's `signals err_odd` clause constrains exactly which errors may escape, and
-B's termination channel composes with A's `signals (_ : Unit) => False`.
+B's termination channel composes with A's `signals False`.
 -/
 
 method checkedHalf (n : Nat) returns (res : Nat)
@@ -75,7 +75,7 @@ prove_correct checkedHalf by
 method outerHalf (n : Nat) returns (res : Nat) in StateT Nat (ExceptT String Option)
   requires (s : Nat) => True
   signals err_odd : (e : String) => e = "n is odd"
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => res * 2 = n ∧ s = res
 do
   let h ← checkedHalf n
@@ -153,9 +153,9 @@ public instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
 
 @[spec]
 public theorem triple_monadLift_option_exceptTString
-    {α : Type} (x : Option α) (post : α → Prop) (epost : (String → Prop) × (Unit → Prop)) :
+    {α : Type} (x : Option α) (post : α → Prop) (epost : EPost.Cons (String → Prop) Prop) :
     Triple (MonadLift.monadLift x : ExceptT String Option α)
-      (wp x post (fun (_ : Unit) => epost.fst optionLiftError))
+      (wp x post (epost.head optionLiftError))
       post
       epost := by
   apply Triple.intro
@@ -167,7 +167,7 @@ public theorem triple_monadLift_option_exceptTString
 method outerSafe (n : Nat) returns (res : Nat) in StateT Nat (ExceptT String Option)
   requires (s : Nat) => n ≠ 0
   signals boom : (e : String) => e = optionLiftError
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => res = n + 1 ∧ s = res
 do
   let x ← bump n

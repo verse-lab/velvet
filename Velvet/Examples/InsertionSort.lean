@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 @[grind, simp]
 public def cnt (arr : Array Int) (x : Int) : Nat := arr.toList.count x

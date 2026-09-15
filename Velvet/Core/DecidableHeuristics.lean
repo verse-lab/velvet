@@ -3,8 +3,7 @@ module
 public import Std
 public meta import Lean.Elab.Tactic
 
-/- Adapted from Loom's CaseStudies/TestingUtil.lean. Keep the bounded-quantifier
-heuristics independent of Mathlib, Batteries, and the random-generator library. -/
+/- Adapted from Loom's CaseStudies/TestingUtil.lean.-/
 
 namespace Velvet.Testing
 

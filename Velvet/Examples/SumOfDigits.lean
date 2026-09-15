@@ -3,14 +3,14 @@ module
 public import Velvet
 public meta import Velvet
 
+open Std.Internal.Do
+
 /-!
 # Sum of digits
 
 Port of `velvet-dev/Velvet/Examples/SumOfDigits.lean`: repeatedly peel off the last
 decimal digit, maintaining `sum + sumDigits n = sumDigits number`.
 -/
-
-open Std.WP
 
 /-- Recursive specification of the digit sum. -/
 @[grind ]

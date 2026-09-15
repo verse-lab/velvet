@@ -8,14 +8,14 @@ public import Lean.Meta.Tactic.Cases
 public import Lean.Meta.Tactic.Rename
 public import Lean.Meta.Tactic.Replace
 public meta import Lean.Meta.Sym.SymM
-public import Std.WP
+public import Std.Internal.Do
 
 open Lean Meta Elab Term Lean.Meta.Sym
 
 namespace Named
 
-attribute [instance] Std.Internal.Order.instCompleteLatticeProp
-attribute [instance] Std.Internal.Order.instPartialOrderProp
+attribute [instance] Lean.Order.instCompleteLatticeProp_std
+attribute [instance] Lean.Order.instPartialOrderProp_std
 
 /-- Attach a user-facing name and source syntax without changing a value's denotation. -/
 @[expose, grind .]
@@ -49,7 +49,7 @@ private meta partial def liftNamedClause (name stx value type : Expr) : TermElab
   let type ← instantiateMVars (← whnf type)
   if type.isProp then
     let named ← mkAppM ``Named.mk #[name, stx, value]
-    let inst := Lean.mkConst ``Std.Internal.Order.instCompleteLatticeProp
+    let inst := Lean.mkConst ``Lean.Order.instCompleteLatticeProp_std
     return mkApp3 (Lean.mkConst ``Lean.Order.CompleteLattice.ofProp [0]) (mkSort 0) inst named
   match type with
   | .forallE binderName domain body binderInfo =>
@@ -78,7 +78,7 @@ syntax (name := assertionMeet) "assertion_meet%[" term ", " term "]" : term
 private meta partial def meetAssertions (lhs rhs type : Expr) : TermElabM Expr := do
   let type ← instantiateMVars (← whnf type)
   if type.isProp then
-    let inst := Lean.mkConst ``Std.Internal.Order.instCompleteLatticeProp
+    let inst := Lean.mkConst ``Lean.Order.instCompleteLatticeProp_std
     return mkApp4 (Lean.mkConst ``Lean.Order.meet [0]) (mkSort 0) inst lhs rhs
   match type with
   | .forallE binderName domain body binderInfo =>
@@ -233,25 +233,33 @@ public meta def mkAssertionList (ts : Array (TSyntax `term)) (names : Array Name
       result ← `(assertion_meet%[$(← named i), $result])
     return result
 
+/-- Build the exception-postcondition representation selected by the program's WP instance. -/
+syntax (name := signalsList) "signals%[" term,* "]" : term
 
+@[term_elab signalsList]
+public meta def elabSignalsList : TermElab := fun stx expectedType? => do
+  let `(signals%[$terms,*]) := stx | throwUnsupportedSyntax
+  let expectedType ← tryPostponeIfHasMVars expectedType?
+    "signals require an expected assertion type"
+  let rec build (type : Expr) (remaining : List (TSyntax `term)) : TermElabM Expr := do
+    let type ← whnf type
+    if type.isConstOf ``Std.Internal.Do.EPost.Nil then
+      unless remaining.isEmpty do throwError "too many signals clauses"
+      return mkConst ``Std.Internal.Do.EPost.Nil.mk
+    if let some (headType, tailType) := type.app2? ``Std.Internal.Do.EPost.Cons then
+      let head :: tail := remaining | throwError "missing signals clause"
+      return ← mkAppM ``Std.Internal.Do.EPost.Cons.mk
+        #[← elabTermEnsuringType head headType, ← build tailType tail]
+    let [term] := remaining | throwError "expected one signals clause for {type}"
+    elabTermEnsuringType term type
+  build expectedType terms.getElems.toList
 
 public meta def mkSignalsList (ts : Array (TSyntax `term)) (names : Array Name) : MacroM (TSyntax `term) := do
-  if ts.isEmpty then
-    `(term| ⟨⟩)
-  else
-    let named (i : Nat) : MacroM (TSyntax `term) := do
-      let name := names[i]!.toString
-      let nameStr := Lean.Syntax.mkStrLit name
-      let nameTerm ← `(Lean.Name.mkSimple $nameStr)
-      let stxTerm ← sourceRefTerm ts[i]!.raw
-      `(named_clause%[$nameTerm, $stxTerm] $(ts[i]!))
-    if ts.size == 1 then
-      named 0
-    else
-      let lastIdx := ts.size - 1
-      let mut result ← named lastIdx
-      for i in List.range lastIdx |>.reverse do
-        result ← `(($(← named i), $result))
-      return result
+  let terms ← ts.mapIdxM fun i term => do
+    let nameStr := Lean.Syntax.mkStrLit names[i]!.toString
+    let nameTerm ← `(Lean.Name.mkSimple $nameStr)
+    let stxTerm ← sourceRefTerm term.raw
+    `(named_clause%[$nameTerm, $stxTerm] $term)
+  `(signals%[$terms,*])
 
 end Named

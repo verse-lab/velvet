@@ -19,9 +19,9 @@ public meta import Velvet.Core.VCGen
 public meta import Lean.Parser
 public meta import Lean.Elab.Do
 public meta import Lean.Elab.Command
-public import Std.WP
+public import Std.Internal.Do
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
 open Lean Meta Elab
 open Lean.Parser.Term
 open Lean.Elab.Do
@@ -55,8 +55,8 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     -- `ExceptT` stack.
     let defaultSig : TSyntax `term ←
       match ctx.termination with
-      | .totalCorrectness => `(term| fun (_ : Unit) => False)
-      | .partialCorrectness => `(term| fun (_ : Unit) => True)
+      | .totalCorrectness => `(term| False)
+      | .partialCorrectness => `(term| True)
     let sigFunTerms ← liftMacroM <| ctx.signalsClauses.mapM (fun c => buildFun c.binders c.term)
     let sigNamesBase := makeNameArrayFromIdents (ctx.signalsClauses.map (·.name)) "signals"
     let mut sigTerms : Array (TSyntax `term) := sigFunTerms
@@ -70,11 +70,15 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
       monadStack' ← `(term| Option $(ctx.retType))
     else
       let mut exTypes : Array (TSyntax `term) := #[]
-      for c in ctx.signalsClauses do
+      let mut hasOptionSignal := false
+      for (c, i) in ctx.signalsClauses.zipIdx do
+        if c.binders.isEmpty then
+          unless i + 1 == ctx.signalsClauses.size do
+            throwErrorAt c.stx "a binderless `signals` clause describes Option failure and must be last"
+          hasOptionSignal := true
+          continue
         if c.binders.size != 1 then
-          /- Fires when a `signals` clause without an `in <MonadStack>` override does not have
-             exactly one explicit binder, e.g. `signals False` (zero binders) or
-             `signals (e : String) (n : Nat) => ...` (two binders). -/
+          /- Each inferred ExceptT layer requires one typed exception binder. -/
           throwErrorAt c.stx s!"expected exactly one explicit binder in `signals` when no `in` monad stack is given, got {c.binders.size}"
         /- Defensive: unreachable after the binder-count check above. -/
         let some b := c.binders[0]? | throwErrorAt c.stx "internal error: expected exactly one binder"
@@ -83,8 +87,9 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
         let some ty := b.type
           | throwErrorAt b.stx "expected a typed binder `(x : T)` in `signals` when no `in` monad stack is given"
         exTypes := exTypes.push ty
-      sigTerms := sigFunTerms.push defaultSig
-      sigNames := sigNamesBase.push `termination_semantics
+      if !hasOptionSignal then
+        sigTerms := sigFunTerms.push defaultSig
+        sigNames := sigNamesBase.push `termination_semantics
       monadStack' ← liftMacroM <| mkExceptTStackType ctx.retType exTypes
     let sigs ← liftMacroM <| mkSignalsList sigTerms sigNames
     let defCmd ←
@@ -116,20 +121,20 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     let statement ←
       if allBinderStxs.isEmpty then
         `(term|
-          Std.WP.Triple
+          Std.Internal.Do.Triple
             ($(ctx.name) $ids*)
             $pre
             ($post)
             ($sigs))
       else
         `(term|
-          ∀ $allBinderStxs*, Std.WP.Triple
+          ∀ $allBinderStxs*, Std.Internal.Do.Triple
             ($(ctx.name) $ids*)
             $pre
             ($post)
             ($sigs))
     let specCmd ← `(command|
-      open scoped Std.WP Lean.Order in
+      open scoped Std.Internal.Do Lean.Order in
       set_option linter.unusedVariables false in
       public abbrev $specId := $statement)
     let motiveCmd? : Option (TSyntax `command) ←
@@ -139,7 +144,7 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
           if binderStxs.isEmpty then
             if ctx.givenBinders.isEmpty then
               `(term|
-                fun (p : $monadStack') => Std.WP.Triple
+                fun (p : $monadStack') => Std.Internal.Do.Triple
                   p
                   $pre
                   ($post)
@@ -147,20 +152,20 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
             else
               let givenBinders := ctx.givenBinders
               `(term|
-                fun (p : $monadStack') => ∀ $givenBinders*, Std.WP.Triple
+                fun (p : $monadStack') => ∀ $givenBinders*, Std.Internal.Do.Triple
                   p
                   $pre
                   ($post)
                   ($sigs))
           else
             `(term|
-              fun (p : ∀ $binderStxs*, $monadStack') => ∀ $allBinderStxs*, Std.WP.Triple
+              fun (p : ∀ $binderStxs*, $monadStack') => ∀ $allBinderStxs*, Std.Internal.Do.Triple
                 (p $ids*)
                 $pre
                 ($post)
                 ($sigs))
         let cmd ← `(command|
-          open scoped Std.WP Lean.Order in
+          open scoped Std.Internal.Do Lean.Order in
           set_option linter.unusedVariables false in
           public abbrev $motiveId := $motiveStatement)
         pure (some cmd)

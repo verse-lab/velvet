@@ -2,14 +2,15 @@ module
 
 public import Velvet.Core.Specs
 public import Velvet.Core.Partial
-public import Std.WP
-public import Std.WP.Gadget.ForIn
-public import Std.WP.Triple.SpecLemmas
+public import Std.Internal.Do
+public import Std.Internal.Do.Gadget.ForIn
+public import Std.Internal.Do.Triple.SpecLemmas
 public import Std.Internal.ForIn
 
 open Std.Internal
-open Std.WP
-open Std.WP.Assertion
+open Std.Internal.Do
+open Std.Internal.Do.Assertion
+open Std.Internal.Do.CompleteLattice
 open Lean.Order
 open WPPartial
 
@@ -572,17 +573,17 @@ public theorem Spec.whileLoop_total
       (inv init)
       (fun b => binderNameHint b done <| done b)
       einv := by
-  let inv' : WhileInvariant β Pred := fun
-    | false, b => inv b
-    | true, b => done b
-  let loopMeasure := Variant.ofMeasure (Pred := Pred)
+  let inv' : RepeatInvariant β β Pred := fun
+    | .inl b => inv b
+    | .inr b => done b
+  let loopMeasure := RepeatVariant.ofMeasure (Pred := Pred)
     (fun b => (measure b).value)
   have step' : ∀ b (mb : loopMeasure.γ),
       Triple (f () b)
-        (loopMeasure.EvalsTo b mb ⊓ inv' false b)
+        (loopMeasure.EvalsTo b mb ⊓ inv' (.inl b))
         (fun r => match r with
-          | .yield b' => loopMeasure.EvalsBelow b' mb ⊓ inv' false b'
-          | .done b' => inv' true b')
+          | .yield b' => loopMeasure.EvalsBelow b' mb ⊓ inv' (.inl b')
+          | .done b' => inv' (.inr b'))
         einv := by
     intro b mb
     apply Triple.intro
@@ -591,7 +592,7 @@ public theorem Spec.whileLoop_total
     subst mb
     have natRel (a b : Nat) : WellFoundedRelation.rel a b = (a < b) := rfl
     simpa [Named.mk_eq, loopMeasure,
-      Variant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
+      RepeatVariant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
   unfold whileLoopTotal
   exact Spec.forIn_loop (l := Lean.Loop.mk) (init := init) loopMeasure inv' einv step'
 

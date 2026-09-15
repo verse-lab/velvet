@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 @[grind]
 public def isMax (mx : Int) (arr : Array Int) : Prop :=
@@ -32,5 +32,4 @@ do
 
 prove_correct maxElem by
   velvet_vcgen [maxElem] with finish
-
 

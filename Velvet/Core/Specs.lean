@@ -3,9 +3,9 @@ module
 public import Velvet.Core.Named
 public import Lean.Parser
 public import Lean.Elab.Command
-public import Std.WP
+public import Std.Internal.Do
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
 
 declare_syntax_cat velvBinder
 syntax "(" Lean.Parser.Term.binderIdent (" : " term)? ")" : velvBinder

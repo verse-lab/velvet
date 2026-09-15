@@ -3,14 +3,14 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP Lean.Order
+open Std.Internal.Do Lean.Order
 
 namespace Velvet.Examples.NonDet
 
 /-- Demonic extraction preserves triples for every exceptional postcondition,
 including both partial- and total-correctness endpoints. -/
 example {α : Type} (s : DemonicT Option α) (pre : Prop)
-    (post : α → Prop) (epost : Unit → Prop) (h : Triple s pre post epost) :
+    (post : α → Prop) (epost : Prop) (h : Triple s pre post epost) :
     Triple s.run pre post epost := by
   exact Soundness.DemonicChoice.ExtractNonDet.extract_refines h
 
@@ -19,7 +19,7 @@ example {α : Type} (s : DemonicT Option α) (pre : Prop)
    ============================================================================ -/
 
 method pickGreater (inp : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res > inp + 10
 do
   let (ans : Nat) :| ans > inp + 200
@@ -37,7 +37,7 @@ example : (pickGreater 10).run = some 211 := by native_decide
 
 /-- Non-deterministic choice specifying an explicit finder via `using`. -/
 method pickWithCustomHint (inp : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res = inp + 42
 do
   let (ans : Nat) :| ans = inp + 42 using (Findable.ofFn (fun _ => some (inp + 42)) (by simp) (by rintro _ ⟨⟩; rfl))
@@ -50,7 +50,7 @@ example : (pickWithCustomHint 10).run = some 52 := by native_decide
 
 /-- Non-deterministic choice specifying an explicit `Findable` instance via `using`. -/
 method pickWithExplicitInstance (inp : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res = inp + 1
 do
   let (ans : Nat) :| ans = inp + 1 using (inferInstanceAs (Findable (fun a => a = inp + 1)))
@@ -63,7 +63,7 @@ example : (pickWithExplicitInstance 10).run = some 11 := by native_decide
 
 -- Multiple consecutive non-deterministic choices in sequence.
 method pickTwoSum (target : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures ensures_sum : res = target + 5
 do
   let (a : Nat) :| a = target
@@ -85,7 +85,7 @@ example : (pickTwoSum 10).run = some 15 := by native_decide
 -- Demonic choice combined with `NonDetT.assume`.
 method pickDemonicWithAssume (n : Nat) returns (res : Nat) in DemonicT Option
   requires n_pos : n > 0
-  signals (_ : Unit) => False
+  signals False
   ensures ensures_bound : res ≥ n
 do
   let (x : Nat) :| x ≥ n
@@ -106,7 +106,7 @@ example : (pickDemonicWithAssume 7).run = some 7 := by native_decide
 
 -- Conditional non-deterministic choice based on branching control flow.
 method pickBranch (flag : Bool) (x : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures branch_true : flag = true → res > x
   ensures branch_false : flag = false → res = 0
 do
@@ -134,7 +134,7 @@ example : (pickBranch false 5).run = some 0 := by native_decide
    ============================================================================ -/
 
 method pickSquare (n : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res * res = 16
 do
   let (x : Fin 10) :| x.val * x.val = 16
@@ -154,7 +154,7 @@ example : (pickSquare 0).run = some 4 := by native_decide
    ============================================================================ -/
 
 method loopDemonic (n : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res = n
 do
   let mut i : Nat := 0
@@ -175,7 +175,6 @@ prove_correct loopDemonic by
   case h_done => grind
   case ensures1 => grind
 
-
 example : (loopDemonic 5).run = some 5 := by native_decide
 
 -- For positive `n`, the only permitted choice is `step = 0`, so this loop
@@ -184,7 +183,7 @@ example : (loopDemonic 5).run = some 5 := by native_decide
 set_option velvet.semantics.termination "partial" in
 method zeroStepForever (n : Nat) returns (res : Nat) in DemonicT Option
   requires positive : 0 < n
-  signals divergence_allowed : (_ : Unit) => True
+  signals divergence_allowed : True
   ensures unreachable : False
 do
   let mut i : Nat := 0
@@ -205,7 +204,7 @@ prove_correct zeroStepForever by
 -- stutters forever. Its partial specification only describes terminating runs.
 set_option velvet.semantics.termination "partial" in
 method stutteringLoop (n : Nat) returns (res : Nat) in DemonicT Option
-  signals divergence_allowed : (_ : Unit) => True
+  signals divergence_allowed : True
   ensures reached_end : res = n
 do
   let mut i : Nat := 0
@@ -223,7 +222,7 @@ prove_correct stutteringLoop by
 
 /-- A loop with non-deterministic choice inside the loop body. -/
 method loopWithChoice (n : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res ≥ n
 do
   let mut i : Nat := 0
@@ -243,7 +242,7 @@ example : (loopWithChoice 10).run = some 10 := by native_decide
 
 /-- A bounded accumulator loop choosing step sizes ≤ 2 non-deterministically. -/
 method loopAccum (n : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res ≤ n * 2
 do
   let mut cur : Nat := 0
@@ -273,7 +272,7 @@ example : (loopAccum 5).run = some 0 := by native_decide
 
 /-- An angelic program choosing a boolean witness. -/
 method pickAngelic (n : Nat) returns (res : Nat) in AngelicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res > n
 do
   let (b : Bool) :| b = true
@@ -286,7 +285,7 @@ example : (pickAngelic 10).run = some 11 := by native_decide
 
 /-- An angelic program choosing a positive natural increment. -/
 method pickAngelicChoice (n : Nat) returns (res : Nat) in AngelicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res > n
 do
   let (diff : Nat) :| diff > 0
@@ -300,7 +299,7 @@ example : (pickAngelicChoice 10).run = some 11 := by native_decide
 
 /-- Synthesizing a non-trivial factor of 10 angelically. -/
 method findDivisor (n : Nat) returns (d : Nat) in AngelicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures d > 1 ∧ d < 10 ∧ 10 % d = 0
 do
   let (cand : Nat) :| cand > 1 ∧ cand < 10 ∧ 10 % cand = 0
@@ -316,7 +315,7 @@ example : (findDivisor 10).run = some 2 := by native_decide
 /-- A `while'` loop executing within `AngelicT Option` with non-deterministic choice
 inside the loop body. -/
 method loopAngelic (n : Nat) returns (res : Nat) in AngelicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures res = n
 do
   let mut i : Nat := 0
@@ -347,7 +346,7 @@ def incCounter : DemonicT (StateT Nat Option) Nat := do
 example : (incCounter.run 10) = some (11, 11) := by native_decide
 
 method pickNegativeInt (target : Int) returns (res : Int) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures bound : res < target
 do
   let (z : Int) :| z < target
@@ -369,7 +368,7 @@ in `[low, high)` and updating `low := mid + 1`.
 Stresses termination with variable non-deterministic strides.
 All loop VCs verified with explicit `case` proofs using `grind`. -/
 method bisectDemonic (high : Nat) returns (res : Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures bounds_equal : res = high
 do
   let mut low : Nat := 0
@@ -401,7 +400,7 @@ Starting from `(0, 0)`, in each step the system nondeterministically chooses
 a directional step from `Fin 2 × Fin 2` such that `dx + dy = 1`.
 Because `Fin 2 × Fin 2` has a `Finitary` instance, it evaluates constructively at runtime! -/
 method gridWalk (n : Nat) returns (pos : Nat × Nat) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures total_dist : pos.1 + pos.2 = n
 do
   let mut x : Nat := 0
@@ -443,7 +442,7 @@ Given an initial budget `capacity`, a consumer nondeterministically demands a
 batch `req` with `1 ≤ req ∧ req ≤ rem` in each iteration until the budget is exhausted.
 Maintains the conservation invariant `spent + rem = capacity`. -/
 method allocateTokens (capacity : Nat) returns (res : TokenState) in DemonicT Option
-  signals (_ : Unit) => False
+  signals False
   ensures conservation : res.spent + res.remaining = capacity
   ensures exhausted : res.remaining = 0
 do
@@ -490,7 +489,7 @@ Stresses:
 - Discharges all 23 VCs with explicit `case <name> => grind` proofs! -/
 method partitionLists (xs : List Nat) returns (res : PartitionLists) in DemonicT Option
   requires h_len : xs.length > 0
-  signals (_ : Unit) => False
+  signals False
   ensures pivot_in_list : res.pivot ∈ xs
   ensures left_le : ∀ x ∈ res.left, x ≤ res.pivot
   ensures right_gt : ∀ x ∈ res.right, x > res.pivot

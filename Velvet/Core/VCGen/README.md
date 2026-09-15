@@ -1,16 +1,20 @@
 # Vendored VCGen frontend
 
-These files are vendored from the Lean toolchain pinned by this repository
-(`leanprover/lean4:nightly-2026-08-22`):
+Based on `leanprover/lean4:v4.34.0`, whose upstream files live in
+`Lean/Elab/Tactic/Do/Internal/VCGen/`:
 
 - `Solve.lean`
 - `Driver.lean`
 - `Frontend.lean`
-- `Util.lean`
+- `Util.lean` (imports upstream helpers and overrides the customized ones)
 
-Their upstream location is
-`Lean/Elab/Tactic/VCGen/` in the Lean source tree. The files include Velvet's
-customizations for named goal tags, simplifying assumptions, and enhanced reporting.
+Velvet adds named hypotheses and goal tags, extra simplification, source-aware
+errors, and progress reporting. `BinderName.lean`, product-binder splitting, and
+state-argument simplification retain behavior from the previous nightly.
 
-This copy keeps the upstream `Lean.Elab.Tactic.VCGen` namespace and
-exposes the bundled frontend as `velvet_vcgen`. Import `Velvet.VCGen.Frontend` to use it.
+The implementation uses the root `VCGen` namespace and exposes `velvet_vcgen`.
+Import `Velvet.Core.VCGen.Frontend` to use the tactic.
+
+See [EXTENSIONS.md](EXTENSIONS.md) for the exact code snippets in dependency order,
+including the retained newer helpers and v4.34 API adaptations.
+Run `bash generate_vcgen_diff` from the repository root to refresh the per-file diffs.

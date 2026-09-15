@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 open Lean.Order
 open WPPartial
 
@@ -110,7 +110,7 @@ theorem fibFor_correct : fibFor.spec_triple := by
   velvet_vcgen [fibFor, fibAccSpec] with finish
 
 method rec spinRec returns (res : Nat) in Option
-  signals (u : Unit) => True
+  signals True
   ensures res = 2
 do
   spinRec
@@ -125,7 +125,7 @@ prove_correct spinRec by
 
 method rec spinRecStateM returns (res : Nat) in StateT Nat Option
   requires (s : Nat) => True
-  signals (u : Unit) => True
+  signals True
   ensures (s : Nat) => res = 2
 do
   spinRecStateM
@@ -140,7 +140,7 @@ prove_correct spinRecStateM by
 
 /- Parameterized recursive method (1 argument) with automatically synthesized fixpoint_triple_motive -/
 method rec countdownRec (n : Nat) returns (res : Nat) in Option
-  signals (u : Unit) => True
+  signals True
   ensures res = 0
 do
   if n = 0 then
@@ -160,7 +160,7 @@ prove_correct countdownRec by
 /-! Recursive method using `partial_fixpoint` with ghost variable `given (g : Nat)` -/
 method rec spinWithGiven returns (res : Nat) in Option
   given (g : Nat)
-  signals (u : Unit) => True
+  signals True
   ensures res = 2 ∧ g = g
 do
   spinWithGiven
@@ -181,7 +181,7 @@ prove_correct spinWithGiven by
 /-! Parameterized recursive method with program parameter `(n : Nat)` and ghost `given (g : Nat)` -/
 method rec countdownWithGiven (n : Nat) returns (res : Nat) in Option
   given (g : Nat)
-  signals (u : Unit) => True
+  signals True
   ensures res = 0 ∧ g = g
 do
   if n = 0 then
@@ -191,7 +191,7 @@ do
 
 prove_correct countdownWithGiven by
   refine countdownWithGiven.fixpoint_induct (motive := countdownWithGiven.fixpoint_triple_motive) ?_ ?_
-  · apply admissible_pi_apply (P := fun _ c => ∀ (g : Nat), ⦃ True ⦄ c ⦃ fun res => ⌜⟪ensures1 : res = 0 ∧ g = g⟫⌝; fun u => ⌜⟪signals1 : (fun u => True) u⟫⌝ ⦄)
+  · apply admissible_pi_apply (P := fun _ c => ∀ (g : Nat), ⦃ True ⦄ c ⦃ fun res => ⌜⟪ensures1 : res = 0 ∧ g = g⟫⌝; ⌜⟪signals1 : True⟫⌝ ⦄)
     intro n
     apply admissible_pi
     intro g

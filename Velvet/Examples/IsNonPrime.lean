@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 @[grind →]
 public theorem sq_ge_four {d : Nat} (h : 2 ≤ d) : 4 ≤ d * d :=

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# generate_vcgen_diff — write per-file diffs of this repo's Velvet/VCGen
+# generate_vcgen_diff — write per-file diffs of this repo's Velvet/Core/VCGen
 # against the Lean toolchain's copy.
 #
 # Usage:
@@ -8,7 +8,8 @@
 #     toolchain # elan dir name, e.g. leanprover--lean4-nightly---nightly-2026-08-11
 #               # or a full path to a toolchain root; defaults to the active one
 #
-# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util.
+# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util, plus additions
+# for BinderName, HypNaming, Progress, Named and the VCGen import module.
 set -euo pipefail
 
 # Resolve the real location of this script (follow symlinks) so it works
@@ -20,7 +21,7 @@ while [ -h "$SOURCE" ]; do
   [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
 done
 REPO_ROOT="$(cd -P "$(dirname "$SOURCE")" && pwd)"
-VCGEN_DIR="$REPO_ROOT/Velvet/VCGen"
+VCGEN_DIR="$REPO_ROOT/Velvet/Core/VCGen"
 DIFF_DIR="$REPO_ROOT/diffs"
 
 # Parse arguments: optional --full flag and/or a toolchain name/path.
@@ -73,7 +74,7 @@ for f in Driver Solve Frontend Util; do
   rc=0
   diff -u -U "$CONTEXT" \
     --label "a/$TC_LABEL/$f.lean" \
-    --label "b/Velvet/VCGen/$f.lean" \
+    --label "b/Velvet/Core/VCGen/$f.lean" \
     "$src" "$dst" > "$out" || rc=$?
 
   case $rc in
@@ -81,4 +82,17 @@ for f in Driver Solve Frontend Util; do
     1) echo "wrote $out ($(wc -l < "$out" | tr -d ' ') lines)";;
     *) echo "error: diff failed for $f (exit $rc)" >&2; rm -f "$out";;
   esac
+done
+
+# These are Velvet additions, not replacements for similarly named Lean files.
+for f in VCGen/BinderName VCGen/HypNaming VCGen/Progress Named VCGen; do
+  out="$DIFF_DIR/${f##*/}.diff"
+  rc=0
+  diff -u --label /dev/null --label "b/Velvet/Core/$f.lean" \
+    /dev/null "$REPO_ROOT/Velvet/Core/$f.lean" > "$out" || rc=$?
+  if [[ $rc -gt 1 ]]; then
+    echo "error: diff failed for $f (exit $rc)" >&2
+    exit "$rc"
+  fi
+  echo "wrote $out"
 done

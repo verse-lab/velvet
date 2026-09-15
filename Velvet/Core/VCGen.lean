@@ -7,4 +7,4 @@ public import Velvet.Core.VCGen.Solve
 public import Velvet.Core.VCGen.Driver
 public import Velvet.Core.VCGen.Frontend
 
-open Std.WP
+open Std.Internal.Do

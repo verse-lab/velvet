@@ -3,9 +3,9 @@ module
 public import Velvet
 public meta import Velvet
 
-namespace Velvet.Examples.HypNaming
+open Std.Internal.Do
 
-open Std.WP
+namespace Velvet.Examples.HypNaming
 
 /- Keep SymM's maximal-sharing assertions enabled for these regression examples. -/
 set_option sym.debug true
@@ -75,20 +75,6 @@ do
 
 prove_correct headOrH by
   velvet_vcgen [headOrH]
-  · grind
-  · grind
-
-/- `bif` (bool `if`) naming -/
-method bifExample (b : Bool) (x : Nat) returns (res : Nat)
-  ensures (b = true → res = x + 1) ∧ (b = false → res = x)
-do
-  bif b then
-    return x + 1
-  else
-    return x
-
-prove_correct bifExample by
-  velvet_vcgen [bifExample]
   · grind
   · grind
 

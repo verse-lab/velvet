@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP
+open Std.Internal.Do
 
 namespace Velvet.Examples.StateT
 
@@ -15,7 +15,7 @@ public abbrev CounterExceptOption := StateT Nat (ExceptT String Option)
 /- A `StateT Nat Option` loop exercising invariant, decreasing, and done gadgets. -/
 method countState (n : Nat) returns (res: Nat) in CounterOption
     requires (s : Nat) => True
-    signals (_ : Unit) => False
+    signals False
     ensures (s : Nat) => res = n ∧ s = n
   do
   set 0
@@ -48,7 +48,6 @@ prove_correct incrementBy by
 
 #check @incrementBy.spec
 
-
 /-- A `StateT Nat Option` program with assertions before and after mutation. -/
 @[expose] public def boundedIncrement (limit : Nat) : CounterOption Nat := do
   let current ← get
@@ -61,7 +60,7 @@ public theorem boundedIncrement_correct (limit : Nat) :
     Triple (boundedIncrement limit)
       (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1)
-      (fun (_ : Unit) => False) := by
+      False := by
   velvet_vcgen [boundedIncrement] with finish
 
 /-- A finite-range loop over `StateT Nat Option`. -/
@@ -80,17 +79,14 @@ public theorem countRange_correct (n : Nat) :
     Triple (countRange n)
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
-      (fun (_ : Unit) => False) := by
+      False := by
   velvet_vcgen [countRange] with finish
-
-
-
 
 /- A larger `StateT Nat (ExceptT String Option)` stack. -/
 method checkedAdd (delta : Nat) returns (res: Nat) in CounterExceptOption
     requires (s : Nat) => True
     signals err_msg : (error : String) => error = "delta must be positive"
-    signals (_ : Unit) => False
+    signals False
     ensures (s : Nat) => s = res + delta do
   let current ← get
   if delta = 0 then
@@ -105,12 +101,11 @@ prove_correct checkedAdd by
   /- all_goals omega -/
   
 
-
 /- A stateful loop that either reaches `target` or throws at `blocked`. -/
 method countUnlessBlocked (target: Nat) (blocked: Nat) returns (res: Nat) in CounterExceptOption
   requires (s : Nat) => True
   signals (e : String) => e = "blocked"
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => res = target ∧ s = target
 do
   set 0
@@ -126,15 +121,12 @@ do
     set i
   return i
 
-
 /-
 On success the loop reaches `target`. Since `StateT` is outside `ExceptT`, an
 exception has no resulting state, so its postcondition observes only the error.
 -/
 prove_correct countUnlessBlocked by
   velvet_vcgen [countUnlessBlocked] with finish
-
-
 
 /-- `StateT` outside `ReaderT`; assertions have shape `Nat → Nat → Prop`. -/
 public abbrev ReaderCounter := StateT Nat (ReaderT Nat Id)
@@ -162,7 +154,7 @@ public theorem countToReaderLimit_correct :
     Triple countToReaderLimit
       (fun state limit => state ≤ limit)
       (fun result state limit => result = limit ∧ state = limit)
-      PUnit.unit := by
+      EPost.Nil.mk := by
   velvet_vcgen [countToReaderLimit] with finish
 
 /- A method without `signals` in a monad stack with 0 exception channels (`ReaderCounter`). -/
@@ -211,7 +203,7 @@ public theorem addToReaderLimit_correct :
       (fun initial limit => initial ≤ limit)
       (fun initial final limit =>
         initial ≤ limit ∧ final = initial + triangular limit)
-      PUnit.unit := by
+      EPost.Nil.mk := by
   velvet_vcgen [addToReaderLimit] with try finish
   all_goals (dsimp [triangular]; omega)
 
@@ -228,11 +220,11 @@ prove_correct idNoBinders by
 
 #print idNoBinders.spec_triple
 
-/- Total correctness over `StateT Nat Option` is expressed with a bare `signals (_ : Unit) => False`;
+/- Total correctness over `StateT Nat Option` is expressed with a bare `signals False`;
 the state still needs binders in `requires`/`ensures`. -/
 method stateOptionTotal returns (res : Nat) in CounterOption
   requires (s : Nat) => True
-  signals (_ : Unit) => False
+  signals False
   ensures (s : Nat) => res = 0
 do
   set 0
@@ -246,7 +238,7 @@ prove_correct stateOptionTotal by
 set_option velvet.semantics.termination "partial" in
 method countStatePartial (n : Nat) returns (res : Nat) in CounterOption
     requires (s : Nat) => True
-    signals (_ : Unit) => True
+    signals True
     ensures (s : Nat) => res = n ∧ s = n
   do
   set 0

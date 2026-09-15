@@ -15,7 +15,7 @@ public meta import Lean.Elab.Do.Control
 public meta import Lean.Elab.BuiltinDo.For
 public meta import Lean.Meta.Basic
 public meta import Lean.Elab.Term
-public import Std.WP
+public import Std.Internal.Do
 
 syntax (name := doWhilePrime) "while' " (atomic(ident " : "))? termBeforeDo
   (" invariant " (atomic(ident " : "))? velvSpecTerm)*
@@ -34,7 +34,7 @@ syntax (name := doForPrime) "for' " (atomic(ident " : "))? term " in " termBefor
   " do " doSeq : doElem
 
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
 open Lean Meta Elab
 open Lean.Parser.Term
 open Lean.Elab.Do

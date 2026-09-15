@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.WP Named Loop Specs WPPartial Lean.Order
+open Std.Internal.Do Named Loop Specs WPPartial Lean.Order
 
 /-
 # Error message examples
@@ -117,7 +117,7 @@ do
 /- Partial correctness while loop in a monad stack lacking a partial-loop instance. -/
 @[expose] public def NoCCPOMonad (α : Type) : Type := Option α
 public instance : Monad NoCCPOMonad := inferInstanceAs (Monad Option)
-public instance : WPMonad NoCCPOMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
+public instance : WPMonad NoCCPOMonad Prop Prop := inferInstanceAs (WPMonad Option Prop Prop)
 
 /--
 error: failed to synthesize instance of type class
@@ -129,7 +129,7 @@ Hint: Type class instance resolution failures can be inspected with the `set_opt
 set_option velvet.semantics.termination "partial" in
 method badWhileNoCCPO (n : Nat) returns (res : Nat) in NoCCPOMonad
   requires True
-  signals (fun (_ : Unit) => True)
+  signals True
   ensures res = 0
 do
   let mut i := 0
@@ -142,7 +142,7 @@ do
 /- Partial correctness while loop in a monad with CCPO & MonoBind but lacking WPPartial instance. -/
 @[expose] public def NoWPPartialMonad (α : Type) : Type := Option α
 public instance : Monad NoWPPartialMonad := inferInstanceAs (Monad Option)
-public instance : WPMonad NoWPPartialMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
+public instance : WPMonad NoWPPartialMonad Prop Prop := inferInstanceAs (WPMonad Option Prop Prop)
 public instance (α : Type) : CCPO (NoWPPartialMonad α) := inferInstanceAs (CCPO (Option α))
 public instance : MonoBind NoWPPartialMonad where
   bind_mono_left := MonoBind.bind_mono_left (m := Option)
@@ -151,7 +151,7 @@ public instance : MonoBind NoWPPartialMonad where
 set_option velvet.semantics.termination "partial" in
 method badWhileNoWPPartial (n : Nat) returns (res : Nat) in NoWPPartialMonad
   requires True
-  signals (fun (_ : Unit) => True)
+  signals True
   ensures res = 0
 do
   let mut i := 0
@@ -182,6 +182,16 @@ method badSignalsTwoBinders returns (res : Nat)
 do
   return 0
 
+/- A bare signal describes the final Option channel of an inferred stack. -/
+/-- error: a binderless `signals` clause describes Option failure and must be last -/
+#guard_msgs in
+method badSignalOrder returns (res : Nat)
+  signals True
+  signals (e : String) => e = "boom"
+  ensures True
+do
+  return 0
+
 /- Signals with untyped binder when no `in` monad stack is provided. -/
 /-- error: expected a typed binder `(x : T)` in `signals` when no `in` monad stack is given -/
 #guard_msgs in
@@ -192,7 +202,7 @@ method badSignalsUntyped returns (res : Nat)
 do
   return 0
 
-/- Partial correctness loop in `Option` with `signals (e : Unit) => False` fails intrinsic verification.
+/- Partial correctness loop in `Option` with `signals False` fails intrinsic verification.
    The while loop without a decreasing measure allows divergence (`divergence_post Option` is `True`),
    which contradicts the contract's promise that failure/divergence never happens (`signals False`). -/
 /--
@@ -217,7 +227,7 @@ set_option velvet.semantics.termination "partial" in
 set_option velvet.verifyDuringElab true in
 method badSignalsPartialOption (n : Nat) returns (res : Nat) in Option
   requires True
-  signals (e : Unit) => False
+  signals False
   ensures res = n
 do
   let mut i := 0
@@ -226,7 +236,4 @@ do
   do
     i := i + 1
   return i
-
-
-
 
