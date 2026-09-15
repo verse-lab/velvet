@@ -81,10 +81,11 @@ do
 
 prove_correct simplestSort by
   velvet_vcgen [simplestSort] with try finish
-  all_goals (
-    intro hj1 u hu
-    have hj_step := inv_right_sorted (by grind) j (j + 1) (by grind) (by grind) hj1
-    grind)
+  intro hj1 u hu
+  have hj_step := inv_right_sorted (by grind) j (j + 1) (by grind) (by grind) hj1
+  grind
+  intro hj1 u hk
+  have hj_step := inv_right_sorted (by grind) j (j + 1) (by grind) (by grind) hj1
+  grind
 
 end SimplestSort
-

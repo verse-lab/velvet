@@ -39,9 +39,6 @@ For a program `let acc ← e`, the continuation `f` is `fun acc => p`. `vcgen` r
 introduced for `a` to `acc`, so the verification condition states `acc` rather than `a✝`.
 -/
 
-private def isProgramName (n : Name) : Bool :=
-  !n.hasMacroScopes && !n.isImplementationDetail
-
 /-- The binder names of the matcher a state lambda applies to its own argument:
 `fun x => match x with | (lo, hi) => …` carries `lo` and `hi`. -/
 private def stateMatcherAltNames? (f : Expr) : VCGenM (Array Name) := do

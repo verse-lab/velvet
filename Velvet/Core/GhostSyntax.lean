@@ -17,7 +17,8 @@ namespace GhostSyntax
 scoped macro "let" "ghost" x:ident ":=" value:term : doElem =>
   `(doElem| let mut $x := _root_.Ghost.mk $value)
 
-scoped syntax (name := ghostReassign) "*" ident " := " term : doElem
+/-- Reassign a ghost variable, lifting ordinary expressions on the right into `Ghost`. -/
+scoped syntax (name := ghostReassign) ident " *:= " term : doElem
 
 open scoped GhostSyntax
 
@@ -58,13 +59,13 @@ end GhostUtils
 
 @[doElem_control_info ghostReassign]
 public meta def controlInfoGhostReassign : ControlInfoHandler := fun stx => do
-  let `(doElem| *$x:ident := $_rhs) := stx
+  let `(doElem| $x:ident *:= $_rhs) := stx
     | throwUnsupportedSyntax
   return { reassigns := {x.getId} }
 
 @[doElem_elab ghostReassign]
 public meta def elabGhostReassign : DoElab := fun stx cont => do
-  let `(doElem| *$x:ident := $rhs) := stx
+  let `(doElem| $x:ident *:= $rhs) := stx
     | throwUnsupportedSyntax
   let original ← `(doReassign| $x:ident := $rhs)
   let original : DoElem := ⟨original.raw⟩

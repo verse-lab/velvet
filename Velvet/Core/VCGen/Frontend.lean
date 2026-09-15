@@ -469,8 +469,8 @@ private meta def dischargeVCGoals (g : TSyntax `grind) (declName? : Option Name 
   let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
   let total := activeGoals.length
   let opts ← liftMetaM getOptions
-  let showProgress := opts.getBool `velvet_vcgen.showProgress (opts.getBool `vcgen.showProgress (opts.getBool `velvet.showProgress true))
-  let mut tracker := ProgressTracker.init declName? total showProgress
+  let showVCReport := velvet_vcgen.showVCReport.get opts
+  let mut tracker := ProgressTracker.init declName? total showVCReport
   let mut goalsNew := #[]
   let mut idx := 0
 
@@ -512,8 +512,8 @@ private meta def reportGeneratedGoals (declName? : Option Name := none) : Grind.
   let activeGoals ← goals.filterM (not <$> ·.mvarId.isAssigned)
   let total := activeGoals.length
   let opts ← liftMetaM getOptions
-  let showProgress := opts.getBool `velvet_vcgen.showProgress (opts.getBool `vcgen.showProgress (opts.getBool `velvet.showProgress true))
-  let tracker := ProgressTracker.init declName? total showProgress
+  let showVCReport := velvet_vcgen.showVCReport.get opts
+  let tracker := ProgressTracker.init declName? total showVCReport
   let mut tags := #[]
   let mut idx := 0
   for goal in activeGoals do

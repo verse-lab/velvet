@@ -5,6 +5,12 @@ defaultTargets = ["velvet"]
 [[lean_lib]]
 name = "Velvet"
 
+[[lean_lib]]
+name = "Examples"
+roots = ["Velvet.Examples"]
+globs = ["Velvet.Examples.*"]
+leanOptions = { sym.debug = true }
+
 [[lean_exe]]
 name = "velvet"
 root = "Main"

@@ -3,6 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
+set_option sym.debug true
 open scoped GhostSyntax
 
 
@@ -312,8 +313,8 @@ method partialTick' returns (res : Nat)
     invariant i_nonneg : i ≥ 0
     invariant ghost_ctr : ctr.reveal = i
   do
-    i := i + 1;
-    *ctr := ctr + 1
+    i := i + 1
+    ctr *:= ctr + 1
   return i
 
 prove_correct partialTick' by

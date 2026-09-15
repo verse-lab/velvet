@@ -224,7 +224,7 @@ i_le : b✝ ≤ n✝
 -/
 #guard_msgs in
 set_option velvet.semantics.termination "partial" in
-set_option velvet.verifyDuringElab true in
+set_option velvet.verifyOnDefinition true in
 method badSignalsPartialOption (n : Nat) returns (res : Nat) in Option
   requires True
   signals False

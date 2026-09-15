@@ -8,8 +8,7 @@
 #     toolchain # elan dir name, e.g. leanprover--lean4-nightly---nightly-2026-08-11
 #               # or a full path to a toolchain root; defaults to the active one
 #
-# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util, plus additions
-# for BinderName, HypNaming, Progress, Named and the VCGen import module.
+# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util, plus BinderName.
 set -euo pipefail
 
 # Resolve the real location of this script (follow symlinks) so it works
@@ -84,15 +83,13 @@ for f in Driver Solve Frontend Util; do
   esac
 done
 
-# These are Velvet additions, not replacements for similarly named Lean files.
-for f in VCGen/BinderName VCGen/HypNaming VCGen/Progress Named VCGen; do
-  out="$DIFF_DIR/${f##*/}.diff"
-  rc=0
-  diff -u --label /dev/null --label "b/Velvet/Core/$f.lean" \
-    /dev/null "$REPO_ROOT/Velvet/Core/$f.lean" > "$out" || rc=$?
-  if [[ $rc -gt 1 ]]; then
-    echo "error: diff failed for $f (exit $rc)" >&2
-    exit "$rc"
-  fi
-  echo "wrote $out"
-done
+# BinderName is a Velvet addition, not a replacement for Lean's similarly named file.
+out="$DIFF_DIR/BinderName.diff"
+rc=0
+diff -u --label /dev/null --label "b/Velvet/Core/VCGen/BinderName.lean" \
+  /dev/null "$VCGEN_DIR/BinderName.lean" > "$out" || rc=$?
+if [[ $rc -gt 1 ]]; then
+  echo "error: diff failed for BinderName (exit $rc)" >&2
+  exit "$rc"
+fi
+echo "wrote $out"

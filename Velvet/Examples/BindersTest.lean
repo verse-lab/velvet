@@ -8,7 +8,7 @@ open Std.Internal.Do Lean.Order
 
 namespace Velvet.Examples.BindersTest
 
-set_option velvet.verifyDuringElab true
+set_option velvet.verifyOnDefinition true
 
 /-! ## 1. Multi-variable Explicit Binders `(x y : Nat)` -/
 

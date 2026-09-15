@@ -29,7 +29,7 @@ public register_option velvet.semantics.termination : VelvetSemanticsTermination
 }
 
 /-- Whether `method` should automatically verify itself during elaboration by running `prove_correct <name> by velvet_vcgen [<name>] with finish`. -/
-public register_option velvet.verifyDuringElab : Bool := {
+public register_option velvet.verifyOnDefinition : Bool := {
   defValue := false
   descr := "Automatically verify method specifications during elaboration using `velvet_vcgen with finish`."
 }

@@ -67,22 +67,25 @@
  /--
  Called when decomposing the goal further did not succeed; in this case we emit a VC for the goal.
  Invariant subgoals are handled separately by `handleInvariantSubgoals` directly inside `work`,
-@@ -87,15 +131,22 @@
+@@ -86,16 +130,23 @@
+   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
    goal ← processHypotheses goal
    if goal.inconsistent then return
-   -- `trivial`: when false, skip `solveTrivialConjuncts` (which collapses And-chains via rfl);
+-  -- `trivial`: when false, skip `solveTrivialConjuncts` (which collapses And-chains via rfl);
 -  -- emit the goal as-is.
++  -- `trivial`: when false, skip `cleanupVC` (which collapses And-chains via rfl);
 +  -- naming and generated-control simplification still run.
    let mvarId ←
      if (← read).trivial then
-       let some mvarId ← solveTrivialConjuncts goal.mvarId | return
+-      let some mvarId ← solveTrivialConjuncts goal.mvarId | return
++      let some mvarId ← cleanupVC goal.mvarId | return
        pure mvarId
      else
        pure goal.mvarId
 +  let some emittedGoal ← processNamedGoal { goal with mvarId } | return
 +  let mvarId ←
 +    if (← read).trivial then
-+      let some mvarId ← solveTrivialConjuncts emittedGoal.mvarId | return
++      let some mvarId ← cleanupVC emittedGoal.mvarId | return
 +      pure mvarId
 +    else
 +      pure emittedGoal.mvarId

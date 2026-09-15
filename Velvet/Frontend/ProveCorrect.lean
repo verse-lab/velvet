@@ -22,10 +22,25 @@ elab_rules : command
     let some statement := methodSpecExt.getState (← getEnv) |>.get? declName
       | throwErrorAt specId "no method contract metadata found for `{declName}`"
     let statement : Term := ⟨statement⟩
-    let proofId := mkIdentFrom specId (specId.getId ++ `spec)
-    let thmCmd ← `(command|
-      open scoped Std.Internal.Do Lean.Order in
-      set_option linter.unusedVariables false in
-      @[spec] public theorem $proofId : $statement := by
-        ($proof))
-    elabCommand thmCmd
+    let proofName := declName ++ `spec
+    -- Key generated hygiene scopes by the theorem name. The default uses the whole
+    -- command text, so proof edits would change generated identifiers and prevent reuse.
+    withInitQuotContext (some (hash proofName)) do
+      modifyEnv (·.registerNamespace declName)
+      -- Generated namespace/open wrappers leave pending `end` commands that mark
+      -- the whole proof as processing. Enter the scopes directly to avoid this.
+      withScope ({ · with currNamespace := declName }) do
+        Lean.pushScope
+        try
+          activateScoped declName
+          activateScoped `Std.Internal.Do
+          activateScoped `Lean.Order
+          let proofId := mkIdentFrom specId `spec
+          -- Anchor generated syntax to the method identifier. Otherwise it inherits
+          -- the whole command's range, so changing the proof's length prevents reuse.
+          let thmCmd ← withRef specId `(command|
+            @[spec] public theorem $proofId : $statement := by
+              $proof)
+          elabCommand thmCmd
+        finally
+          Lean.popScope

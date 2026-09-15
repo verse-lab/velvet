@@ -130,18 +130,18 @@ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
   goal ← processHypotheses goal
   if goal.inconsistent then return
-  -- `trivial`: when false, skip `solveTrivialConjuncts` (which collapses And-chains via rfl);
+  -- `trivial`: when false, skip `cleanupVC` (which collapses And-chains via rfl);
   -- naming and generated-control simplification still run.
   let mvarId ←
     if (← read).trivial then
-      let some mvarId ← solveTrivialConjuncts goal.mvarId | return
+      let some mvarId ← cleanupVC goal.mvarId | return
       pure mvarId
     else
       pure goal.mvarId
   let some emittedGoal ← processNamedGoal { goal with mvarId } | return
   let mvarId ←
     if (← read).trivial then
-      let some mvarId ← solveTrivialConjuncts emittedGoal.mvarId | return
+      let some mvarId ← cleanupVC emittedGoal.mvarId | return
       pure mvarId
     else
       pure emittedGoal.mvarId

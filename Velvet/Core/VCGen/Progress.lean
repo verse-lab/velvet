@@ -17,10 +17,10 @@ open Lean Meta Elab Term
 
 namespace VCGen
 
-/-- Show status and diagnostics for verification goals during `velvet_vcgen`. -/
-register_option velvet_vcgen.showProgress : Bool := {
-  defValue := true
-  descr := "Show status and diagnostics for verification goals."
+/-- Report VCs generated or discharged by a `velvet_vcgen` invocation. -/
+public register_option velvet_vcgen.showVCReport : Bool := {
+  defValue := false
+  descr := "Report VCs generated or discharged by this velvet_vcgen invocation."
 }
 
 /-- Clean up a specification theorem name (such as `Foo.bar.spec` -> `bar` or `Foo.bar`). -/

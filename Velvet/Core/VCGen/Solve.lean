@@ -72,10 +72,10 @@ private def splitProdBinder (goal : MVarId) (target : Expr) : VCGenM MVarId :=
   let dom ← instantiateMVarsIfMVarAppS dom
   let_expr c@Prod α β := dom | return goal
   let us := c.constLevels!
-  let mk ← mkAppNS (← mkConstS ``Prod.mk us) #[α, β, .bvar 1, .bvar 0]
+  let mk ← mkAppNS (← mkConstS ``Prod.mk us) #[α, β, ← mkBVarS 1, ← mkBVarS 0]
   let newTarget := Expr.forallE `a α (.forallE `b β (body.instantiate1 mk) .default) .default
   let g ← liftMetaM <| mkFreshExprSyntheticOpaqueMVar (← shareCommon newTarget)
-  let motive := Expr.lam `p dom body .default
+  let motive ← mkLambdaS `p .default dom body
   let prodForall ← mkAppNS (← mkConstS ``Prod.forall us) #[α, β, motive]
   goal.assign <| mkApp4 (.const ``Iff.mpr []) target newTarget prodForall g
   return g.mvarId!
@@ -90,7 +90,7 @@ private def forallIntro? (oldGoal : MVarId) (target : Expr) : VCGenM (Option (Li
   let mut target ← goal.getType
   while target.isForall do
     let n := numBindersToIntro target
-    let goal' ← if n == 0 then splitProdBinder goal target else introsHygienic goal
+    let goal' ← if n == 0 then splitProdBinder goal target else introsHygienicN goal n
     if goal' == goal then break
     goal := goal'
     target ← goal.getType
@@ -262,10 +262,12 @@ private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVar
   let some inst := args[1]? | return none
   let some rhs := args[3]? | return none
   let uα ← Sym.getLevel α
-  -- `fun p => p ⊑ rhs`; use a bound variable so every operand remains a valid shared Sym term.
-  let congrFn := Expr.lam `pre α (mkApp4 target.getAppFn α inst (.bvar 0) rhs) .default
-  let targetEq := mkApp6 (mkConst ``congrArg [uα, .succ .zero])
-    α (mkSort .zero) pre pre' congrFn h
+  let congrBody ← mkAppS₄ target.getAppFn α inst (← mkBVarS 0) rhs
+  let congrFn ← mkLambdaS `pre .default α congrBody
+  -- Sym.simp's proof need not be shared; canonicalize it before using shared builders.
+  let h ← shareCommon h
+  let targetEq ← mkAppS₆ (← mkConstS ``congrArg [uα, .succ .zero])
+    α (← mkSortS .zero) pre pre' congrFn h
   return some (← goal.replaceTargetEq target' targetEq)
 
 /-- Phase 2: drive the precondition of `pre ⊑ rhs` toward `⊤`, lifting any pure content into the

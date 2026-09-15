@@ -8,14 +8,14 @@ open scoped GhostSyntax
 /-!
 # Intrinsic Verification Examples
 
-Demonstrating intrinsic verification in Velvet: with `set_option velvet.verifyDuringElab true`,
+Demonstrating intrinsic verification in Velvet: with `set_option velvet.verifyOnDefinition true`,
 each `method` declaration is verified automatically during elaboration by `velvet_vcgen with finish`,
 producing the verified `spec` theorem without requiring a separate `prove_correct` block.
 -/
 
 namespace Velvet.Examples.IntrinsicVerification
 
-set_option velvet.verifyDuringElab true
+set_option velvet.verifyOnDefinition true
 
 /-! ## Basic Pure and Arithmetic Methods -/
 
@@ -257,8 +257,8 @@ do
     invariant i_nonneg : i ≥ 0
     invariant ghost_ctr : ctr.reveal = i
   do
-    i := i + 1;
-    *ctr := ctr + 1
+    i := i + 1
+    ctr *:= ctr + 1
   return i
 
 end Velvet.Examples.IntrinsicVerification

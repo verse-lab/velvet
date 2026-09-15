@@ -178,8 +178,8 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     elabCommand motiveCmd
   let methodName ← liftCoreM <| realizeGlobalConstNoOverload ctx.name
   modifyEnv (methodSpecExt.addEntry · { name := methodName, statement := statement })
-  let verifyDuringElab := (← getOptions).getBool `velvet.verifyDuringElab false
-  if verifyDuringElab then
+  let verifyOnDefinition := (← getOptions).getBool `velvet.verifyOnDefinition false
+  if verifyOnDefinition then
     let lem : TSyntax `Lean.Parser.Tactic.simpLemma ← `(Lean.Parser.Tactic.simpLemma| $(ctx.name):ident)
     let proveCmd ← `(command|
       prove_correct $(ctx.name) by
