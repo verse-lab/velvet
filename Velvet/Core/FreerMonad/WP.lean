@@ -193,6 +193,72 @@ theorem soundness [WPMonad m Pred EPred]
       constructor
       apply PartialOrder.rel_trans
       { apply htc }
-      sorry
+      unfold WP.wp
+      rw [WP.wpTrans]
+      simp [instWPOfWPMonad, WPMonad.toWP, wpInst]
+      clear htc
+      induction c with
+      | ret val =>
+        simp [FreerMonad.wp, FreerMonad.interp]
+        apply WPMonad.pure_le_wp_pure
+      | vis x k k_ih =>
+        simp [FreerMonad.wp, FreerMonad.interp]
+        apply PartialOrder.rel_trans; rotate_left
+        apply WPMonad.bind_le_wp_bind
+        apply WP.wp_consequence
+        simp
+        intro b
+        apply k_ih
+      | iter init f cont f_ih cont_ih =>
+        rename_i β
+        simp [FreerMonad.wp, FreerMonad.interp]
+        apply join_le
+        · apply iSup_le; intro inv
+          apply iSup_le; intro stepPost
+          apply ofProp_meet_le_right; intro hdiv
+          apply ofProp_meet_le_right; intro hdone
+          apply ofProp_meet_le_right; intro hyield
+          apply ofProp_meet_le_left; intro hbody
+          let inv' : β ⊕ β → Pred := fun
+            | .inl b => inv b
+            | .inr b => wp (cont b) post ⊥
+          simp [forIn, Lean.Loop.forIn, repeatM]
+          have hloop : Triple
+              (Loop.forIn.loop (fun _ b => (f b).run) init)
+              (inv' (.inl init)) (fun b => inv' (.inr b)) ⊥ := by
+            apply Loop.forInLoop_partial (div_post := div_post) (div_pre := div_pre)
+            · exact hdiv
+            · intro b
+              apply Triple.intro
+              apply PartialOrder.rel_trans (hbody b)
+              apply PartialOrder.rel_trans (f_ih b (stepPost b))
+              apply WP.wp_consequence
+              intro r
+              cases r with
+              | yield b' => exact hyield b b'
+              | done b' => exact hdone b b'
+          apply PartialOrder.rel_trans hloop.le_wp
+          apply PartialOrder.rel_trans
+          · exact WP.wp_consequence _ _ _ epost (fun b => cont_ih b post)
+          · exact WPMonad.bind_le_wp_bind _ _ post epost
+        · apply iSup_le; intro inv
+          apply iSup_le; intro measure
+          apply ofProp_meet_le_right; intro hdone
+          apply ofProp_meet_le_left; intro hbody
+          rw [NonDetT.run_repeatCont]
+          have hloop : Triple
+              (Loop.forIn.loop (fun _ b => (f b).run) init)
+              (inv (.yield init)) (fun b => inv (.done b)) epost := by
+            apply Loop.forInLoop_total (measure := measure)
+            intro b
+            apply Triple.intro
+            exact PartialOrder.rel_trans (hbody b)
+              (f_ih b _)
+          apply PartialOrder.rel_trans hloop.le_wp
+          apply PartialOrder.rel_trans
+          · apply WP.wp_consequence
+            intro b
+            exact PartialOrder.rel_trans (hdone b) (cont_ih b post)
+          · exact WPMonad.bind_le_wp_bind _ _ post epost
 
 end FreerMonad
