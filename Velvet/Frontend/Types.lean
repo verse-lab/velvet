@@ -37,7 +37,7 @@ public structure MethodElabContext where
   signalsClauses : Array AssertionInfo
   ensuresClauses : Array AssertionInfo
 
-/-- Persisted direct statement of a generated `methodName.spec_triple` contract. -/
+/-- Persisted contract statement, keyed by the fully qualified method name. -/
 public structure MethodSpecEntry where
   name : Name
   statement : Syntax
@@ -50,4 +50,3 @@ public initialize methodSpecExt : SimplePersistentEnvExtension MethodSpecEntry (
     addEntryFn := addMethodSpecEntry
     addImportedFn := fun entries =>
       mkStateFromImportedEntries addMethodSpecEntry {} entries }
-

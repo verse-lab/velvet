@@ -136,6 +136,46 @@ prove_correct incrementBy by
 --   ⦃ fun s => s = s₀ ⦄ incrementBy x ⦃ fun res s => s = s₀ + x ⦄
 ```
 
+### Checking Supplied Inputs
+
+`#derive_tester_for` generates a contract checker. Supply inputs yourself or with any
+external generator; no generator library or correctness proof is required.
+
+```lean
+open Velvet.Testing
+
+method increment (x : Nat) returns (result : Nat) in StateM Nat
+  given (initial : Nat)
+  requires (s : Nat) => s = initial ∧ s + x ≤ 100
+  ensures (s : Nat) => result = initial ∧ s = initial + x
+do
+  let old ← get
+  set (old + x)
+  return old
+
+#derive_tester_for increment
+
+-- Arguments: x, given initial, execution state
+#eval increment.check 5 20 20  -- TestVerdict.pass
+#eval increment.check 5 99 99  -- TestVerdict.discard
+```
+
+A false `requires` returns `.discard` without executing the method. Otherwise,
+`ensures` or `signals` determines `.pass` or `.fail`. Checker arguments are method
+arguments, then `given` arguments, then initial states/environments in monad-stack order.
+There is no execution timeout, and passing tests do not prove the contract.
+
+Decidability is inferred automatically, including bounded `Nat`/`Int` heuristics.
+For custom executable decisions, use `prove_precondition_decidable_for`,
+`prove_postcondition_decidable_for`, or `prove_signals_decidable_for` with `by …`
+**before** `#derive_tester_for`. Proofs start with arguments introduced and assertion
+wrappers simplified. See [the examples](Velvet/Examples/Testing.lean) for monad stacks
+and a manual local instance (`withdraw`).
+
+Custom monads need a [DecidableWP instance](Velvet/Core/DecidableWP.lean) matching their
+WP interpretation. Instances cover `Id`, `Option`, `Except`, `EStateM`, and the
+`StateT`, `ReaderT`, `ExceptT`, and `OptionT` transformers.
+
 ### Automatic `ExceptT` Inference
 
 If you write `signals` clauses without an explicit `in <Monad>` stack, Velvet automatically infers and stacks the required `ExceptT` monad transformers around `Option`:

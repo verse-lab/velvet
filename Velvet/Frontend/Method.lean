@@ -171,8 +171,8 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
   elabCommand specCmd
   if let some motiveCmd := motiveCmd? then
     elabCommand motiveCmd
-  let specName ← liftCoreM <| realizeGlobalConstNoOverload (mkIdentFrom ctx.name (ctx.name.getId ++ `spec_triple))
-  modifyEnv (methodSpecExt.addEntry · { name := specName, statement := statement })
+  let methodName ← liftCoreM <| realizeGlobalConstNoOverload ctx.name
+  modifyEnv (methodSpecExt.addEntry · { name := methodName, statement := statement })
   let verifyDuringElab := (← getOptions).getBool `velvet.verifyDuringElab false
   if verifyDuringElab then
     let lem : TSyntax `Lean.Parser.Tactic.simpLemma ← `(Lean.Parser.Tactic.simpLemma| $(ctx.name):ident)
