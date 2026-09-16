@@ -5,6 +5,7 @@ public meta import Velvet.Frontend.Method
 public import Velvet.Frontend.SyntaxDecls
 public import Velvet.Core.Specs
 public meta import Velvet.Core.Specs
+public meta import Velvet.Frontend.VCReport
 public meta import Lean.Parser
 public meta import Lean.Elab.Command
 public import Std.Internal.Do
@@ -41,6 +42,8 @@ elab_rules : command
           let thmCmd ← withRef specId `(command|
             @[spec] public theorem $proofId : $statement := by
               $proof)
-          elabCommand thmCmd
+          -- Keep the report visible throughout the proof without broadening thmCmd's ref.
+          let reportRef := mkNullNode #[specId.raw, proof.raw]
+          VCGen.withProofVCReport reportRef <| elabCommand thmCmd
         finally
           Lean.popScope

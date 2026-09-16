@@ -3,7 +3,6 @@ module
 public import Velvet
 public meta import Velvet
 
-set_option sym.debug true
 open scoped GhostSyntax
 
 
@@ -16,7 +15,6 @@ do
   let mut i : Nat := 0
   while' loop_cond: i < a.size
     invariant sz_invariant: 0 ≤ i ∧ i ≤ a.size
-    -- I'd like to be able to access loop_cond here too..
     invariant inv_ok: ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
     decreasing by_size: a.size - i
     done_with h_done : a.size ≤ i
@@ -30,7 +28,7 @@ do
 
 #print isGreaterWithInvariants.spec_triple
 
-    
+set_option velvet_vcgen.showVCReport true in
 prove_correct isGreaterWithInvariants by
   velvet_vcgen [isGreaterWithInvariants] with try finish
   case inv_ok =>
@@ -40,7 +38,7 @@ prove_correct isGreaterWithInvariants by
     · have this := h i (by omega)
       have hget : a[i]! = a[i] := getElem!_pos a i (by omega)
       rw [hget] at this
-      exact False.elim (if_cond this)
+      exact False.elim (by grind)
 
 /- The same loop written with Lean's ordinary `while` syntax. -/
 def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
@@ -102,7 +100,7 @@ do
 prove_correct isGreaterInlineAnnotations by
   velvet_vcgen [isGreaterInlineAnnotations] with finish
 
-  
+
 method scanRangeVCGen (n : Nat)
   returns (result : Unit)
   requires precond: True
@@ -319,5 +317,3 @@ method partialTick' returns (res : Nat)
 
 prove_correct partialTick' by
   velvet_vcgen [partialTick'] with finish
-
-  

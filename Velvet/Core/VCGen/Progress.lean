@@ -17,10 +17,21 @@ open Lean Meta Elab Term
 
 namespace VCGen
 
-/-- Report VCs generated or discharged by a `velvet_vcgen` invocation. -/
+/-- Internal switch used while `prove_correct` collects one report for its whole proof. -/
+public meta def collectingVCReport (opts : Options) : Bool :=
+  opts.getBool `velvet.collectVCReport false
+
+/-- Stored in the info tree, so edits and incremental reuse keep the report with its proof. -/
+public meta structure VCReportInfo where
+  declName? : Option Name
+  goals : Array (MVarId × String)
+  mctx : MetavarContext
+  deriving TypeName
+
+/-- Report VCs, including later tactics when used inside `prove_correct`. -/
 public register_option velvet_vcgen.showVCReport : Bool := {
   defValue := false
-  descr := "Report VCs generated or discharged by this velvet_vcgen invocation."
+  descr := "Report VCs, including later proof steps inside prove_correct."
 }
 
 /-- Clean up a specification theorem name (such as `Foo.bar.spec` -> `bar` or `Foo.bar`). -/

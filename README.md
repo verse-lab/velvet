@@ -78,7 +78,7 @@ Velvet provides several options to control verification semantics and feedback:
 | :--- | :--- | :--- | :--- |
 | `velvet.semantics.termination` | `"total"`, `"partial"` | `"total"` | Require measures on `while'` loops in total mode; choose the inferred Option failure contract (`False` for total, `True` for partial). |
 | `velvet.verifyOnDefinition` | `true`, `false` | `false` | Automatically verify specifications at definition time without `prove_correct`. |
-| `velvet_vcgen.showVCReport` | `true`, `false` | `false` | Show a report of VCs generated or solved by each `velvet_vcgen` invocation. |
+| `velvet_vcgen.showVCReport` | `true`, `false` | `false` | Show verification-condition reports, including later proof steps in `prove_correct`. |
 
 Example:
 ```lean
@@ -453,20 +453,21 @@ The optional `with` clause applies a grind-mode tactic, such as `finish` or
 
 ### Verification Condition Reports
 
-With `set_option velvet_vcgen.showVCReport true`, the Infoview shows generated
-goal names when no `with` clause is supplied, or a discharge summary when one is.
-For example, a generated-goal report looks like:
+Enable `set_option velvet_vcgen.showVCReport true` to see how each VC was handled
+in a `prove_correct` proof:
 
 ```text
-[vcgen:isqrt] ℹ Generated 3 VCs:
-  • [1/3] 'inv_lower'
-  • [2/3] 'by_remaining'
-  • [3/3] 'done'
+[vcgen:isqrt] 2/3 VCs solved
+  ✔ inv_lower: solved by velvet_vcgen
+  ✔ by_remaining: solved afterward
+  ○ done: 1 remaining
 ```
 
-A successful `with finish` run instead reports `Finished: 3/3 solved`, followed by
-the result for each VC. The report covers that `velvet_vcgen` invocation; it does
-not update when later tactics solve the remaining goals.
+The report updates after each edit finishes checking, including for incomplete
+proofs. `sorry` is marked as admitted. Find it in the messages at the method name;
+VS Code also displays it as you move through the proof.
+
+Outside `prove_correct`, the report covers only the `velvet_vcgen` invocation.
 
 ### Verifying at Definition Time
 

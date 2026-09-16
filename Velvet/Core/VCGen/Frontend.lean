@@ -559,13 +559,26 @@ public meta def elabVCGenCore : Tactic := fun stx => withMainContext do
   -- still rename them with `case vcN h => …`.
   let params ← Grind.mkDefaultParams { clean := false }
   let declName? ← Term.getDeclName?
-  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
+  let recordReport := collectingVCReport (← getOptions)
+  let (reportedGoals, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
     Grind.evalGrindTactic core
+    let mut reportedGoals := #[]
+    if recordReport then
+      for vc in ← Grind.getGoals do
+        unless ← vc.mvarId.isAssigned do
+          let tag ← vc.mvarId.getTag
+          let label := if tag.isAnonymous then s!"vc{reportedGoals.size + 1}"
+            else tag.eraseMacroScopes.toString
+          reportedGoals := reportedGoals.push (vc.mvarId, label)
     if let some g := g? then
       dischargeVCGoals g declName?
     else
       reportGeneratedGoals declName?
+    return reportedGoals
   replaceMainGoal (state.goals.map (·.mvarId))
+  if recordReport then
+    let info : VCReportInfo := { declName?, goals := reportedGoals, mctx := ← getMCtx }
+    pushInfoLeaf <| .ofCustomInfo { stx, value := Dynamic.mk info }
 
 
 /-- Run `velvet_vcgen` transactionally so a failing `with` discharger cannot leak a partially assigned

@@ -41,7 +41,7 @@
 -namespace Lean.Elab.Tactic.Do.Internal
 +open Lean.Elab.Tactic.Do.Internal
 +open Lean.Elab.Tactic.Do.Internal.VCGen
-+
+ 
 +namespace Lean.Parser.Tactic
 +
 +syntax (name := velvetVCGenTac) "velvet_vcgen" optConfig
@@ -64,7 +64,7 @@
 +
 +end Grind
 +end Lean.Parser.Tactic
- 
++
 +namespace VCGen
 +
  /-!
@@ -253,10 +253,11 @@
    let goal ← Lean.Elab.Tactic.Grind.getMainGoal
    let args ← parseArgs stx goal.mvarId
    let result ← Lean.Elab.Tactic.Grind.liftGrindM do
-@@ -440,11 +461,74 @@
+@@ -439,12 +460,75 @@
+     let invGoals ← invariants.toList.mapM Grind.mkGoalCore
      return invGoals ++ result.vcs.toList
    Lean.Elab.Tactic.Grind.replaceMainGoal newGoals
- 
++
 +/-- Apply a `with` discharger to every VC produced by `velvet_vcgen`. This is the source-aware
 +counterpart of Grind's `all_goals`: goals carrying named source metadata relocate a discharger
 +failure to that annotation; unannotated goals use Grind's ordinary recovery path unchanged. -/
@@ -269,7 +270,7 @@
 +  let mut tracker := ProgressTracker.init declName? total showVCReport
 +  let mut goalsNew := #[]
 +  let mut idx := 0
-+
+ 
 +  for goal in goals do
 +    if ← goal.mvarId.isAssigned then
 +      continue
@@ -346,7 +347,7 @@
          $[simplifying_assumptions $(sa)? $[[$thms,*]]?]? $[with $w:vcgenDischarge]?) := stx
      | throwUnsupportedSyntax
    let g? ← elabVCGenDischarge w
-@@ -474,17 +552,36 @@
+@@ -474,17 +552,49 @@
      | none   => do
          let off ← `(optConfig| -internalize)
          pure (Lean.Parser.Tactic.appendConfig off cfg)
@@ -363,13 +364,26 @@
 -  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) <|
 -    Grind.evalGrindTactic step
 +  let declName? ← Term.getDeclName?
-+  let (_, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
++  let recordReport := collectingVCReport (← getOptions)
++  let (reportedGoals, state) ← Grind.GrindTacticM.runAtGoal goal params (sym := true) do
 +    Grind.evalGrindTactic core
++    let mut reportedGoals := #[]
++    if recordReport then
++      for vc in ← Grind.getGoals do
++        unless ← vc.mvarId.isAssigned do
++          let tag ← vc.mvarId.getTag
++          let label := if tag.isAnonymous then s!"vc{reportedGoals.size + 1}"
++            else tag.eraseMacroScopes.toString
++          reportedGoals := reportedGoals.push (vc.mvarId, label)
 +    if let some g := g? then
 +      dischargeVCGoals g declName?
 +    else
 +      reportGeneratedGoals declName?
++    return reportedGoals
    replaceMainGoal (state.goals.map (·.mvarId))
++  if recordReport then
++    let info : VCReportInfo := { declName?, goals := reportedGoals, mctx := ← getMCtx }
++    pushInfoLeaf <| .ofCustomInfo { stx, value := Dynamic.mk info }
  
 -end Lean.Elab.Tactic.Do.Internal
 +
