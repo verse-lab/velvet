@@ -4,6 +4,7 @@ public import Velvet
 public meta import Velvet
 public import Velvet.Examples.StateT
 public meta import Velvet.Examples.StateT
+public import Plausible
 
 open Velvet.Testing
 
@@ -247,6 +248,23 @@ do
 -- A caller can supply inputs from any source; the checker has no generator dependency.
 example : List TestVerdict :=
   [(5, 20), (5, 99)].map fun (x, s) => increment.check x s s
+
+-- Plausible can generate inputs while the checker remains generator-independent.
+run_elab do
+  let numTests := 100
+  let input : Plausible.Gen (Nat × Nat) := do
+    let x ← Plausible.SampleableExt.interpSample Nat
+    let s ← Plausible.SampleableExt.interpSample Nat
+    return (x, s)
+  let mut passed := 0
+  let mut discarded := 0
+  for _ in [0:numTests] do
+    let (x, s) ← Plausible.Gen.run input 100
+    match increment.check x s s with
+    | .pass => passed := passed + 1
+    | .discard => discarded := discarded + 1
+    | .fail => throwError "increment failed for x = {x}, initial state = {s}"
+  IO.println s!"PBT: out of {numTests} tests, {discarded} discarded, {passed} passed"
 
 -- Derive from imported metadata, without placing declarations in the caller's namespace.
 #derive_tester_for Velvet.Examples.StateT.incrementBy

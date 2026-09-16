@@ -192,6 +192,10 @@ do
 #eval increment.check 5 99 99  -- TestVerdict.discard
 ```
 
+For property-based testing, use Plausible to generate arguments for the checker.
+[`Testing.lean`](Velvet/Examples/Testing.lean) includes a 100-case run that reports
+the discarded and passed totals and reports the generated inputs on failure.
+
 A false `requires` returns `.discard` without executing the method. Otherwise,
 `ensures` or `signals` determines `.pass` or `.fail`. Checker arguments are method
 arguments, then `given` arguments, then initial states/environments in monad-stack order.

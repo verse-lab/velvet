@@ -1,5 +1,8 @@
 module
 
+-- `Lean.Order.admissible` is a non-`@[expose]` definition, so unfolding it in the
+-- admissibility proofs below requires importing its implementation.
+import all Init.Internal.Order.Basic
 public import Velvet.Core.Specs
 public import Std.Internal.Do
 public import Std.Internal.Do.Triple.SpecLemmas
@@ -62,17 +65,36 @@ public def WPPartial.divergence_pre (m : Type u → Type v)
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ α, CCPO (m α)]
     [WPPartial m Pred EPred div_post div_pre] : EPred → Pred := div_pre
 
-/-- Admissibility of Hoare wp inequality for Scott fixpoint induction.
-Note: Since `Lean.Order.admissible` is unexposed in Lean 4 core, this is stated as an axiom
-justified by `WPPartial.csup_lift` and `WPPartial.wp_bot`. -/
-public axiom admissible_triple_wp
+/-- Admissibility of the Hoare wp inequality for Scott fixpoint induction.
+
+Proved by case analysis on the chain `c`:
+* if `c` is non-empty, `WPPartial.csup_lift` transports the pointwise entailments through the
+  chain supremum, since `pre` is below the infimum of the `wp`s of the chain elements;
+* if `c` is empty it is `fun _ => False`, so `CCPO.csup` is the diverging computation `⊥` and
+  `WPPartial.wp_bot` reduces the goal to `hbot`. -/
+public theorem admissible_triple_wp
     {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {β : Type u} {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
     [instCCPO : ∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre]
     (pre : Pred) (post : β → Pred) (epost : EPred)
     (hbot : pre ⊑ div_pre epost) :
-    admissible (fun (c : m β) => pre ⊑ wp c post epost)
+    admissible (fun (c : m β) => pre ⊑ wp c post epost) := by
+  intro c hc h
+  by_cases hne : ∃ x, c x
+  · exact PartialOrder.rel_trans
+      (le_iInf (fun (x : {x : m β // c x}) => wp x.val post epost) pre
+        (fun x => h x.val x.property))
+      (instWP.csup_lift hc hne post epost)
+  · have hceq : c = fun _ => False := by
+      funext x
+      simp only [eq_iff_iff, iff_false]
+      intro hx
+      exact hne ⟨x, hx⟩
+    subst hceq
+    show pre ⊑ wp (Prog := m β) (CCPO.csup (α := m β) (c := fun _ => False) emptyChain) post epost
+    rw [instWP.wp_bot post epost]
+    exact hbot
 
 public theorem admissible_triple_wp_partial
     {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
@@ -83,15 +105,18 @@ public theorem admissible_triple_wp_partial
     admissible (fun (c : m β) => pre ⊑ wp c post div_post) :=
   admissible_triple_wp pre post div_post (instWP.le_divergence_post pre)
 
-/-- Admissibility of Hoare triple motives for Scott fixpoint induction. -/
-public axiom admissible_triple
+/-- Admissibility of Hoare triple motives for Scott fixpoint induction.
+`Triple` is a one-field structure around the wp entailment, so this is `admissible_triple_wp`
+packed and unpacked. -/
+public theorem admissible_triple
     {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
     {β : Type u} {m : Type u → Type v}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
     [instCCPO : ∀ α, CCPO (m α)] [instWP : WPPartial m Pred EPred div_post div_pre]
     (pre : Pred) (post : β → Pred) (epost : EPred)
     (hbot : pre ⊑ div_pre epost) :
-    admissible (fun (c : m β) => ⦃ pre ⦄ c ⦃ post ; epost ⦄)
+    admissible (fun (c : m β) => ⦃ pre ⦄ c ⦃ post ; epost ⦄) := fun c hc h =>
+  ⟨admissible_triple_wp pre post epost hbot c hc fun x hx => (h x hx).le_wp⟩
 
 public theorem admissible_triple_partial
     {Pred : Type u₁} {EPred : Type u₂} {div_post : EPred} {div_pre : EPred → Pred}
