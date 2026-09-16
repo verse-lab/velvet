@@ -1,4 +1,5 @@
 import Velvet.Core.Named
+import Velvet.Core.Loop.Gadgets
 import Std.WP
 
 open Lean.Order
@@ -29,7 +30,8 @@ class HasInterpreter (e : Type u -> Type v) (m : outParam (Type u -> Type w)) wh
 
 export HasInterpreter (interp)
 
-instance [LawfulMonad m] [HasInterpreter e m] : LawfulMonad (FreerMonad e) := by
+/-- The free monad laws are structural: they need neither an interpreter nor any law of `m`. -/
+instance {e : Type u -> Type v} : LawfulMonad (FreerMonad e) := by
   refine LawfulMonad.mk' _ ?_ ?_ ?_
   { intro _ x; induction x
     <;> simp [Functor.map, FreerMonad.bind]
@@ -39,12 +41,13 @@ instance [LawfulMonad m] [HasInterpreter e m] : LawfulMonad (FreerMonad e) := by
   <;> simp [bind, FreerMonad.bind]
   <;> solve_by_elim [funext]
 
-def FreerMonad.interp
+def FreerMonad.interp [∀ γ, CCPO (m γ)] [MonoBind m]
   [HasInterpreter e m] : FreerMonad e α -> m α
   | FreerMonad.ret x => pure x
   | FreerMonad.vis x k => HasInterpreter.interp x >>= fun x => (k x).interp
   | FreerMonad.iter init body k =>
-    forIn Lean.Loop.mk init (fun _ x => (body x).interp) >>= (fun x => (k x).interp)
+    Loop.forIn.loop (fun _ x => (body x).interp) init >>= (fun x => (k x).interp)
+
 
 @[simp]
 theorem FreerMonad.interp_bind
