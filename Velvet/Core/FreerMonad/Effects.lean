@@ -1,7 +1,7 @@
 import Velvet.Core.FreerMonad.Defs
 import Velvet.Core.Partial
 
-open Std.WP Lean.Order
+open Std.Internal.Do Lean.Order
 
 universe u v v₁ v₂ w z
 
@@ -44,7 +44,7 @@ class LawfulEffWP (e : Type u → Type v₁) (m : Type u → Type v₂)
     [HasInterpreter e m] [EffWP e m Pred EPred] where
   /-- Interpreting an effect can only weaken its precondition. -/
   ewp_le_wp_interp {α : Type u} (c : e α) (post : α → Pred) (epost : EPred) :
-    ewp c post epost ⊑ Std.WP.wp (HasInterpreter.interp (m := m) c) post epost
+    ewp c post epost ⊑ wp (HasInterpreter.interp (m := m) c) post epost
 
 /-! ## Executable effects: the base monad viewed as a signature -/
 
@@ -59,7 +59,7 @@ instance : HasInterpreter (BaseEff m) m where
 /-- For an executable effect the specification *is* the WP of its interpretation. -/
 noncomputable instance instEffWPBase [Monad m] [Assertion Pred] [Assertion EPred]
     [WPMonad m Pred EPred] : EffWP (BaseEff m) m Pred EPred where
-  ewp c post epost := match c with | .mk x => Std.WP.wp x post epost
+  ewp c post epost := match c with | .mk x => wp x post epost
   ewp_monotone c post post' epost epost' he hp := by
     cases c; exact WP.wp_trans_monotone _ post post' epost epost' he hp
 

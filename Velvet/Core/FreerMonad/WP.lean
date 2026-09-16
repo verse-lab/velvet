@@ -2,19 +2,12 @@ import Velvet.Core.FreerMonad.Defs
 import Velvet.Core.FreerMonad.Effects
 import Velvet.Core.Specs
 import Velvet.Core.Partial
+import Std.Internal.Do.Gadget.ForIn
+import Std.Internal.Do.Triple.SpecLemmas
 
-import Std.WP
-import Std.WP.Gadget.ForIn
-import Std.WP.Triple.SpecLemmas
-import Std.Internal.ForIn
-
-open Std.Internal
-open Std.WP
-open Std.WP.Assertion
-open Lean.Order
-open WPPartial
 open Lean.Order
 
+open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order Loop.Gadget WPPartial
 
 
 theorem inf_mono [Assertion Pred] {P P' Q Q' : Pred} (hp : P ⊑ P') (hq : Q ⊑ Q'):
@@ -186,13 +179,12 @@ public noncomputable instance instWPMonadFreerMonad [WPMonad m Pred EPred]
       { apply a b1 }
       apply k_ih
 
+#check wp
+
 theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
     [∀ γ, CCPO (m γ)] [MonoBind m] [EffWP e m Pred EPred] [LawfulEffWP e m Pred EPred]
     [WPPartial m Pred EPred div_post div_pre] (c : FreerMonad e α):
-    Std.WP.wp c post epost ⊑ Std.WP.wp c.interp post epost := by
-      unfold WP.wp
-      rw [WP.wpTrans]
-      simp [instWPOfWPMonad, WPMonad.toWP, wpInst]
+    wp c post epost ⊑ Std.Internal.Do.wp c.interp post epost := by
       induction c with
       | ret val =>
         simp [FreerMonad.wp, FreerMonad.interp]

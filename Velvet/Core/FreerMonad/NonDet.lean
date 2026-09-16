@@ -1,7 +1,8 @@
 import Velvet.Core.FreerMonad.WP
 import Velvet.Core.NonDet.Soundness
 
-open Std.WP Lean.Order WPPartial
+open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order Loop.Gadget WPPartial
+
 
 universe u v w z
 
@@ -38,7 +39,7 @@ variable {div_post : EPred} {div_pre : EPred → Pred}
 /-- Specification reading of a choice: `NondetMode.choice`, i.e. `⨅` over all
 witnesses for `demonic` and `⨆` over all witnesses for `angelic`. This is *not*
 the WP of the interpretation above -- that is the whole point. -/
-noncomputable instance instEffWPPick [Monad m] [Assertion Pred] [Heyting Pred]
+noncomputable instance instEffWPPick [Monad m] [Assertion Pred] [∀ (P : Pred), PreservesSup (meet P)]
     [Assertion EPred] [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] :
     EffWP (PickEff mode m) m Pred EPred where
@@ -51,15 +52,14 @@ noncomputable instance instEffWPPick [Monad m] [Assertion Pred] [Heyting Pred]
 
 section Sound
 variable [Monad m] [CCPOBot m] [∀ γ, CCPO (m γ)] [CCPOBotLawful m]
-variable [Assertion Pred] [Heyting Pred] [Assertion EPred] [WPMonad m Pred EPred]
+variable [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
 variable [WPPartial m Pred EPred div_post div_pre]
 
-omit [Heyting Pred] in
 omit [WPPartial m Pred EPred div_post div_pre] in
 private theorem wp_compBot_eq_div_pre {α : Type u}
     [WPPartial m Pred EPred div_post div_pre]
     (post : α → Pred) (epost : EPred) :
-    Std.WP.wp (CCPOBot.compBot (m := m) (α := α)) post epost = div_pre epost := by
+    wp (CCPOBot.compBot (m := m) (α := α)) post epost = div_pre epost := by
   rw [CCPOBotLawful.bot_eq]
   have hbotEq : (⊥ : m α) =
       CCPO.csup (α := m α) (c := fun _ => False) WPPartial.emptyChain := by
@@ -76,13 +76,13 @@ empty choice refines the `div_pre` fallback.
 
 There is deliberately no angelic counterpart: `⨆` over witnesses is *not* refined by
 the particular witness `find ()` returns. -/
-instance instLawfulEffWPPickDemonic :
+instance instLawfulEffWPPickDemonic [∀ (P : Pred), PreservesSup (meet P)] :
     LawfulEffWP (PickEff .demonic m) m Pred EPred where
   ewp_le_wp_interp c post epost := by
     match c with
     | @PickEff.pick _ _ _ p wf =>
       show NondetMode.demonic.choice p post (div_pre epost) ⊑
-        Std.WP.wp ((match wf.find () with
+        wp ((match wf.find () with
           | none => CCPOBot.compBot
           | some x => Pure.pure x : m _)) post epost
       rw [choice_demonic]
@@ -127,7 +127,7 @@ def NonDetF.assume' (as : Prop) [Decidable as] : NonDetF mode m PUnit.{u+1} :=
 
 section Specs
 variable [Monad m] [CCPOBot m] [∀ γ, CCPO (m γ)] [MonoBind m] [CCPOBotLawful m]
-variable [Assertion Pred] [Heyting Pred] [Assertion EPred] [WPMonad m Pred EPred]
+variable [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ (P : Pred), PreservesSup (meet P)]
 variable [WPPartial m Pred EPred div_post div_pre]
 
 omit [CCPOBot m] [MonoBind m] [CCPOBotLawful m] in
@@ -135,14 +135,14 @@ omit [CCPOBot m] [MonoBind m] [CCPOBotLawful m] in
 @[simp]
 theorem NonDetF.wp_pickSuchThat (τ : Type u) (p : τ → Prop) [wf : Findable p]
     (name : Lean.Name) (post : τ → Pred) (epost : EPred) :
-    Std.WP.wp (NonDetF.pickSuchThat (mode := mode) (m := m) τ p name) post epost =
+    FreerMonad.wp (NonDetF.pickSuchThat (mode := mode) (m := m) τ p name) post epost =
       mode.choice p post (div_pre epost) := rfl
 
 /-- **Payoff.** Demonic soundness for the Freer encoding is the generic
 `FreerMonad.soundness`; no separate induction over the non-determinism syntax. -/
 theorem NonDetF.demonic_soundness {α : Type u} (c : DemonicF m α)
     (post : α → Pred) (epost : EPred) :
-    Std.WP.wp c post epost ⊑ Std.WP.wp c.interp post epost :=
+    FreerMonad.wp c post epost ⊑ wp c.interp post epost :=
   FreerMonad.soundness (div_post := div_post) (div_pre := div_pre) c
 
 /-- ... and the triple-level corollary, matching `ExtractNonDet.extract_refines`. -/
@@ -168,7 +168,7 @@ def NonDetT.toFreer {mode : NondetMode} {m : Type u → Type v} :
 
 section Bridge
 variable [Monad m] [CCPOBot m] [∀ γ, CCPO (m γ)]
-variable [Assertion Pred] [Heyting Pred] [Assertion EPred] [WPMonad m Pred EPred]
+variable [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ (P : Pred), PreservesSup (meet P)]
 variable [WPPartial m Pred EPred div_post div_pre]
 
 omit [CCPOBot m] in
@@ -180,7 +180,7 @@ theorem NonDetT.wp_toFreer {α : Type u} (x : NonDetT mode m α)
   induction x with
   | pure x => rfl
   | vis c f ih =>
-      show Std.WP.wp c (fun b => FreerMonad.wp (f b).toFreer post epost) epost = _
+      show Std.Internal.Do.wp c (fun b => FreerMonad.wp (f b).toFreer post epost) epost = _
       simp only [ih]
       rfl
   | pickCont τ p f ih =>
