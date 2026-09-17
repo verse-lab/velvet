@@ -1,0 +1,28 @@
+# Separate Lake package for case studies.
+#
+# It is deliberately NOT part of the root `velvet` package: the root package must
+# stay Mathlib-free, and `lake build` at the repository root never looks inside
+# this directory. Case studies may freely depend on Mathlib.
+#
+# Build with:   cd CaseStudies && lake exe cache get && lake build
+
+name = "caseStudies"
+version = "0.1.0"
+defaultTargets = ["CaseStudies"]
+
+[[require]]
+name = "velvet"
+path = ".."
+
+[[require]]
+name = "mathlib"
+git = "https://github.com/leanprover-community/mathlib4"
+rev = "v4.34.0"
+
+# `srcDir = ".."` makes the module root `CaseStudies` resolve to this very
+# directory, i.e. `CaseStudies.Foo.Bar` <-> `CaseStudies/Foo/Bar.lean`.
+[[lean_lib]]
+name = "CaseStudies"
+srcDir = ".."
+globs = ["CaseStudies.+"]
+leanOptions = { sym.debug = true }

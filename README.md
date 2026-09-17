@@ -576,3 +576,20 @@ All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 | [`SimplestSort.lean`](Velvet/Examples/SimplestSort.lean) | Sorting with interactive invariant proofs |
 | [`NonDet.lean`](Velvet/Examples/NonDet.lean) | Demonic/angelic choice, finders, loops, and execution |
 | [`Testing.lean`](Velvet/Examples/Testing.lean) | Generated contract checkers and custom decidability |
+
+## 11. Case Studies
+
+Larger case studies live in [`CaseStudies/`](CaseStudies/), which is a **separate
+Lake package**. The root `velvet` package does not depend on Mathlib and must
+stay that way, so anything needing Mathlib goes there:
+
+```sh
+cd CaseStudies
+lake exe cache get
+lake build
+```
+
+`lake build` at the repository root (and therefore CI) never descends into that
+directory, and Mathlib never appears in the root `lake-manifest.json`. See
+[`CaseStudies/README.md`](CaseStudies/README.md) for the layout and for how to
+write a case-study file.
