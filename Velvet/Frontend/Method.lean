@@ -122,14 +122,14 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
       if allBinderStxs.isEmpty then
         `(term|
           Std.Internal.Do.Triple
-            ($(ctx.name) $ids*)
+            (($(ctx.name) $ids* : $monadStack'))
             $pre
             ($post)
             ($sigs))
       else
         `(term|
           ∀ $allBinderStxs*, Std.Internal.Do.Triple
-            ($(ctx.name) $ids*)
+            (($(ctx.name) $ids* : $monadStack'))
             $pre
             ($post)
             ($sigs))
