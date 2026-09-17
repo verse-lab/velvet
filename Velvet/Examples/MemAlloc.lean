@@ -13,19 +13,19 @@ set_option velvet.semantics.termination "partial"
 @[expose, reducible]
 public def addr := Int
 
-@[reducible]
+@[grind]
 public def path (h : addr → addr) (x : addr) (l : List addr) (y : addr) :=
   match l with
   | [] => x = y
   | a :: t => a ≠ 0 ∧ x = a ∧ path h (h a) t y
 
-@[reducible]
+@[grind]
 public def distinct (l : List addr) :=
   match l with
   | [] => True
   | a :: t => (∀ x, x ∈ t → x ≠ a) ∧ distinct t
 
-@[reducible]
+@[grind]
 public def distPath (h : addr → addr) (x : addr) (l : List addr) (y : addr) :=
   path h x l y ∧ distinct l
 
@@ -38,8 +38,13 @@ public structure AllocResult where
   next : addr → addr
   freeList : addr
 
-public def mem_alloc (block_size : addr → Nat) (size : Nat) (Ps : List addr)
-    (next0 : addr → addr) (free0 : addr) : Option AllocResult := do
+method mem_alloc (block_size : addr → Nat) (size : Nat) (Ps : List addr)
+    (next0 : addr → addr) (free0 : addr)
+  returns (r : AllocResult)
+  requires pre: distPath next0 free0 Ps 0
+  ensures post: ∀ b, List.find? (fun x => decide (block_size x ≥ size)) Ps = some b →
+    r.mem = b ∧ distPath r.next r.freeList (List.erase Ps b) 0
+do
   let mut next := next0
   let mut free := free0
   if free = 0 then
@@ -246,7 +251,7 @@ theorem path_update_skip {h : addr → addr} {x p q : addr} {Qs_q Rest : List ad
   refine path_append'.mpr ⟨h p, ?_, ?_⟩
   · refine path_append'.mpr ⟨q, ?_, ?_⟩
     · exact path_update_of_not_mem hqq1 hq_not_Qs
-    · exact ⟨hq, rfl, by simp [updateAt]⟩
+    · grind
   · exact path_update_of_not_mem htail hq_not_Rest
 
 theorem erase_middle_unique {l1 l2 : List addr} {p : addr}
@@ -422,13 +427,7 @@ theorem goal7 {block_size : addr → Nat} {size : Nat} {Ps : List addr} {next0 :
   rw [hnone] at hfind
   nomatch hfind
 
-theorem mem_alloc_correct (block_size : addr → Nat) (size : Nat) (Ps : List addr)
-    (next0 : addr → addr) (free0 : addr) :
-    Triple (mem_alloc block_size size Ps next0 free0)
-      (distPath next0 free0 Ps 0)
-      (fun r => ∀ b, List.find? (fun x => decide (block_size x ≥ size)) Ps = some b →
-          r.mem = b ∧ distPath r.next r.freeList (List.erase Ps b) 0)
-      True := by
+prove_correct mem_alloc by
   velvet_vcgen [mem_alloc] with try finish
   all_goals first
     | apply goal1 <;> assumption
@@ -440,3 +439,5 @@ theorem mem_alloc_correct (block_size : addr → Nat) (size : Nat) (Ps : List ad
     | apply goal7 <;> assumption
 
 end Velvet.Examples.MemAlloc
+
+
