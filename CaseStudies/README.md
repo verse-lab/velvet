@@ -8,8 +8,8 @@ the root `velvet` package. That is deliberate:
 * the root package must stay **Mathlib-free**, and case studies here may depend
   on Mathlib freely;
 * `lake build` at the repository root never descends into this directory, so
-  case studies are not part of the main build (or of CI, which runs the root
-  `lake build`);
+  case studies are not part of the main build; CI builds them in a separate
+  job using this directory's Lake package;
 * Mathlib and its transitive dependencies never appear in the root
   `lake-manifest.json` — they are resolved only by this package's own manifest.
 
@@ -60,6 +60,7 @@ imports, not before them.
 | Case study | State |
 | --- | --- |
 | `CaseStudies.Smoke` | builds |
+| `CaseStudies.LeetProof` | builds |
 | `CaseStudies.Chrono.SegmentTree` | **work in progress, does not build yet** |
 
 The segment-tree study is a partial port from the Chrono development:
