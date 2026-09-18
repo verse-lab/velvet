@@ -24,5 +24,5 @@ rev = "v4.34.0"
 [[lean_lib]]
 name = "CaseStudies"
 srcDir = ".."
-globs = ["CaseStudies.LeetProof.+", "CaseStudies.SegmentTree.+"]
+globs = ["CaseStudies.LeetProof.+", "CaseStudies.DataStructures.+", "CaseStudies.SegmentTree.+"]
 leanOptions = { sym.debug = true }
