@@ -55,17 +55,18 @@ A legacy file importing Velvet still gets the full frontend — `method`,
 module docstring is a command, so in a legacy file it has to come *after* the
 imports, not before them.
 
-## Status
+## Overview
 
-| Case study | State |
-| --- | --- |
-| `CaseStudies.Smoke` | builds |
-| `CaseStudies.LeetProof` | builds |
-| `CaseStudies.Chrono.SegmentTree` | **work in progress, does not build yet** |
+### Lazy Segment Tree
 
-The segment-tree study is a partial port from the Chrono development:
-`Defs.lean` still has one failing `grind`, and `SegmentTree.lean` imports
-`CaseStudies.Chrono.Syntax_Chrono_CT` and `CaseStudies.Chrono.Chrono_Theory`,
-which have not been ported into this repository yet. So a plain `lake build`
-here currently fails — that failure is the remaining porting work, not a
-problem with the package setup.
+Segment Tree is a data structure which supports two operations: 
+1. Query for a fold of a binary operation on segment [l, r] of some array `arr`
+2. Apply a unary operation to all elements of array `arr` on segment [l, r]
+
+Both operations yield O(logn) time. The folder `SegmentTree` is structured as follows:
+- `Defs.lean` contains definitions and theory-level lemmas for the Segment Tree data structure
+- `SegmentTree.lean` contains the implementation of data structure operations (proved in Velvet)
+- `Asymptotics.lean` contains additional facts about running time for the data structure (these are not used in the correctness proofs)
+- `Example.lean` contains an instance for Segment Tree data structure with binary operation of `+` and unary operation of `set to x`
+
+Notably, only one goal in correctness proofs is not discharged by `grind` tactic automatically.

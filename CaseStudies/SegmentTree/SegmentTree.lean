@@ -40,8 +40,7 @@ prove_correct buildTreeMethod by
   { velvet_vcgen [buildTreeMethod]
     all_goals grind [arrFold] }
   repeat' velvet_vcgen
-  all_goals try grind [arrFold, depth]
-  { grind [log2_up, depth] }
+  all_goals try grind [arrFold, depth, log2_up]
   { rename_i l r _ _ _ _ _ _
     have hlt : l < r := by grind
     simp [depth]
