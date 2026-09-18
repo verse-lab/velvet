@@ -37,7 +37,7 @@ method canConstruct (ransomNote : List Char) (magazine : List Char)
 do
   let mut ok : Bool := true
   let mut rs : List Char := ransomNote
-  while' checking: ok = true ∧ rs ≠ []
+  while checking: ok = true ∧ rs ≠ []
     invariant suffix: ∃ ps : List Char, ps ++ rs = ransomNote
     invariant prefix_checked: ∃ ps : List Char,
       ps ++ rs = ransomNote ∧

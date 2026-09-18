@@ -88,7 +88,7 @@ do
   else
     let mut st : List Nat := []
     let mut i : Nat := 0
-    while' building: i < n
+    while building: i < n
       invariant i_bound: i ≤ n
       invariant st_inv: StackInvariant nums i st
       invariant st_sorted: StackSorted nums st
@@ -101,7 +101,7 @@ do
     let mut j : Nat := n
     let mut cur_st : List Nat := st
     let mut best : Nat := 0
-    while' scanning: j > 0
+    while scanning: j > 0
       invariant j_bound: j ≤ n
       invariant scan_inv: ScanInvariant nums st ((j : Int) - 1) cur_st best
       decreasing dec_j: j
@@ -109,7 +109,7 @@ do
     do
       j := j - 1
       let target := popWhile nums j cur_st best
-      while' popping:
+      while popping:
           CanPop nums j cur_st
         invariant continuation:
           popWhile nums j cur_st best = target

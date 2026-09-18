@@ -60,7 +60,7 @@ method singleNumber (nums : Array Int)
 do
   let mut i : Nat := 0
   let mut acc : Nat := 0
-  while' scanning: i < nums.size
+  while scanning: i < nums.size
     invariant bounds: i ≤ nums.size
     invariant continuation: xorGo nums i acc = xorGo nums 0 0
     decreasing remaining: nums.size - i

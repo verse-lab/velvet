@@ -43,7 +43,7 @@ do
 
 #check maxOf.spec
 
-/-! ## Loops with `for'` and `while'` -/
+/-! ## Loops with `for` and `while` -/
 
 /- Accumulate even contributions over a finite range. Automatically verified during elaboration! -/
 method sumDoubleRange (n : Nat)
@@ -52,7 +52,7 @@ method sumDoubleRange (n : Nat)
   ensures result_even: result % 2 = 0
 do
   let mut acc := 0
-  for' i in 0...n
+  for i in 0...n
     invariant accumulator_even: acc % 2 = 0
     done_with sum_done: acc % 2 = 0
   do
@@ -61,7 +61,7 @@ do
 
 #check sumDoubleRange.spec
 
-/- Array scan with `while'` and inline annotations. -/
+/- Array scan with `while` and inline annotations. -/
 method isGreaterInline (n : Int) (a : Array Int)
   returns (result : Bool)
   requires precond: True
@@ -69,7 +69,7 @@ method isGreaterInline (n : Int) (a : Array Int)
 do
   let mut ok := true
   let mut i : Nat := 0
-  while' loop_cond: i < a.size
+  while loop_cond: i < a.size
     invariant idx_nonneg: 0 ≤ i
     invariant idx_bounded: i ≤ a.size
     invariant ok_iff_prefix: ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
@@ -94,7 +94,7 @@ method partialCount (n : Nat)
   ensures res = n
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant i_le : i ≤ n
     decreasing remaining : n - i
   do
@@ -110,7 +110,7 @@ method spin
   ensures True
 do
   let mut i := 0
-  while' i ≥ 0
+  while i ≥ 0
     invariant True
   do
     i := i + 1
@@ -125,7 +125,7 @@ method partialCountNoMeasure (n : Nat)
   ensures res = n
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant i_le : i ≤ n
   do
     i := i + 1
@@ -140,7 +140,7 @@ method partialTick
   ensures True
 do
   let mut i := 0
-  while' i ≥ 0
+  while i ≥ 0
     invariant i_nonneg : i ≥ 0
   do
     i := i + 1
@@ -232,7 +232,7 @@ method isGreaterWithCompoundInvariant (n : Int) (a : Array Int)
 do
   let mut ok := true
   let mut i : Nat := 0
-  while' loop_cond: i < a.size
+  while loop_cond: i < a.size
     invariant sz_invariant: 0 ≤ i ∧ i ≤ a.size
     invariant inv_ok: ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
     decreasing by_size: a.size - i
@@ -253,7 +253,7 @@ method partialTickWithGhost
 do
   let mut i := 0
   let ghost ctr := 0
-  while' i ≥ 0
+  while i ≥ 0
     invariant i_nonneg : i ≥ 0
     invariant ghost_ctr : ctr.reveal = i
   do

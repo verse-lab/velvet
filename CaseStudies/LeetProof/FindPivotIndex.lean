@@ -60,7 +60,7 @@ do
   let mut i : Nat := 0
   let mut ans : Int := (-1)
   let mut found : Bool := false
-  while' scanning: i < nums.size ∧ found = false
+  while scanning: i < nums.size ∧ found = false
     invariant bounds: i ≤ nums.size
     invariant left_sum: left = arraySumRange nums 0 i
     invariant ans_neg_one: found = false → ans = -1

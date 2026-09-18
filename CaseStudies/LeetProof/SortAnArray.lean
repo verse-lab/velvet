@@ -80,7 +80,7 @@ method sortArray (nums : Array Int)
 do
   let mut counts : Array Nat := Array.replicate rangeSize 0
   let mut i : Nat := 0
-  while' counting: i < nums.size
+  while counting: i < nums.size
     invariant count_bounds: i ≤ nums.size
     invariant count_continuation:
       countGo nums i counts = countGo nums 0 (Array.replicate rangeSize 0)
@@ -93,7 +93,7 @@ do
     i := i + 1
   let mut out : Array Int := #[]
   let mut cIdx : Nat := 0
-  while' emitting: cIdx < rangeSize
+  while emitting: cIdx < rangeSize
     invariant emit_bounds: cIdx ≤ rangeSize
     invariant emit_continuation:
       emitGo counts cIdx out = emitGo counts 0 #[]
@@ -103,7 +103,7 @@ do
     let mut remaining : Nat := counts[cIdx]!
     let v : Int := minVal + (cIdx : Int)
     let mut cur : Array Int := out
-    while' pushing: remaining > 0
+    while pushing: remaining > 0
       invariant push_continuation:
         pushMany v remaining cur = pushMany v counts[cIdx]! out
       decreasing push_remaining: remaining

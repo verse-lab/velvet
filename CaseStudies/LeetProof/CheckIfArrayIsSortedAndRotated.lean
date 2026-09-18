@@ -47,7 +47,7 @@ do
   else
     let mut drops : Nat := 0
     let mut i : Nat := 0
-    while' scanning: i < n
+    while scanning: i < n
       invariant bounds: i ≤ n
       invariant drops_count: drops = (Finset.filter (fun k : Nat => nums[(k + 1) % n]! < nums[k]!) (Finset.range i)).card
       decreasing remaining: n - i

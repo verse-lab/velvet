@@ -49,7 +49,7 @@ do
   let n := nums.size
   let mut lo : Nat := 0
   let mut hi : Nat := n - 1
-  while' searching: lo < hi
+  while searching: lo < hi
     invariant bounds: lo ≤ hi ∧ hi < n
     invariant left_slope: lo = 0 ∨ nums[lo]! > nums[lo - 1]!
     invariant right_slope: hi = n - 1 ∨ nums[hi]! > nums[hi + 1]!

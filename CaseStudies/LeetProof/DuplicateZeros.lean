@@ -74,7 +74,7 @@ do
   let n := arr.size
   let mut i : Nat := 0
   let mut zeros : Nat := 0
-  while' counting: i < n
+  while counting: i < n
     invariant count_index: i ≤ n
     invariant count_continuation: countZerosGo arr i zeros = countZerosGo arr 0 0
     decreasing count_remaining: n - i
@@ -87,7 +87,7 @@ do
   let mut j : Nat := n + zeros
   let mut idx : Nat := n
   let mut res : Array Int := arr
-  while' writing: idx > 0
+  while writing: idx > 0
     invariant write_index: idx ≤ n
     invariant write_continuation: duplicateZerosGo arr n idx j res = duplicateZerosFun arr
     decreasing write_remaining: idx

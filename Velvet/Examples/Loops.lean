@@ -13,7 +13,7 @@ method isGreaterWithInvariants (n : Int) (a : Array Int)
 do
   let mut ok := true
   let mut i : Nat := 0
-  while' loop_cond: i < a.size
+  while loop_cond: i < a.size
     invariant sz_invariant: 0 ≤ i ∧ i ≤ a.size
     invariant inv_ok: ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
     decreasing by_size: a.size - i
@@ -40,11 +40,15 @@ prove_correct isGreaterWithInvariants by
       rw [hget] at this
       exact False.elim (by grind)
 
-/- The same loop written with Lean's ordinary `while` syntax. -/
-def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
+/- Velvet loops also work inside ordinary definitions. -/
+def isGreaterWhileDef (n : Int) (a : Array Int) : Option Bool := do
   let mut ok := true
   let mut i := 0
-  while i < a.size do
+  while i < a.size
+    invariant 0 ≤ i ∧ i ≤ a.size
+    invariant ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
+    decreasing a.size - i
+  do
     if a[i]! < n then
       ok := ok
     else
@@ -52,28 +56,13 @@ def isGreaterNativeWhile (n : Int) (a : Array Int) : Option Bool := do
     i := i + 1
   return ok
 
-/- A native `vcgen` proof with the loop invariant and variant. -/
-theorem isGreaterNativeWhile_correct (n : Int) (a : Array Int) :
-    Std.Internal.Do.Triple (isGreaterNativeWhile n a)
+/- Verify the ordinary definition using its inline loop annotations. -/
+theorem isGreaterWhileDef_correct (n : Int) (a : Array Int) :
+    Std.Internal.Do.Triple (isGreaterWhileDef n a)
       (Named.mk `precond Option.none True)
       (Named.mk `postcond Option.none (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n))
       False := by
-  velvet_vcgen [isGreaterNativeWhile] invariants
-  · fun
-    | .inl (ok, i) =>
-        Named.mk `idx_nonneg Option.none (0 ≤ i) ∧
-        Named.mk `idx_bounded Option.none (i ≤ a.size) ∧
-        Named.mk `ok_iff_prefix Option.none
-          (ok = true ↔ ∀ j, j < i → a[j]! < n)
-    | .inr (ok, i) =>
-        (Named.mk `idx_nonneg Option.none (0 ≤ i) ∧
-         Named.mk `idx_bounded Option.none (i ≤ a.size) ∧
-         Named.mk `ok_iff_prefix Option.none
-           (ok = true ↔ ∀ j, j < i → a[j]! < n)) ∧
-        Named.mk `loop_done Option.none (a.size ≤ i)
-  · Std.Internal.Do.RepeatVariant.ofMeasure (Pred := Prop)
-      (fun ((_ok : Bool), (i : Nat)) => a.size - i)
-  with finish
+  velvet_vcgen [isGreaterWhileDef] with finish
 
 /- The same loop using Velvet's inline loop annotations. -/
 method isGreaterInlineAnnotations (n : Int) (a : Array Int)
@@ -83,7 +72,7 @@ method isGreaterInlineAnnotations (n : Int) (a : Array Int)
 do
   let mut ok := true
   let mut i : Nat := 0
-  while' loop_cond: i < a.size
+  while loop_cond: i < a.size
     invariant idx_nonneg: 0 ≤ i
     invariant idx_bounded: i ≤ a.size
     invariant ok_iff_prefix: ok = true ↔ (∀ j : Nat, j < i → a[j]! < n)
@@ -106,7 +95,7 @@ method scanRangeVCGen (n : Nat)
   requires precond: True
   ensures postcond: True
 do
-  for' i in 0...n
+  for i in 0...n
     invariant cursor_reflexive: i = i
     done_with scan_done: True
   do
@@ -124,7 +113,7 @@ method sumDoubleRange (n : Nat)
   ensures result_even: result % 2 = 0
 do
   let mut acc := 0
-  for' i in 0...n
+  for i in 0...n
     invariant accumulator_even: acc % 2 = 0
   do
     acc := acc + 2 * i
@@ -140,7 +129,7 @@ method boundedRangeValues (n : Nat)
   ensures result_nonnegative: result ≥ 0
 do
   let mut last := 0
-  for' i in 0...n
+  for i in 0...n
     invariant last_nonnegative: last ≥ 0
   do
     last := i
@@ -158,7 +147,7 @@ method twoVarPureState (n : Nat) returns (r : Nat)
 do
   let mut x := 0
   let mut y := 0
-  for' i in List.range n
+  for i in List.range n
     invariant xy_even: (x + y) % 2 = 0
   do
     x := x + 1
@@ -174,7 +163,7 @@ method twoVar (n : Nat) returns (r : Nat)
 do
   let mut x := 0
   let mut y := 0
-  for' i in List.range n
+  for i in List.range n
     invariant xy: x = i ∧ y = i
     done_with d: x = n ∧ y = n
   do
@@ -191,7 +180,7 @@ method sumList (xs : List Nat)
   ensures sum_nonneg: sum ≥ 0
 do
   let mut s := 0
-  for' x in xs
+  for x in xs
     invariant s_nonneg: s ≥ 0
   do
     s := s + x
@@ -210,7 +199,7 @@ method memberElementBound (xs : List Nat) (bound : Nat)
   ensures sum_nonneg: sum ≥ 0
 do
   let mut s := 0
-  for' h : x in xs
+  for h : x in xs
     invariant nonneg: s ≥ 0
   do
     assert h_in: x ∈ xs
@@ -229,7 +218,7 @@ do
 prove_correct isGreaterWithInvariants' by
   velvet_vcgen [isGreaterWithInvariants'] with finish
 
-/- Partial correctness: a terminating `while'` loop still carries a `decreasing` measure and
+/- Partial correctness: a terminating `while` loop still carries a `decreasing` measure and
 is fully provable. -/
 set_option velvet.semantics.termination "partial" in
 method partialCount (n : Nat) returns (res : Nat)
@@ -237,7 +226,7 @@ method partialCount (n : Nat) returns (res : Nat)
   ensures res = n
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant i_le : i ≤ n
     decreasing remaining : n - i
   do
@@ -247,14 +236,14 @@ do
 prove_correct partialCount by
   velvet_vcgen [partialCount] with finish
 
-/- A genuinely non-terminating `while'` loop omits `decreasing`; it is only valid under partial
+/- A genuinely non-terminating `while` loop omits `decreasing`; it is only valid under partial
 correctness, and its spec is discharged by our least-fixed-point loop rule. -/
 set_option velvet.semantics.termination "partial" in
 method spin returns (res : Nat)
   requires True
   ensures True do
   let mut i := 0
-  while' i ≥ 0
+  while i ≥ 0
     invariant True
   do
     i := i + 1
@@ -271,7 +260,7 @@ method partialCountNoMeasure (n : Nat) returns (res : Nat)
   ensures res = n
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant i_le : i ≤ n
   do
     i := i + 1
@@ -286,7 +275,7 @@ method partialTick returns (res : Nat)
   requires True
   ensures True do
   let mut i := 0
-  while' i ≥ 0
+  while i ≥ 0
     invariant i_nonneg : i ≥ 0
   do
     i := i + 1
@@ -301,7 +290,7 @@ method partialTick' returns (res : Nat)
   ensures True do
   let mut i := 0
   let ghost ctr := 0
-  while' i ≥ 0
+  while i ≥ 0
     invariant i_nonneg : i ≥ 0
     invariant ghost_ctr : ctr.reveal = i
   do

@@ -142,7 +142,7 @@ do
 
   let mut lastMap : List (Char × Nat) := []
   let mut i : Nat := 0
-  while' building_last: i < a.size
+  while building_last: i < a.size
     invariant build_bounds: i ≤ a.size
     invariant build_model: lastMap = lastMapPrefix a i
     decreasing build_remaining: a.size - i
@@ -151,7 +151,7 @@ do
     let mut found : Bool := false
     let mut accRev : List (Char × Nat) := []
     let mut rest := lastMap
-    while' updating_entry: rest ≠ []
+    while updating_entry: rest ≠ []
       invariant update_rest_bound: rest.length ≤ lastMap.length
       invariant update_acc_bound: accRev.length ≤ lastMap.length
       invariant update_partition: accRev.length + rest.length = lastMap.length
@@ -177,7 +177,7 @@ do
   let mut start : Nat := 0
   let mut endIdx : Nat := 0
   let mut j : Nat := 0
-  while' greedy_scan: j < a.size
+  while greedy_scan: j < a.size
     invariant scan_bounds: j ≤ a.size
     invariant scan_model:
       greedyRun a lastMap j start endIdx resRev = greedyRun a lastMap 0 0 0 []
@@ -186,7 +186,7 @@ do
     let c := a[j]!
     let mut lastJ := j
     let mut entries := lastMap
-    while' lookup_last: entries ≠ []
+    while lookup_last: entries ≠ []
       invariant lookup_bound: entries.length ≤ lastMap.length
       invariant lookup_model: lookupRun entries c lastJ = getLast lastMap c j
       decreasing lookup_remaining: entries.length

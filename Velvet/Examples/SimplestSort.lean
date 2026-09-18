@@ -46,7 +46,7 @@ method simplestSort (arr : Array Int)
 do
   let mut res := arr
   let mut i : Nat := 0
-  while' outer_loop: i < res.size
+  while outer_loop: i < res.size
     invariant sz_inv: res.size = arr.size
     invariant i_le: i ≤ res.size
     invariant sorted_prefix: SortedUpTo res i
@@ -55,7 +55,7 @@ do
     decreasing by_i: res.size - i
   do
     let mut j : Nat := 0
-    while' inner_loop: j < res.size
+    while inner_loop: j < res.size
       invariant inner_sz: res.size = arr.size
       invariant j_le: j ≤ res.size
       invariant inv_i0: i = 0 → ∀ m, m < j → res[m]! ≤ res[0]!

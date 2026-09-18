@@ -83,7 +83,7 @@ do
     let mut diff : Array Int := Array.replicate K 0
 
     let mut i : Nat := 0
-    while' initializing: i < n
+    while initializing: i < n
       invariant init_bound: i ≤ n
       invariant init_size: diff.size = K
       invariant init_model: diffModel diff (s1.toList.take i) (s2.toList.take i)
@@ -98,7 +98,7 @@ do
 
     let mut zeros : Int := 0
     let mut j : Nat := 0
-    while' count_zeros: j < K
+    while count_zeros: j < K
       invariant zero_bound: j ≤ K
       invariant zero_size: diff.size = K
       invariant zeros_exact: zeros = prefixZeroCount diff j
@@ -114,7 +114,7 @@ do
     let mut left : Nat := 0
     let mut right : Nat := n
     let mut found : Bool := false
-    while' sliding: right < m ∧ found = false
+    while sliding: right < m ∧ found = false
       invariant slide_window: right = left + n
       invariant slide_bounds: left ≤ right ∧ right ≤ m
       invariant slide_size: diff.size = K

@@ -73,7 +73,7 @@ do
   let mut c0 : Nat := 0
   let mut c1 : Nat := 0
   let mut c2 : Nat := 0
-  while' counting: i < nums.size
+  while counting: i < nums.size
     invariant count_index: i ≤ nums.size
     invariant count_continuation:
       countGo nums i (c0, c1, c2) = countGo nums 0 (0, 0, 0)
@@ -89,7 +89,7 @@ do
     i := i + 1
   let mut out := nums
   i := 0
-  while' filling: i < nums.size
+  while filling: i < nums.size
     invariant fill_index: i ≤ nums.size
     invariant fill_continuation:
       fillGo nums (c0, c1, c2) i out = sort012 nums

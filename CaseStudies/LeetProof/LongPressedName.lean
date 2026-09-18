@@ -82,7 +82,7 @@ do
   let mut ni : Nat := 0
   let mut ti : Nat := 0
   let mut ok : Bool := true
-  while' scanning: ti < typed.size ∧ ok
+  while scanning: ti < typed.size ∧ ok
     invariant continuation:
       (if ok then checkRec name typed ni ti else false) = checkRec name typed 0 0
     decreasing rem_typed: typed.size - ti

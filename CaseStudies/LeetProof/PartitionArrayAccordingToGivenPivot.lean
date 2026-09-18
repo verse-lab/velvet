@@ -76,7 +76,7 @@ do
   let mut eq : Array Int := #[]
   let mut gt : Array Int := #[]
   let mut i : Nat := 0
-  while' collecting: i < nums.size
+  while collecting: i < nums.size
     invariant bounds: i ≤ nums.size
     invariant continuation:
       collectGo nums pivot i lt eq gt = collectGo nums pivot 0 #[] #[] #[]

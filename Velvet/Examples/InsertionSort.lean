@@ -26,7 +26,7 @@ method insertionSort (arr : Array Int)
 do
   let mut res := arr
   let mut n : Nat := 1
-  while' loop_cond: n ≠ res.size
+  while loop_cond: n ≠ res.size
     invariant sz_inv: res.size = arr.size
     invariant n_le: n ≤ res.size
     invariant sorted_prefix: SortedUpTo res n
@@ -34,7 +34,7 @@ do
     decreasing by_size: res.size - n
   do
     let mut mind := n
-    while' inner_cond: mind ≠ 0
+    while inner_cond: mind ≠ 0
       invariant inner_sz: res.size = arr.size
       invariant mind_le: mind ≤ n
       invariant inner_sorted: ∀ i j, i ≤ j → j < n + 1 → j ≠ mind → res[i]! ≤ res[j]!

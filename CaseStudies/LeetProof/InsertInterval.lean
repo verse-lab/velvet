@@ -137,7 +137,7 @@ do
   let mut rest := intervals.toList
   let mut acc : List Interval := []
   let mut answer : Option (Array Interval) := none
-  while' active: rest ≠ [] ∧ answer = none
+  while active: rest ≠ [] ∧ answer = none
     invariant continuation:
       answer = none → insertSourceGo rest newInterval acc = insertSource intervals newInterval
     invariant answer_correct:
@@ -165,7 +165,7 @@ method mergeSource (intervals : Array Interval)
 do
   let mut i : Nat := 0
   let mut result : Array Interval := #[]
-  while' scanning: i < intervals.size
+  while scanning: i < intervals.size
     invariant merged_prefix: MergeInvariant intervals i result
     decreasing remaining: intervals.size - i
   do
@@ -183,7 +183,7 @@ do
   let mut curEnd : Int := iend newInterval
   let mut i : Nat := 0
   let mut inserted : Bool := false
-  while' scanning: i < intervals.size
+  while scanning: i < intervals.size
     invariant i_bounds: i ≤ intervals.size
     invariant pending_wf: curStart ≤ curEnd
     invariant result_canonical: canonical result

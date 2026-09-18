@@ -85,7 +85,7 @@ do
   let mut pos : Array Int := #[]
   let mut neg : Array Int := #[]
   let mut i : Nat := 0
-  while' collecting: i < nums.size
+  while collecting: i < nums.size
     invariant continuation: collectGo nums i pos neg = collectGo nums 0 #[] #[]
     decreasing remaining: nums.size - i
   do
@@ -98,7 +98,7 @@ do
   let mut res : Array Int := #[]
   let mut j : Nat := 0
   let n := nums.size / 2
-  while' interleaving: j < n
+  while interleaving: j < n
     invariant continuation: interleaveGo pos neg j n res = interleaveGo pos neg 0 n #[]
     decreasing remaining: n - j
   do

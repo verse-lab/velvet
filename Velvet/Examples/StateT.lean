@@ -20,7 +20,7 @@ method countState (n : Nat) returns (res: Nat) in CounterOption
   do
   set 0
   let mut i := 0
-  while' i < n
+  while i < n
     invariant state_tracks : (fun s : Nat => s = i ∧ i ≤ n)
     decreasing by_remaining : n - i
     done_with state_done : (fun s : Nat => i = n ∧ s = n)
@@ -67,7 +67,7 @@ public theorem boundedIncrement_correct (limit : Nat) :
 @[expose] public def countRange (n : Nat) : CounterOption Nat := do
   set 0
   let mut count := 0
-  for' i in List.range n
+  for i in List.range n
     invariant count_tracks : (fun s : Nat => s = i ∧ count = i)
     done_with count_done : (fun s : Nat => s = n ∧ count = n)
   do
@@ -110,7 +110,7 @@ method countUnlessBlocked (target: Nat) (blocked: Nat) returns (res: Nat) in Cou
 do
   set 0
   let mut i := 0
-  while' i < target
+  while i < target
     invariant progress : (fun s : Nat => s = i ∧ i ≤ target)
     decreasing remaining : target - i
     done_with reached_target : (fun s : Nat => i = target ∧ s = target)
@@ -138,7 +138,7 @@ public abbrev ReaderCounter := StateT Nat (ReaderT Nat Id)
   assert initial_bound :
     (fun state environment => state = start ∧ start ≤ environment ∧ environment = limit)
   let mut i := start
-  while' i < limit
+  while i < limit
     invariant reader_progress :
       (fun state environment => environment = limit ∧ state = i ∧ i ≤ limit)
     decreasing reader_remaining : limit - i
@@ -180,7 +180,7 @@ prove_correct countToReaderLimitMethod by
   assert initial_snapshot :
     (fun state environment => state = initial ∧ environment = limit)
   let mut i := 0
-  while' i < limit
+  while i < limit
     invariant accumulated_sum :
       (fun state environment =>
         environment = limit ∧ state = initial + triangular i ∧ i ≤ limit)
@@ -243,7 +243,7 @@ method countStatePartial (n : Nat) returns (res : Nat) in CounterOption
   do
   set 0
   let mut i := 0
-  while' i < n
+  while i < n
     invariant state_tracks : (fun s : Nat => s = i ∧ i ≤ n)
     done_with state_done : (fun s : Nat => i = n ∧ s = n)
   do

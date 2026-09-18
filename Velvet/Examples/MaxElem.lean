@@ -17,7 +17,7 @@ do
   let mut i : Nat := 0
   let mut mx := arr[0]!
   i := i + 1
-  while' loop_cond: i < arr.size
+  while loop_cond: i < arr.size
     invariant idx_bounded: i ≤ arr.size
     invariant prefix_max: ∀ j, j < i → mx ≥ arr[j]!
     decreasing loop_var_size : arr.size - i

@@ -56,7 +56,7 @@ do
   let mut i : Nat := 0
   let mut j : Nat := 0
   let mut result : Array Int := #[]
-  while' remaining_input: i < a.size ∨ j < b.size
+  while remaining_input: i < a.size ∨ j < b.size
     invariant continuation: mergeGo a b i j result = merge a b
     decreasing remaining: (a.size - i) + (b.size - j)
   do

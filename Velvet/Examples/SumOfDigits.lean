@@ -24,7 +24,7 @@ method sumOfDigits (number : Nat)
 do
   let mut sum := 0
   let mut n := number
-  while' loop_cond: n > 0
+  while loop_cond: n > 0
     invariant digit_sum: sum + sumDigits n = sumDigits number
     invariant sum_nonneg: 0 ≤ sum
     decreasing by_n: n

@@ -51,7 +51,7 @@ do
   let mut i : Nat := 0
   let mut write : Nat := 0
   let mut out := nums
-  while' scanning: i < nums.size
+  while scanning: i < nums.size
     invariant correct_prefix: CompactTwiceInvariant nums i write out
     decreasing remaining: nums.size - i
   do
@@ -64,7 +64,7 @@ do
         write := write + 1
     i := i + 1
   let mut j : Nat := write
-  while' normalizing: j < out.size
+  while normalizing: j < out.size
     invariant suffix_bounds: write ≤ j ∧ j ≤ out.size
     invariant suffix_size: out.size = nums.size
     invariant suffix_counts: ∀ x,

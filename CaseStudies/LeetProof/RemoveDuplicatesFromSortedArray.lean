@@ -87,7 +87,7 @@ do
     let mut write : Nat := 1
     let mut last : Int := nums[0]!
     let mut out : Array Int := nums.set! 0 last
-    while' scanning: i < nums.size
+    while scanning: i < nums.size
       invariant continuation: compactScan nums i write last out = compact nums
       invariant output_size: out.size = nums.size
       invariant prefix_strict: PrefixStrictIncreasing out write

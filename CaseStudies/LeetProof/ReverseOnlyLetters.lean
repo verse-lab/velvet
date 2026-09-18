@@ -78,7 +78,7 @@ method reverseOnlyLetters (s : List Char)
 do
   let mut rem : List Char := s
   let mut revLetters : List Char := []
-  while' collecting: rem ≠ []
+  while collecting: rem ≠ []
     invariant collect_continuation:
       extractLettersGo rem revLetters = extractLettersGo s []
     decreasing rem_len: rem.length
@@ -93,7 +93,7 @@ do
   let mut scan : List Char := s
   let mut ls : List Char := revLetters
   let mut acc : List Char := []
-  while' rebuilding: scan ≠ []
+  while rebuilding: scan ≠ []
     invariant rebuild_continuation:
       fillGo scan ls acc = reverseOnlyLettersPure s
     decreasing scan_len: scan.length

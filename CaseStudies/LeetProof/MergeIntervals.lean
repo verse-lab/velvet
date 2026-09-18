@@ -96,7 +96,7 @@ method mergeIntervals (intervals : Array Interval)
 do
   let mut i : Nat := 0
   let mut result : Array Interval := #[]
-  while' scanning: i < intervals.size
+  while scanning: i < intervals.size
     invariant merged_prefix: MergeInvariant intervals i result
     decreasing remaining: intervals.size - i
   do

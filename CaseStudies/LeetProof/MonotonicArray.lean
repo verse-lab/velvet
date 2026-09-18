@@ -53,7 +53,7 @@ do
     let mut inc : Bool := true
     let mut dec : Bool := true
     let mut i : Nat := 1
-    while' scanning: i < nums.size
+    while scanning: i < nums.size
       invariant bounds: 1 ≤ i ∧ i ≤ nums.size
       invariant inc_prefix: inc = true → ∀ a b : Nat, a < i → b < i → a ≤ b → nums[a]! ≤ nums[b]!
       invariant dec_prefix: dec = true → ∀ a b : Nat, a < i → b < i → a ≤ b → nums[a]! ≥ nums[b]!

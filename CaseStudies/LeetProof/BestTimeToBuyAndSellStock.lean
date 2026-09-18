@@ -51,7 +51,7 @@ do
     let mut minPrice := prices[0]!
     let mut best := 0
     let mut i := 1
-    while' scanning: i < prices.size
+    while scanning: i < prices.size
       invariant bounds: 1 ≤ i ∧ i ≤ prices.size
       invariant minPrice_witness: ∃ m : Nat, m < i ∧ minPrice = prices[m]!
       invariant minPrice_is_min: ∀ k : Nat, k < i → minPrice ≤ prices[k]!

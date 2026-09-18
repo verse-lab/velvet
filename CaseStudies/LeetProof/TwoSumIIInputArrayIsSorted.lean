@@ -58,7 +58,7 @@ do
   let mut found : Bool := false
   let mut ansL : Nat := 0
   let mut ansR : Nat := 1
-  while' scanning: l < r ∧ found = false
+  while scanning: l < r ∧ found = false
     invariant l_le_r: l ≤ r
     invariant r_lt_size: r < numbers.size
     invariant l_lt_size: l < numbers.size

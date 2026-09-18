@@ -65,7 +65,7 @@ do
   let mut maxSum : Int := nums[0]!
   let mut curMin : Int := nums[0]!
   let mut minSum : Int := nums[0]!
-  while' scanning: i < nums.size
+  while scanning: i < nums.size
     invariant index_bounds: 1 ≤ i ∧ i ≤ nums.size
     invariant total_val: total = prefixSum nums i
     invariant curMax_achievable:

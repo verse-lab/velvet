@@ -57,7 +57,7 @@ do
   let mut lo := loInit
   let mut hi := hiInit
 
-  while' searching: lo < hi
+  while searching: lo < hi
     invariant bs_bounds: lo ≤ hi ∧ hi ≤ position[position.size - 1]! - position[0]!
     invariant bs_lo_feasible: Feasible position m lo
     invariant bs_hi1_infeasible: ¬ Feasible position m (hi + 1)
@@ -69,7 +69,7 @@ do
     let mut cnt : Nat := 1
     let mut lastPos : Nat := position[0]!
     let mut i : Nat := 1
-    while' greedy: i < n ∧ cnt < m
+    while greedy: i < n ∧ cnt < m
       invariant gr_i_bounds: 1 ≤ i ∧ i ≤ n
       invariant gr_cnt_bounds: 1 ≤ cnt ∧ cnt ≤ m ∧ cnt ≤ i
       invariant gr_witness:

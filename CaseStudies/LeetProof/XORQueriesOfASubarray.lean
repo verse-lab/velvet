@@ -52,7 +52,7 @@ method xorQueries (arr : Array Nat) (queries : Array (Nat × Nat))
 do
   let mut pref : Array Nat := Array.replicate (arr.size + 1) 0
   let mut i : Nat := 0
-  while' building_pref: i < arr.size
+  while building_pref: i < arr.size
     invariant pref_size: pref.size = arr.size + 1
     invariant pref_i_bounds: i ≤ arr.size
     invariant pref_correct_prefix: ∀ k : Nat, k ≤ i → pref[k]! = xorAll (arr.extract 0 k)
@@ -66,7 +66,7 @@ do
 
   let mut ans : Array Nat := Array.replicate queries.size 0
   let mut j : Nat := 0
-  while' answering: j < queries.size
+  while answering: j < queries.size
     invariant ans_size: ans.size = queries.size
     invariant ans_j_bounds: j ≤ queries.size
     invariant ans_correct_prefix:

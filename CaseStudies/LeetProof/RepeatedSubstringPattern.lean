@@ -49,7 +49,7 @@ do
   else
     let mut k : Nat := 1
     let mut found : Bool := false
-    while' outer_scan: k < n ∧ found = false
+    while outer_scan: k < n ∧ found = false
       invariant outer_bounds: 1 ≤ k ∧ k ≤ n
       invariant outer_sound: found = true →
         ∃ kp, 0 < kp ∧ kp < n ∧ n % kp = 0 ∧ (∀ i, i < n → a[i]! = a[i % kp]!)
@@ -61,7 +61,7 @@ do
       if div_cond: n % k = 0 then
         let mut j : Nat := k
         let mut match_ok : Bool := true
-        while' inner_scan: j < n ∧ match_ok = true
+        while inner_scan: j < n ∧ match_ok = true
           invariant inner_k_bound: 1 ≤ k ∧ k < n ∧ n % k = 0
           invariant inner_j_bound: k ≤ j ∧ j ≤ n
           invariant inner_match: match_ok = true →

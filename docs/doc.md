@@ -35,7 +35,7 @@ method isqrt (n : Nat) returns (r : Nat)
   ensures r * r ≤ n ∧ n < (r + 1) * (r + 1)
 do
   let mut x : Nat := 0
-  while' loop_cond: (x + 1) * (x + 1) ≤ n
+  while loop_cond: (x + 1) * (x + 1) ≤ n
     invariant inv_lower: x * x ≤ n
     decreasing by_remaining: n - x * x
     done_with done: n < (x + 1) * (x + 1)
@@ -243,10 +243,10 @@ for partial correctness:
 
 ## 4. Total vs. Partial Correctness
 
-- **Total mode (default)**: `while'` loops require a natural-number `decreasing` measure. For an inferred Option-based monad, the default failure postcondition is `False`, so a proved contract excludes Option failure/divergence under its precondition.
-- **Partial mode**: `set_option velvet.semantics.termination "partial" in` allows `while'` without a measure and changes the inferred Option failure postcondition to `True`. Normal returns must still satisfy `ensures`.
+- **Total mode (default)**: `while` loops require a natural-number `decreasing` measure. For an inferred Option-based monad, the default failure postcondition is `False`, so a proved contract excludes Option failure/divergence under its precondition.
+- **Partial mode**: `set_option velvet.semantics.termination "partial" in` allows `while` without a measure and changes the inferred Option failure postcondition to `True`. Normal returns must still satisfy `ensures`.
 
-`for'` loops have no `decreasing` clause. For Option-based methods, explicitly
+`for` loops have no `decreasing` clause. For Option-based methods, explicitly
 writing `signals True` allows failure or nontermination even in total mode.
 Use `prove_correct` to establish the contract; declaring the method alone does not prove it.
 
@@ -258,10 +258,15 @@ Use `prove_correct` to establish the contract; declaring the method alone does n
 
 ## 5. Loop Verification
 
-### `while'` Loops
+After `import Velvet`, `while` and single-collection `for` loops use Velvet's
+elaborators, including loops without inline clauses. In total mode, every
+`while` requires a `decreasing` clause. Lean's additional forms, such as parallel
+`for` and `while let`, retain their built-in behavior.
+
+### `while` Loops
 
 ```lean
-while' [<cond_name> :]? <condition>
+while [<cond_name> :]? <condition>
   [invariant [<inv_name> :]? [(<state_binders>) =>]? <Invariant>]*
   [decreasing [<meas_name> :]? <measure_expr>]?
   [done_with [<done_name> :]? [(<state_binders>) =>]? <DonePredicate>]?
@@ -269,10 +274,10 @@ do
   <body>
 ```
 
-### `for'` Loops
+### `for` Loops
 
 ```lean
-for' [<h> :]? <elem> in <collection>
+for [<h> :]? <elem> in <collection>
   [invariant [<inv_name> :]? <Invariant>]*
   [done_with [<done_name> :]? <DonePredicate>]?
 do
@@ -289,7 +294,7 @@ method twoVarPureState (n : Nat) returns (r : Nat)
 do
   let mut x := 0
   let mut y := 0
-  for' i in List.range n
+  for i in List.range n
     invariant xy_even: (x + y) % 2 = 0  -- Only mentions outer state variables x and y
   do
     x := x + 1
@@ -301,7 +306,7 @@ do
 Outer mutable variables (like `let mut x := 0`) remain in scope after the loop, so referencing them never requires `done_with`.
 
 However, variables tied to the loop's iteration:
-- **Loop variable `i` / `elem`**: The iteration variable bound by `for' i in ...` or `for' elem in ...`.
+- **Loop variable `i` / `elem`**: The iteration variable bound by `for i in ...` or `for elem in ...`.
 - **`__pref`**: The list of already processed elements in preceding iterations.
 - **`__rest`**: The list of remaining elements to be processed in subsequent iterations.
 
@@ -314,7 +319,7 @@ method twoVar (n : Nat) returns (r : Nat)
 do
   let mut x := 0
   let mut y := 0
-  for' i in List.range n
+  for i in List.range n
     invariant xy: x = i ∧ y = i       -- References loop variable `i`
     done_with d: x = n ∧ y = n        -- Explicit exit condition
   do
@@ -323,7 +328,7 @@ do
   return x
 ```
 
-#### 3. In-Scope Membership Proof (`for' h : x in xs`)
+#### 3. In-Scope Membership Proof (`for h : x in xs`)
 You can bind a proof that the current element belongs to the collection:
 
 ```lean
@@ -333,7 +338,7 @@ method memberBound (xs : List Nat) (bound : Nat) returns (sum : Nat)
   ensures sum ≥ 0
 do
   let mut s := 0
-  for' h : x in xs
+  for h : x in xs
     invariant nonneg: s ≥ 0
   do
     assert h_in: x ∈ xs  -- `h : x ∈ xs` is in scope!
@@ -342,7 +347,7 @@ do
 ```
 
 #### 4. Control Flow: `break`, `continue`, and Early `return`
-Velvet supports standard imperative control flow inside both `while'` and `for'` loops:
+Velvet supports standard imperative control flow inside both `while` and `for` loops:
 - **`continue`**: Skips the remainder of the current iteration while preserving the loop invariant.
 - **`break`**: Exits the loop early (specifying `done_with` handles the early exit condition).
 - **`return`**: Returns directly from the enclosing method from inside the loop body.
@@ -382,7 +387,7 @@ method tickWithGhost returns (res : Nat)
 do
   let mut i := 0
   let ghost ctr := 0
-  while' loop_cond: i < 10
+  while loop_cond: i < 10
     invariant ghost_ctr: ctr.reveal = i
     decreasing rem: 10 - i
   do
@@ -547,7 +552,7 @@ All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 | [`MaxElem.lean`](Velvet/Examples/MaxElem.lean) | Maximum element in array |
 | [`InsertionSort.lean`](Velvet/Examples/InsertionSort.lean) | In-place insertion sort |
 | [`RunLengthEncoding.lean`](Velvet/Examples/RunLengthEncoding.lean) | Run-length list encoding |
-| [`Loops.lean`](Velvet/Examples/Loops.lean) | Loop patterns (`while'`, `for in`, multi-state) |
+| [`Loops.lean`](Velvet/Examples/Loops.lean) | Loop patterns (`while`, `for in`, multi-state) |
 | [`LoopsExplicitVCs.lean`](Velvet/Examples/LoopsExplicitVCs.lean) | Explicit subgoal proofs with `case <tag>` |
 | [`BindersTest.lean`](Velvet/Examples/BindersTest.lean) | All supported parameter binder kinds and `given` clauses |
 | [`Recursion.lean`](Velvet/Examples/Recursion.lean) | Recursive `method rec` definitions |

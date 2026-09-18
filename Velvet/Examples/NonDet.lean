@@ -158,7 +158,7 @@ method loopDemonic (n : Nat) returns (res : Nat) in DemonicT Option
   ensures res = n
 do
   let mut i : Nat := 0
-  while' loop_cond : i < n
+  while loop_cond : i < n
     invariant inv_i : i ≤ n
     decreasing by_rem : n - i
     done_with h_done : i = n
@@ -187,7 +187,7 @@ method zeroStepForever (n : Nat) returns (res : Nat) in DemonicT Option
   ensures unreachable : False
 do
   let mut i : Nat := 0
-  while' running : i < n
+  while running : i < n
     invariant positive : 0 < n
     invariant stuck : i = 0
     done_with reached : i = n
@@ -208,7 +208,7 @@ method stutteringLoop (n : Nat) returns (res : Nat) in DemonicT Option
   ensures reached_end : res = n
 do
   let mut i : Nat := 0
-  while' running : i < n
+  while running : i < n
     invariant bounded : i ≤ n
     done_with reached : i = n
   do
@@ -226,7 +226,7 @@ method loopWithChoice (n : Nat) returns (res : Nat) in DemonicT Option
   ensures res ≥ n
 do
   let mut i : Nat := 0
-  while' loop_cond : i < n
+  while loop_cond : i < n
     invariant inv_i : i ≤ n
     decreasing by_rem : n - i
     done_with h_done : i = n
@@ -247,7 +247,7 @@ method loopAccum (n : Nat) returns (res : Nat) in DemonicT Option
 do
   let mut cur : Nat := 0
   let mut i : Nat := 0
-  while' loop_cond : i < n
+  while loop_cond : i < n
     invariant inv_i : i ≤ n ∧ cur ≤ i * 2
     decreasing by_rem : n - i
     done_with h_done : i = n
@@ -312,14 +312,14 @@ prove_correct findDivisor by
 
 example : (findDivisor 10).run = some 2 := by native_decide
 
-/-- A `while'` loop executing within `AngelicT Option` with non-deterministic choice
+/-- A `while` loop executing within `AngelicT Option` with non-deterministic choice
 inside the loop body. -/
 method loopAngelic (n : Nat) returns (res : Nat) in AngelicT Option
   signals False
   ensures res = n
 do
   let mut i : Nat := 0
-  while' loop_cond : i < n
+  while loop_cond : i < n
     invariant inv_i : i ≤ n
     decreasing by_rem : n - i
     done_with h_done : i = n
@@ -372,7 +372,7 @@ method bisectDemonic (high : Nat) returns (res : Nat) in DemonicT Option
   ensures bounds_equal : res = high
 do
   let mut low : Nat := 0
-  while' loop_cond : low < high
+  while loop_cond : low < high
     invariant inv_bounds : low ≤ high
     decreasing by_rem : high - low
     done_with h_done : low = high
@@ -406,7 +406,7 @@ do
   let mut x : Nat := 0
   let mut y : Nat := 0
   let mut i : Nat := 0
-  while' loop_cond : i < n
+  while loop_cond : i < n
     invariant inv_diag : x + y = i ∧ i ≤ n
     decreasing by_rem : n - i
     done_with h_done : i = n
@@ -448,7 +448,7 @@ method allocateTokens (capacity : Nat) returns (res : TokenState) in DemonicT Op
 do
   let mut rem : Nat := capacity
   let mut spent : Nat := 0
-  while' loop_cond : rem > 0
+  while loop_cond : rem > 0
     invariant inv_budget : spent + rem = capacity
     decreasing by_rem : rem
     done_with h_done : rem = 0
@@ -500,7 +500,7 @@ do
   let mut left : List Nat := []
   let mut right : List Nat := []
   let mut i : Nat := 0
-  while' loop_cond : i < xs.length
+  while loop_cond : i < xs.length
     invariant inv_i : i ≤ xs.length
     invariant inv_left : ∀ x ∈ left, x ≤ pivot
     invariant inv_right : ∀ x ∈ right, x > pivot

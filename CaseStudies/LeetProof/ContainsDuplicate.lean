@@ -37,7 +37,7 @@ method containsDuplicate (nums : Array Int)
 do
   let mut i : Nat := 0
   let mut found : Bool := false
-  while' outer_scan: i < nums.size ∧ found = false
+  while outer_scan: i < nums.size ∧ found = false
     invariant outer_bounds: i ≤ nums.size
     invariant outer_sound: found = true → HasDuplicate nums
     invariant outer_prefix: found = false →
@@ -46,7 +46,7 @@ do
     done_with outer_done: i = nums.size ∨ found = true
   do
     let mut j : Nat := i + 1
-    while' inner_scan: j < nums.size ∧ found = false
+    while inner_scan: j < nums.size ∧ found = false
       invariant inner_i_bound: i < nums.size
       invariant inner_j_bound: i + 1 ≤ j ∧ j ≤ nums.size
       invariant inner_sound: found = true → HasDuplicate nums
