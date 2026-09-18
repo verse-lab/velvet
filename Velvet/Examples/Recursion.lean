@@ -72,7 +72,7 @@ do
   let mut a := 0
   let mut b := 1
   let mut i := 0
-  while' loop_cond : i < n
+  while loop_cond : i < n
     invariant fib_state : a = fibAccSpec i 0 1 ∧ b = fibAccSpec i 1 1 ∧ i ≤ n
     decreasing remaining : n - i
     done_with fib_done : i = n
@@ -93,7 +93,7 @@ do
   let mut b := 1
   let mut i := 0
   assert hi : i = 0
-  for' j in List.range n
+  for j in List.range n
     invariant cursor_index : i = j
     invariant fib_values : a = fibAccSpec i 0 1 ∧ b = fibAccSpec i 1 1
     invariant index_bound : i ≤ n

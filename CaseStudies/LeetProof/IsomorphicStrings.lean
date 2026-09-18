@@ -48,7 +48,7 @@ do
   let n := s.size
   let mut i : Nat := 0
   let mut ok : Bool := true
-  while' outer_scan: i < n ∧ ok = true
+  while outer_scan: i < n ∧ ok = true
     invariant outer_bounds: i ≤ n
     invariant outer_checked: ok = true →
       ∀ p q : Nat, p < i → q < n → p < q → ((s[p]! = s[q]!) ↔ (t[p]! = t[q]!))
@@ -58,7 +58,7 @@ do
     done_with outer_done: i = n ∨ ok = false
   do
     let mut j : Nat := i + 1
-    while' inner_scan: j < n ∧ ok = true
+    while inner_scan: j < n ∧ ok = true
       invariant inner_bounds: i < n ∧ i + 1 ≤ j ∧ j ≤ n
       invariant inner_prev_outer: ok = true →
         ∀ p q : Nat, p < i → q < n → p < q → ((s[p]! = s[q]!) ↔ (t[p]! = t[q]!))

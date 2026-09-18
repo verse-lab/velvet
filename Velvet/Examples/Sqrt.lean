@@ -42,7 +42,7 @@ do
     return 0
   else
     let mut i : Nat := 0
-    while' loop_cond: i * i ≤ x
+    while loop_cond: i * i ≤ x
       invariant below: ∀ j, j < i → j * j ≤ x
       decreasing by_x: x + 8 - i
     do
@@ -79,7 +79,7 @@ do
     return 0
   else
     let mut i : Nat := 0
-    while' loop_cond: i * i * i ≤ x
+    while loop_cond: i * i * i ≤ x
       invariant below: ∀ j, j < i → j * j * j ≤ x
       decreasing by_x: x + 8 - i
     do
@@ -115,7 +115,7 @@ method sqrt_bn (x : Nat) (bnd : Nat)
 do
   let mut l : Nat := 0
   let mut r : Nat := bnd
-  while' loop_cond: 1 < r - l
+  while loop_cond: 1 < r - l
     invariant low_ok: l * l ≤ x
     invariant high_ok: x < r * r
     invariant low_max: ∀ i, i ≤ l → i * i ≤ x

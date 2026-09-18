@@ -80,7 +80,7 @@ do
   let mut dup : Nat := 0
   let mut miss : Nat := 0
   let mut x : Nat := 1
-  while' scanning: x ≤ n
+  while scanning: x ≤ n
     invariant bounds: 1 ≤ x ∧ x ≤ n + 1
     invariant scan_continuation:
       scanGo nums x dup miss = scanGo nums 1 0 0

@@ -74,7 +74,7 @@ do
   let mut ans : Array Int := Array.replicate n 1
   let mut i : Nat := 0
   let mut pref : Int := 1
-  while' prefix_pass: i < n
+  while prefix_pass: i < n
     invariant ans_size: ans.size = n
     invariant i_bounds: i ≤ n
     invariant pref_val: pref = prefixProd nums i
@@ -88,7 +88,7 @@ do
 
   let mut j : Nat := n
   let mut suff : Int := 1
-  while' suffix_pass: j > 0
+  while suffix_pass: j > 0
     invariant ans_size2: ans.size = n
     invariant j_bounds: j ≤ n
     invariant suff_val: suff = suffixProd nums j

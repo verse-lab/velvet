@@ -69,7 +69,7 @@ method isSubsequence (s : Array Char) (t : Array Char)
 do
   let mut i : Nat := 0
   let mut j : Nat := 0
-  while' scanning: i < s.size ∧ j < t.size
+  while scanning: i < s.size ∧ j < t.size
     invariant bounds: i ≤ s.size ∧ j ≤ t.size
     invariant continuation: isSubseqRec s t i j = isSubseqRec s t 0 0
     decreasing remaining: (s.size - i) + (t.size - j)

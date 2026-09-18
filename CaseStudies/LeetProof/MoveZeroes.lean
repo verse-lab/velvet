@@ -80,7 +80,7 @@ do
   let mut res := nums
   let mut write : Nat := 0
   let mut i : Nat := 0
-  while' copying: i < n
+  while copying: i < n
     invariant bounds: write ≤ i ∧ i ≤ n
     invariant copy_continuation:
       copyGo nums i (write, res) = copyGo nums 0 (0, nums)
@@ -93,7 +93,7 @@ do
       write := write + 1
     i := i + 1
   let mut j : Nat := write
-  while' filling: j < n
+  while filling: j < n
     invariant bounds: write ≤ j ∧ j ≤ n
     invariant fill_continuation:
       fillZeros n j res = moveZeroesPure nums

@@ -27,7 +27,7 @@ namespace Loop
       | ForInStep.yield b => forIn.loop f b
   partial_fixpoint
 
-/-- Dedicated collection marker for partial `while'` loops. Using a distinct
+/-- Dedicated collection marker for partial `while` loops. Using a distinct
 collection type lets `ForIn` dispatch to fixed-point execution without
 replacing the ordinary `ForIn m Lean.Loop Unit` instance. -/
 public structure PartialLoop where

@@ -17,7 +17,8 @@ public meta import Lean.Meta.Basic
 public meta import Lean.Elab.Term
 public import Std.Internal.Do
 
-syntax (name := doWhilePrime) "while' " (atomic(ident " : "))? termBeforeDo
+/-- Velvet loops take precedence over Lean's built-in syntax, even without inline clauses. -/
+syntax (name := doWhileVelvet) (priority := high) "while " (atomic(ident " : "))? termBeforeDo
   (" invariant " (atomic(ident " : "))? velvSpecTerm)*
   (" decreasing " (atomic(ident " : "))? velvSpecTerm)?
   (" done_with " (atomic(ident " : "))? velvSpecTerm (" by " tacticSeq)?)?
@@ -28,11 +29,10 @@ A finite range loop with inline state invariants. Like Lean's built-in `for`,
 the collection controls termination; the initial version supports one binder
 and one collection, including closed-open ranges such as `start...stop`.
 -/
-syntax (name := doForPrime) "for' " (atomic(ident " : "))? term " in " termBeforeDo
+syntax (name := doForVelvet) (priority := high) "for " (atomic(ident " : "))? term " in " termBeforeDo
   (" invariant " (atomic(ident " : "))? velvSpecTerm)*
   (" done_with " (atomic(ident " : "))? velvSpecTerm)?
   " do " doSeq : doElem
-
 
 open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
 open Lean Meta Elab
@@ -41,14 +41,13 @@ open Lean.Elab.Do
 
 public meta partial def checkWhileTermination (stx : Syntax) : CommandElabM Unit := do
   match stx with
-  | `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $m]? $[done_with $[$_h_done : ]? $_d]? do $_body) =>
+  | `(doElem| while $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $m]? $[done_with $[$_h_done : ]? $_d]? do $_body) =>
       if m.isNone then
-        /- Fires when a `while'` loop in a total-correctness method has no `decreasing` clause,
-           e.g. `while' i < n invariant True do ...` without `decreasing remaining : n - i`. -/
-        throwErrorAt stx "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
+        /- Fires when a `while` loop in a total-correctness method has no `decreasing` clause,
+           e.g. `while i < n invariant True do ...` without `decreasing remaining : n - i`. -/
+        throwErrorAt stx "`while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
   | _ => pure ()
-  for a in stx.getArgs do
-    checkWhileTermination a
+  stx.getArgs.forM checkWhileTermination
 
 /-- Recursively checks whether a syntax tree contains an identifier matching or prefixed by `name`. -/
 public meta partial def syntaxContainsIdent (name : Name) (stx : Syntax) : Bool :=
@@ -57,7 +56,7 @@ public meta partial def syntaxContainsIdent (name : Name) (stx : Syntax) : Bool 
   else
     stx.getArgs.any (syntaxContainsIdent name)
 
-/-- Classification of `for'` loop invariants.
+/-- Classification of `for` loop invariants.
 * `pureState`: Invariants depend only on mutable loop state (do not mention cursor `x`, `__pref`, or `__rest`),
   and no `done_with` was specified. The invariant is used as both step invariant and exit condition.
 * `invAndDone`: Invariants depend on traversal cursor / `__rest`, or an explicit `done_with` was provided. -/
@@ -67,7 +66,7 @@ public inductive ForLoopInvKind where
   | /-- Step invariants with explicit exit condition (`done_with`), or cursor-dependent invariants. -/
     invAndDone (doneTerm : Term) (doneName : Name)
 
-/-- Classifies whether a `for'` loop can use the streamlined pure state-invariant gadget
+/-- Classifies whether a `for` loop can use the streamlined pure state-invariant gadget
 or requires the full step-and-done traversal gadget.
 Uses speculative elaboration in the pure-state scope to correctly handle shadowed binders
 (e.g., quantifiers `∀ i : Nat, ...` where `i` shadows the loop cursor).
@@ -127,23 +126,23 @@ private meta def mkStatePat (loopMutVars : Array MutVar) (returnsEarly : Bool) :
   let hole ← `(_)
   let mut binders : Array Term := #[]
   if returnsEarly then binders := binders.push hole
-  for mv in loopMutVars do binders := binders.push ⟨mv.ident.raw⟩
+  binders := binders ++ loopMutVars.map (fun mv => ⟨mv.ident.raw⟩)
   if returnsEarly && loopMutVars.isEmpty then binders := binders.push hole
   match binders with
     | #[]  => `(_)
     | #[b] => pure b
     | _    => `(⟨$binders,*⟩)
 
-@[doElem_control_info doForPrime]
-public meta def controlInfoDoForPrime : ControlInfoHandler := fun stx => do
-  let `(doElem| for' $[$_h? : ]? $_pat in $_xs $[ invariant $[$_ns : ]? $_invs]* $[done_with $[$_hDone : ]? $_done]? do $body) := stx
+@[doElem_control_info doForVelvet]
+public meta def controlInfoDoForVelvet : ControlInfoHandler := fun stx => do
+  let `(doElem| for $[$_h? : ]? $_pat in $_xs $[ invariant $[$_ns : ]? $_invs]* $[done_with $[$_hDone : ]? $_done]? do $body) := stx
     | throwUnsupportedSyntax
   let bodyInfo ← InferControlInfo.ofSeq body
   return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
 
-@[doElem_elab doForPrime]
-public meta def elabDoForPrime : DoElab := fun stx dec => do
-  let `(doElem| for' $[$h? : ]? $pat in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) := stx
+@[doElem_elab doForVelvet]
+public meta def elabDoForVelvet : DoElab := fun stx dec => do
+  let `(doElem| for $[$h? : ]? $pat in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) := stx
     | throwUnsupportedSyntax
   let invs ← liftMacroM <| invs.mapM specTermToTerm
   let done ← liftMacroM <| done.mapM specTermToTerm
@@ -186,12 +185,12 @@ public meta def elabDoForPrime : DoElab := fun stx dec => do
         | none => mkNone oldReturnCont.resultType
         | some e => mkSome oldReturnCont.resultType e
       defs := defs.push returnVar
-    for x in loopMutVars do
+    defs ← loopMutVars.foldlM (init := defs) fun acc x => do
       let defn ← getLocalDeclFromUserName x.getId
       Term.addTermInfo' x.ident defn.toExpr
       let u ← getDecLevel defn.type
       discard <| isLevelDefEq u mi.u
-      defs := defs.push defn.toExpr
+      return acc.push defn.toExpr
     if info.returnsEarly && loopMutVars.isEmpty then
       defs := defs.push (mkConst ``Unit.unit)
     return defs
@@ -273,16 +272,16 @@ public meta def elabDoForPrime : DoElab := fun stx dec => do
 
   mkBindApp σ γ forIn rest
 
-@[doElem_control_info doWhilePrime]
-public meta def controlInfoDoWhilePrime : ControlInfoHandler := fun stx => do
-  let `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
+@[doElem_control_info doWhileVelvet]
+public meta def controlInfoDoWhileVelvet : ControlInfoHandler := fun stx => do
+  let `(doElem| while $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
     | throwUnsupportedSyntax
   let bodyInfo ← InferControlInfo.ofSeq body
   return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
 
-@[doElem_elab doWhilePrime]
-public meta def elabDoWhilePrime : DoElab := fun stx dec => do
-  let `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
+@[doElem_elab doWhileVelvet]
+public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
+  let `(doElem| while $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
     | throwUnsupportedSyntax
   let invs ← liftMacroM <| invs.mapM specTermToTerm
   let d ← liftMacroM <| d.mapM specTermToTerm
@@ -318,12 +317,12 @@ public meta def elabDoWhilePrime : DoElab := fun stx dec => do
         | none => mkNone oldReturnCont.resultType
         | some e => mkSome oldReturnCont.resultType e
       defs := defs.push returnVar
-    for x in loopMutVars do
+    defs ← loopMutVars.foldlM (init := defs) fun acc x => do
       let defn ← getLocalDeclFromUserName x.getId
       Term.addTermInfo' x.ident defn.toExpr
       let u ← getDecLevel defn.type
       discard <| isLevelDefEq u mi.u
-      defs := defs.push defn.toExpr
+      return acc.push defn.toExpr
     if info.returnsEarly && loopMutVars.isEmpty then
       defs := defs.push (mkConst ``Unit.unit)
     return defs
@@ -379,7 +378,7 @@ public meta def elabDoWhilePrime : DoElab := fun stx dec => do
         let call ← `($(mkIdent gadget) $(← Term.exprToSyntax preS) $(← Term.exprToSyntax body) $invLam $doneLam)
         Term.elabTermEnsuringType call (mkApp mi.m σ)
       else
-        throwError "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
+        throwError "`while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
     | some m =>
       let measureName := hm.join.map (fun (id : Ident) => id.getId) |>.getD `termination
       let measureNameStr := Lean.Syntax.mkStrLit measureName.toString

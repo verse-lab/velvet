@@ -56,7 +56,7 @@ do
   else
     let mut q := free
     let mut p := next free
-    while' p ≠ 0 ∧ block_size p < size
+    while p ≠ 0 ∧ block_size p < size
       invariant dist_inv : distPath next free Ps 0
       invariant reach_p : ∃ Qs, distPath next free Qs p ∧ ∀ a, a ∈ Qs → block_size a < size
       invariant p_next_q : p = next q

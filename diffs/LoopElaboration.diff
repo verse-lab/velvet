@@ -101,11 +101,11 @@
 -        $[$inv:doLoopInvariant]? $[$dec:doLoopDecreasing]? do $body))
 -    `(doElem| do $doElems*)
 -  | _ => Macro.throwUnsupported
-+  | `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $m]? $[done_with $[$_h_done : ]? $_d]? do $_body) =>
++  | `(doElem| while $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $m]? $[done_with $[$_h_done : ]? $_d]? do $_body) =>
 +      if m.isNone then
-+        /- Fires when a `while'` loop in a total-correctness method has no `decreasing` clause,
-+           e.g. `while' i < n invariant True do ...` without `decreasing remaining : n - i`. -/
-+        throwErrorAt stx "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
++        /- Fires when a `while` loop in a total-correctness method has no `decreasing` clause,
++           e.g. `while i < n invariant True do ...` without `decreasing remaining : n - i`. -/
++        throwErrorAt stx "`while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
 +  | _ => pure ()
 +  for a in stx.getArgs do
 +    checkWhileTermination a
@@ -144,7 +144,7 @@
 -  let some pred := args[1]? | return none
 -  let pred ← instantiateMVars pred
 -  return if pred.hasExprMVar then none else some pred
-+/-- Classification of `for'` loop invariants.
++/-- Classification of `for` loop invariants.
 +* `pureState`: Invariants depend only on mutable loop state (do not mention cursor `x`, `__pref`, or `__rest`),
 +  and no `done_with` was specified. The invariant is used as both step invariant and exit condition.
 +* `invAndDone`: Invariants depend on traversal cursor / `__rest`, or an explicit `done_with` was provided. -/
@@ -166,7 +166,7 @@
 -    let has := if binders == 1 then m!"one binder" else m!"{binders} binders"
 -    throwErrorAt ref "The {what} of a loop in this monad takes {takes}, and this clause has \
 -      {has}. The loop's mutable variables are named without binding them."
-+/-- Classifies whether a `for'` loop can use the streamlined pure state-invariant gadget
++/-- Classifies whether a `for` loop can use the streamlined pure state-invariant gadget
 +or requires the full step-and-done traversal gadget.
 +Uses speculative elaboration in the pure-state scope to correctly handle shadowed binders
 +(e.g., quantifiers `∀ i : Nat, ...` where `i` shadows the loop cursor).
@@ -259,9 +259,9 @@
 -  σ : Expr
 -  /-- The pattern naming the loop's mutable variables in the state tuple. -/
 -  statePat : Term
-+@[doElem_control_info doForPrime]
-+def controlInfoDoForPrime : ControlInfoHandler := fun stx => do
-+  let `(doElem| for' $[$_h? : ]? $_pat in $_xs $[ invariant $[$_ns : ]? $_invs]* $[done_with $[$_hDone : ]? $_done]? do $body) := stx
++@[doElem_control_info doForVelvet]
++def controlInfoDoForVelvet : ControlInfoHandler := fun stx => do
++  let `(doElem| for $[$_h? : ]? $_pat in $_xs $[ invariant $[$_ns : ]? $_invs]* $[done_with $[$_hDone : ]? $_done]? do $body) := stx
 +    | throwUnsupportedSyntax
 +  let bodyInfo ← InferControlInfo.ofSeq body
 +  return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
@@ -357,9 +357,9 @@
 -@[builtin_doElem_elab Lean.Parser.Term.doFor] def elabDoFor : DoElab := fun stx dec => do
 -  let `(doFor| for%$tk $[$h? : ]? $x:ident in $xs
 -      $[$inv?:doLoopInvariant]? $[$dec?:doLoopDecreasing]? do $body) := stx
-+@[doElem_elab doForPrime]
-+def elabDoForPrime : DoElab := fun stx dec => do
-+  let `(doElem| for' $[$h? : ]? $pat in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) := stx
++@[doElem_elab doForVelvet]
++def elabDoForVelvet : DoElab := fun stx dec => do
++  let `(doElem| for $[$h? : ]? $pat in $xs $[ invariant $[$ns : ]? $invs]* $[done_with $[$hDone : ]? $done]? do $body) := stx
      | throwUnsupportedSyntax
 -  if let some invClause := inv? then
 -    warnIntrinsicExperimental invClause.raw[0] m!"`invariant` clause"
@@ -486,16 +486,16 @@
  
    mkBindApp σ γ forIn rest
 +
-+@[doElem_control_info doWhilePrime]
-+def controlInfoDoWhilePrime : ControlInfoHandler := fun stx => do
-+  let `(doElem| while' $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
++@[doElem_control_info doWhileVelvet]
++def controlInfoDoWhileVelvet : ControlInfoHandler := fun stx => do
++  let `(doElem| while $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
 +    | throwUnsupportedSyntax
 +  let bodyInfo ← InferControlInfo.ofSeq body
 +  return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
 +
-+@[doElem_elab doWhilePrime]
-+def elabDoWhilePrime : DoElab := fun stx dec => do
-+  let `(doElem| while' $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
++@[doElem_elab doWhileVelvet]
++def elabDoWhileVelvet : DoElab := fun stx dec => do
++  let `(doElem| while $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
 +    | throwUnsupportedSyntax
 +  let invs ← liftMacroM <| invs.mapM specTermToTerm
 +  let d ← liftMacroM <| d.mapM specTermToTerm
@@ -586,7 +586,7 @@
 +      let termination := velvet.semantics.termination.get (← getOptions)
 +      match termination with
 +      | .totalCorrectness =>
-+        throwError "`while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
++        throwError "`while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
 +      | .partialCorrectness =>
 +        let gadget := ``Velvet.Loop.Gadget.whileLoopPartial
 +        let call ← `($(mkIdent gadget) $(← Term.exprToSyntax preS) $(← Term.exprToSyntax body) $invLam $doneLam)

@@ -68,7 +68,7 @@ do
   let mut left : Nat := 0
   let mut right : Nat := height.size - 1
   let mut best : Nat := pairArea height left right
-  while' pointers_apart: left < right
+  while pointers_apart: left < right
     invariant left_in_bounds: left < height.size
     invariant right_in_bounds: right < height.size
     invariant pointers_ordered: left ≤ right

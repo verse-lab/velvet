@@ -45,7 +45,7 @@ do
   let mut base := x % p
   let mut exp := n
   let mut acc := (1 : Int) % p
-  while' positive_exp: exp ≠ 0
+  while positive_exp: exp ≠ 0
     invariant continuation: modularGo p base exp acc = modularPow x n p
     decreasing exponent: exp
     done_with finished: exp = 0

@@ -52,7 +52,7 @@ do
   let mut lo : Nat := 0
   let mut hi : Nat := nums.size
   let mut found : Option Nat := none
-  while' active: lo < hi ∧ found = none
+  while active: lo < hi ∧ found = none
     invariant bounds: lo ≤ hi ∧ hi ≤ nums.size
     invariant found_valid:
       ∀ i, found = some i → i < nums.size ∧ nums[i]! = target

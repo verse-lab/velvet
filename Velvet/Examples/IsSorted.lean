@@ -37,7 +37,7 @@ method isSorted (a : Array Int)
 do
   let mut sorted := true
   let mut i : Nat := 0
-  while' loop_cond: i < a.size - 1 ∧ sorted = true
+  while loop_cond: i < a.size - 1 ∧ sorted = true
     invariant idx_bounded: i ≤ a.size - 1
     invariant ok_prefix: sorted = true → (∀ k, k < i → a[k]! ≤ a[k + 1]!)
     invariant found_inversion: sorted = false → ∃ k, k < a.size - 1 ∧ a[k]! > a[k + 1]!

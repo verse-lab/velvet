@@ -83,7 +83,7 @@ do
   let mut pairCount : Nat := 0
   let mut hasOdd : Bool := false
   let mut i : Nat := 0
-  while' scanning: i < n
+  while scanning: i < n
     invariant i_bound: i ≤ n
     invariant pairs_scanned:
       pairCount = pairSumKeys s.toList (s.toList.take i).eraseDups
@@ -95,7 +95,7 @@ do
     let c := s[i]!
     let mut seenBefore : Bool := false
     let mut k : Nat := 0
-    while' checking_seen: k < i ∧ seenBefore = false
+    while checking_seen: k < i ∧ seenBefore = false
       invariant k_bound: k ≤ i
       invariant no_seen:
         seenBefore = false → ∀ p, p < k → s[p]! ≠ c
@@ -111,7 +111,7 @@ do
     if seenBefore = false then
       let mut cnt : Nat := 0
       let mut j : Nat := 0
-      while' counting: j < n
+      while counting: j < n
         invariant j_bound: j ≤ n
         invariant count_scanned:
           cnt = (s.toList.take j).count c

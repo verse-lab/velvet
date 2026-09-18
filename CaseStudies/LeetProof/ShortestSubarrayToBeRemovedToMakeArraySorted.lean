@@ -46,7 +46,7 @@ do
     return 0
   else
     let mut r : Nat := n - 1
-    while' find_suffix: r > 0 ∧ arr[r - 1]! ≤ arr[r]!
+    while find_suffix: r > 0 ∧ arr[r - 1]! ≤ arr[r]!
       invariant r_lt_n: r < n
       invariant suffix_sorted: ∀ (j : Nat), r ≤ j → j + 1 < n → arr[j]! ≤ arr[j + 1]!
       decreasing r_dec: r
@@ -59,7 +59,7 @@ do
       let mut best : Nat := r
       let mut left : Nat := 0
       let mut right : Nat := r
-      while' outer: left < r ∧ (left = 0 ∨ arr[left - 1]! ≤ arr[left]!)
+      while outer: left < r ∧ (left = 0 ∨ arr[left - 1]! ≤ arr[left]!)
         invariant left_le_r: left ≤ r
         invariant right_range: r ≤ right ∧ right ≤ n
         invariant left_zero_right: left = 0 → right = r
@@ -71,7 +71,7 @@ do
         decreasing rem_left: r - left
         done_with done_outer: left = r ∨ (left > 0 ∧ arr[left - 1]! > arr[left]!)
       do
-        while' inner: right < n ∧ arr[left]! > arr[right]!
+        while inner: right < n ∧ arr[left]! > arr[right]!
           invariant inner_right_bounds: r ≤ right ∧ right ≤ n
           invariant inner_right_monotone: ∀ (j : Nat), r ≤ j → j < right → arr[left]! > arr[j]!
           decreasing rem_right: n - right

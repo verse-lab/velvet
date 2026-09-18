@@ -100,7 +100,7 @@ do
   let mut i : Nat := 0
   let mut j : Nat := 0
   let mut result : Array Interval := #[]
-  while' loop_active: i < firstList.size ∧ j < secondList.size
+  while loop_active: i < firstList.size ∧ j < secondList.size
     invariant continuation:
       intersectGo firstList secondList i j result = intervalIntersection firstList secondList
     decreasing remaining: (firstList.size - i) + (secondList.size - j)

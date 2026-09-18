@@ -44,7 +44,7 @@ method countingBits (n : Nat)
 do
   let mut res : Array Nat := Array.replicate (n + 1) 0
   let mut i : Nat := 1
-  while' scanning: i < res.size
+  while scanning: i < res.size
     invariant res_size: res.size = n + 1
     invariant i_bounds: 1 ≤ i ∧ i ≤ res.size
     invariant prefix_correct: ∀ k : Nat, k < i → res[k]! = popcountUpTo (n + 1) k

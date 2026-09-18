@@ -54,7 +54,7 @@ do
   let mut best : Nat := 1
   let mut curr : Nat := 1
   let mut i : Nat := 1
-  while' scanning: i < n
+  while scanning: i < n
     invariant inv_i_bounds: 1 ≤ i ∧ i ≤ n
     invariant inv_curr_range: 1 ≤ curr ∧ curr ≤ i
     invariant inv_best_range: 1 ≤ best ∧ best ≤ i

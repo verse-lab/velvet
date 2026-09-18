@@ -12,15 +12,15 @@ These commands intentionally fail and use `#guard_msgs` to pin the exact error m
 error message regresses (text, location, or when it fires), this file fails to build.
 -/
 
-/- In total correctness, `while'` must carry a `decreasing` clause. -/
-/-- error: `while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness -/
+/- In total correctness, `while` must carry a `decreasing` clause. -/
+/-- error: `while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness -/
 #guard_msgs in
-method badWhilePrime (n : Nat) returns (res : Nat)
+method badWhileVelvet (n : Nat) returns (res : Nat)
   requires True
   ensures res = 0
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant True
   do
     i := i + 1
@@ -33,12 +33,12 @@ Cursor-dependent invariants require an explicit 'done_with' clause because 'i' i
 Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
 -/
 #guard_msgs in
-method badForPrimeCursor (n : Nat) returns (res : Nat)
+method badForVelvetCursor (n : Nat) returns (res : Nat)
   requires True
   ensures res = n
 do
   let mut x := 0
-  for' i in 0...n
+  for i in 0...n
     invariant bad_inv: x = i
   do
     x := x + 1
@@ -51,12 +51,12 @@ Cursor-dependent invariants require an explicit 'done_with' clause because 'i' i
 Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
 -/
 #guard_msgs in
-method badForPrimeMultiInv (n : Nat) returns (res : Nat)
+method badForVelvetMultiInv (n : Nat) returns (res : Nat)
   requires True
   ensures res = n
 do
   let mut x := 0
-  for' i in 0...n
+  for i in 0...n
     invariant state_ok: x ≥ 0
     invariant cursor_dep: x = i
   do
@@ -70,12 +70,12 @@ Suffix-dependent invariants require an explicit 'done_with' clause because there
 Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
 -/
 #guard_msgs in
-method badForPrimeRest (xs : List Nat) returns (res : Nat)
+method badForVelvetRest (xs : List Nat) returns (res : Nat)
   requires True
   ensures res = 0
 do
   let mut x := 0
-  for' elem in xs
+  for elem in xs
     invariant rest_check: __rest.length ≥ 0
   do
     x := x + elem
@@ -88,19 +88,19 @@ Prefix-dependent invariants require an explicit 'done_with' clause specifying wh
 Hint: Add 'done_with <tag>: <exit_condition>' specifying what holds when the loop finishes.
 -/
 #guard_msgs in
-method badForPrimePref (xs : List Nat) returns (res : Nat)
+method badForVelvetPref (xs : List Nat) returns (res : Nat)
   requires True
   ensures res = 0
 do
   let mut x := 0
-  for' elem in xs
+  for elem in xs
     invariant pref_check: __pref.length ≥ 0
   do
     x := x + elem
   return x
 
 /- Explicit `set_option velvet.semantics.termination "total"` without `decreasing`. -/
-/-- error: `while'` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness -/
+/-- error: `while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness -/
 #guard_msgs in
 set_option velvet.semantics.termination "total" in
 method badWhileExplicitTotal (n : Nat) returns (res : Nat)
@@ -108,7 +108,7 @@ method badWhileExplicitTotal (n : Nat) returns (res : Nat)
   ensures res = 0
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant True
   do
     i := i + 1
@@ -133,7 +133,7 @@ method badWhileNoCCPO (n : Nat) returns (res : Nat) in NoCCPOMonad
   ensures res = 0
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant True
   do
     i := i + 1
@@ -155,7 +155,7 @@ method badWhileNoWPPartial (n : Nat) returns (res : Nat) in NoWPPartialMonad
   ensures res = 0
 do
   let mut i := 0
-  while' i < n
+  while i < n
     invariant True
   do
     i := i + 1
@@ -231,7 +231,7 @@ method badSignalsPartialOption (n : Nat) returns (res : Nat) in Option
   ensures res = n
 do
   let mut i := 0
-  while' (i < n)
+  while (i < n)
     invariant i_le : i ≤ n
   do
     i := i + 1

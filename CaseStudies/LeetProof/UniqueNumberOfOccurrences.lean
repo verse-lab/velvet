@@ -49,7 +49,7 @@ method uniqueOccurrences (arr : Array Int)
 do
   let mut counts : Array Nat := Array.replicate 2001 0
   let mut i : Nat := 0
-  while' counting: i < arr.size
+  while counting: i < arr.size
     invariant count_size: counts.size = 2001
     invariant i_bounds: i ≤ arr.size
     invariant prefix_counts: ∀ (v : Int), inProblemRange v →
@@ -65,7 +65,7 @@ do
 
   let mut ok : Bool := true
   let mut x : Nat := 0
-  while' outer_check: x < 2001 ∧ ok = true
+  while outer_check: x < 2001 ∧ ok = true
     invariant x_bound: x ≤ 2001
     invariant count_size2: counts.size = 2001
     invariant outer_checked: ok = true →
@@ -80,7 +80,7 @@ do
     let cx : Nat := counts[x]!
     if cx_pos: cx > 0 then
       let mut y : Nat := x + 1
-      while' inner_check: y < 2001 ∧ ok = true
+      while inner_check: y < 2001 ∧ ok = true
         invariant count_size3: counts.size = 2001
         invariant x_bound_inner: x < 2001
         invariant y_bounds: x + 1 ≤ y ∧ y ≤ 2001

@@ -42,7 +42,7 @@ do
   let mut i : Nat := 1
   let mut current : Int := nums[0]!
   let mut best : Int := nums[0]!
-  while' scanning: i < nums.size
+  while scanning: i < nums.size
     invariant index_bounds: 1 ≤ i ∧ i ≤ nums.size
     invariant current_achievable:
       ∃ start, start < i ∧ rangeSum nums start i = current

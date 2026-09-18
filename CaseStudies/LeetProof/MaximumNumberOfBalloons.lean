@@ -58,7 +58,7 @@ do
   let mut cl : Nat := 0
   let mut co : Nat := 0
   let mut cn : Nat := 0
-  while' scanning: rem ≠ []
+  while scanning: rem ≠ []
     invariant count_b: cb + charCount rem 'b' = charCount text 'b'
     invariant count_a: ca + charCount rem 'a' = charCount text 'a'
     invariant count_l: cl + charCount rem 'l' = charCount text 'l'

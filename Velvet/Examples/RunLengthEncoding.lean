@@ -80,7 +80,7 @@ method decodeStr (encoded : Array Encoding)
 do
   let mut decoded := #[]
   let mut i : Nat := 0
-  while' loop_cond: i < encoded.size
+  while loop_cond: i < encoded.size
     invariant idx_bounded: i ≤ encoded.size
     invariant size_inv: decoded.size = getCntSum (encoded.toList.take i)
     decreasing loop_cntr: encoded.size - i
@@ -106,7 +106,7 @@ method encodeStr (str : Array Char)
 do
   let mut encoding : Array Encoding := #[]
   let mut i : Nat := 0
-  while' loop_i: i < str.size
+  while loop_i: i < str.size
     invariant i_bounded: i ≤ str.size
     invariant decoded_inv: decodeStrLean encoding = str.extract 0 i
     invariant valid_inv: isValidRunSequence encoding
@@ -114,7 +114,7 @@ do
   do
     let curChar := str[i]!
     let mut j : Nat := i + 1
-    while' loop_j: j < str.size ∧ str[j]! == curChar
+    while loop_j: j < str.size ∧ str[j]! == curChar
       invariant j_bounds: i < j ∧ j ≤ str.size
       invariant all_eq: ∀ k, i ≤ k → k < j → str[k]! = curChar
       decreasing loop_j_cntr: str.size - j

@@ -97,7 +97,7 @@ do
   let mut stack : List Nat := []
   let mut mp : List (Int × Int) := []
   let mut i : Nat := 0
-  while' scanning: i < nums2.size
+  while scanning: i < nums2.size
     invariant i_bound: i ≤ nums2.size
     invariant stack_lt_i: ∀ p ∈ stack, p < i
     invariant stack_monotone: stackMonotone nums2 stack
@@ -111,7 +111,7 @@ do
     done_with scanned: i = nums2.size
   do
     let cur := nums2[i]!
-    while' popping: canPop nums2 i stack
+    while popping: canPop nums2 i stack
       invariant pop_stack_lt_i: ∀ p ∈ stack, p < i
       invariant pop_stack_monotone: stackMonotone nums2 stack
       invariant pop_stack_no_greater: ∀ p ∈ stack, ∀ t,
@@ -132,7 +132,7 @@ do
     stack := i :: stack
     i := i + 1
 
-  while' finishing: stack ≠ []
+  while finishing: stack ≠ []
     invariant final_stack_bounds: ∀ p ∈ stack, p < nums2.size
     invariant final_no_greater: ∀ p ∈ stack, ∀ t,
       p < t → t < nums2.size → nums2[t]! ≤ nums2[p]!
@@ -151,7 +151,7 @@ do
 
   let mut ans : Array Int := #[]
   let mut a : Nat := 0
-  while' answering: a < nums1.size
+  while answering: a < nums1.size
     invariant a_bound: a ≤ nums1.size
     invariant ans_size: ans.size = a
     invariant ans_correct: ∀ u, u < a → ∃ j,
@@ -163,7 +163,7 @@ do
     let mut search := mp
     let mut found : Bool := false
     let mut value : Int := -1
-    while' lookup: search ≠ [] ∧ found = false
+    while lookup: search ≠ [] ∧ found = false
       invariant lookup_exists:
         found = true ∨ ∃ kv ∈ search, kv.1 = x
       invariant found_sound: found = true → ∃ kv ∈ mp,

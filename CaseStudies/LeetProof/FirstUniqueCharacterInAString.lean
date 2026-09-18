@@ -75,7 +75,7 @@ method firstUniqChar (s : Array Char)
 do
   let mut counts : Array Nat := Array.replicate 128 0
   let mut i : Nat := 0
-  while' counting: i < s.size
+  while counting: i < s.size
     invariant count_bounds: i ≤ s.size
     invariant count_continuation:
       countGo s i counts = countGo s 0 (Array.replicate 128 0)
@@ -91,7 +91,7 @@ do
   let mut j : Nat := 0
   let mut ans : Int := -1
   let mut found : Bool := false
-  while' searching: j < s.size ∧ found = false
+  while searching: j < s.size ∧ found = false
     invariant search_bounds: j ≤ s.size
     invariant search_ans: found = true → ans = firstUniqueCharIndex s
     invariant search_continuation:

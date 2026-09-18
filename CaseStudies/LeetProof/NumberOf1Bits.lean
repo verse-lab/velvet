@@ -40,7 +40,7 @@ method numberOf1Bits (n : Nat)
 do
   let mut x := n
   let mut cnt : Nat := 0
-  while' clearing: x > 0
+  while clearing: x > 0
     invariant x_le: x ≤ n
     invariant cnt_plus_weight:
       cnt + ((Finset.range n.size).filter (fun (i : Nat) => x.testBit i = true)).card =

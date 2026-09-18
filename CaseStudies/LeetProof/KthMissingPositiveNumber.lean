@@ -52,7 +52,7 @@ method findKthPositive (arr : Array Nat) (k : Nat)
 do
   let mut lo : Nat := 0
   let mut hi : Nat := arr.size
-  while' active: lo < hi
+  while active: lo < hi
     invariant bounds: lo ≤ hi ∧ hi ≤ arr.size
     invariant all_lt: ∀ j, j < lo → arr[j]! - (j + 1) < k
     invariant ge_hi: hi < arr.size → k ≤ arr[hi]! - (hi + 1)

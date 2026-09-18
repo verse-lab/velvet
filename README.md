@@ -5,7 +5,7 @@
 ## What is Velvet?
 
 Velvet is a Dafny-style verifier for imperative programs embedded in the Lean proof
-assistant. Velvet seamlessly combines SMT-based automated proofs with Lean's
+assistant. Velvet seamlessly combines SMT-inspired proof automation with Lean's
 interactive proof mode, enabling multi-modal verification: programs can be compiled,
 executed, validated using property-based testing, and formally verified within one
 unified environment.

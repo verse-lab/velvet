@@ -48,7 +48,7 @@ do
     return false
   let mut i : Nat := 2
   let mut ret := false
-  while' loop_cond: i * i ≤ n
+  while loop_cond: i * i ≤ n
     invariant i_lower: 2 ≤ i
     invariant ret_iff: ret = false ↔ (∀ d, 2 ≤ d ∧ d < i → n % d ≠ 0)
     invariant progress: (i - 1) * (i - 1) ≤ n

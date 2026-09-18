@@ -95,7 +95,7 @@ method siftDown {α : Type} [Inhabited α] [LE α] [DecidableLE α]
 do
   let mut data := input
   let mut hole := start
-  while' has_left: 2 * hole + 1 < data.size
+  while has_left: 2 * hole + 1 < data.size
     invariant state: SiftState data start hole
     invariant elements: data.Perm input
     decreasing remaining: data.size - hole
@@ -119,7 +119,7 @@ method build {α : Type} [Inhabited α] [LE α] [DecidableLE α]
 do
   let mut data := values
   let mut next := data.size / 2
-  while' pending: 0 < next
+  while pending: 0 < next
     invariant bounded: next ≤ data.size / 2
     invariant heap: HeapFrom data next
     invariant elements: data.Perm values
@@ -172,7 +172,7 @@ method push {α : Type} [Inhabited α] [LE α] [DecidableLE α]
 do
   let mut data := queue.data.push value
   let mut hole := queue.data.size
-  while' not_root: 0 < hole
+  while not_root: 0 < hole
     invariant state: SiftUpState data hole
     invariant elements: data.Perm (queue.data.push value)
     decreasing remaining: hole

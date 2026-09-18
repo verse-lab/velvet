@@ -45,7 +45,7 @@ do
     isPrime := isPrime.set! 1 false
 
     let mut p : Nat := 2
-    while' outer: p * p < n
+    while outer: p * p < n
       invariant cp_outer_size: isPrime.size = n
       invariant cp_outer_p_bounds: 2 ≤ p ∧ p ≤ n
       invariant cp_outer_zero_one: isPrime[0]! = false ∧ isPrime[1]! = false
@@ -56,7 +56,7 @@ do
     do
       if is_p_prime: isPrime[p]! then
         let mut k : Nat := p * p
-        while' inner: k < n
+        while inner: k < n
           invariant cp_inner_size: isPrime.size = n
           invariant cp_inner_p_bounds: 2 ≤ p ∧ p ≤ n
           invariant cp_inner_k_lower: p * p ≤ k
@@ -74,7 +74,7 @@ do
 
     let mut count : Nat := 0
     let mut i : Nat := 0
-    while' counting: i < n
+    while counting: i < n
       invariant cp_count_size: isPrime.size = n
       invariant cp_count_i_le: i ≤ n
       invariant cp_count_sieve_correct: ∀ m, m < n → (isPrime[m]! = true ↔ Nat.Prime m)

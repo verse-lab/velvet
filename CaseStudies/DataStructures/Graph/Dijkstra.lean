@@ -93,7 +93,7 @@ method enqueue {Weight : Type} [Zero Weight] [LE Weight] [DecidableLE Weight]
 do
   let mut result := queue
   let mut remaining := items
-  while' pending: remaining.isEmpty = false
+  while pending: remaining.isEmpty = false
     invariant heap: result.Inv
     invariant elements: (result.data.toList ++ remaining).Perm (queue.data.toList ++ items)
     decreasing unprocessed: remaining.length
@@ -127,7 +127,7 @@ method dijkstra {VertexData EdgeData Weight : Type} [AddCommMonoid Weight] [LE W
 do
   let mut distances : Array (Option Weight) := Array.replicate graph.vertices.size none
   let mut queue : PriorityQueue (Entry Weight) := ⟨#[⟨0, source⟩]⟩
-  while' pending: 0 < queue.data.size
+  while pending: 0 < queue.data.size
     invariant heap: queue.Inv
     invariant state: StateInv graph weight source distances queue
     decreasing remaining: work graph distances queue

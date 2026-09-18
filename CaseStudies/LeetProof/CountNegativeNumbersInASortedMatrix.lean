@@ -91,7 +91,7 @@ do
   let mut j : Nat := 0
   let mut cnt : Nat := 0
 
-  while' scanning: i > 0 ∧ j < n
+  while scanning: i > 0 ∧ j < n
     invariant bounds: i ≤ m ∧ j ≤ n
     invariant inv_accounting:
       cnt +

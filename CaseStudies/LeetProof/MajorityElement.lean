@@ -42,7 +42,7 @@ do
   let mut i : Nat := 0
   let mut candidate : Int := 0
   let mut count : Nat := 0
-  while' scanning: i < nums.size
+  while scanning: i < nums.size
     invariant bounds: i ≤ nums.size
     invariant accounting: ∃ p : Nat,
       i = 2 * p + count ∧
