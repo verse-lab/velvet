@@ -6,9 +6,21 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-root:
+    name: Build Velvet
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v5
       - uses: leanprover/lean-action@v1
+
+  build-case-studies:
+    name: Build all case studies
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: leanprover/lean-action@v1
+        with:
+          lake-package-directory: CaseStudies
+          use-mathlib-cache: true
