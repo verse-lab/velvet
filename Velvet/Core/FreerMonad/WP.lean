@@ -27,11 +27,11 @@ variable [Monad m] [Assertion Pred] [Assertion EPred]
 namespace FreerMonad
 
 noncomputable def wp [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
-    [EffWP e m Pred EPred] [WPPartial m Pred EPred div_post div_pre] {α : Type u}
+    [∀ α, WP (e α) α Pred EPred] [WPPartial m Pred EPred div_post div_pre] {α : Type u}
     (x : FreerMonad e α) (post : α → Pred) (epost : EPred) : Pred :=
   match x with
   | .ret val => post val
-  | .vis c f => ewp c (fun b => wp (f b) post epost) epost
+  | .vis c f => (WP.wpTrans c).apply (fun b => wp (f b) post epost) epost
   | .iter (β := β) init f cont =>
       let partialBranch :=
         ⨆ (inv : β → Pred) (stepPost : β → ForInStep β → Pred),
@@ -67,10 +67,10 @@ theorem sup_mono' {Pred : Type w} [Assertion Pred] {P P' Q Q' : Pred}
   join_mono hP hQ
 
 public theorem wp_monotone [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
-    [EffWP e m Pred EPred] [WPPartial m Pred EPred div_post div_pre]
+    [∀ α, WP (e α) α Pred EPred] [WPPartial m Pred EPred div_post div_pre]
     {α : Type u} (x : FreerMonad e α) :
     ∀ (post post' : α → Pred) (epost epost' : EPred),
-      epost ⊑ epost' → post ⊑ post' → wp x post epost ⊑ wp x post' epost' := by
+      epost ⊑ epost' → post ⊑ post' → wp (m := m) x post epost ⊑ wp (m := m) x post' epost' := by
   induction x with
   | ret val =>
     intro post post' epost epost' _ hpost
@@ -78,7 +78,7 @@ public theorem wp_monotone [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
   | vis c g ih =>
     intro post post' epost epost' hepost hpost
     dsimp [wp]
-    apply ewp_monotone c
+    apply WP.wp_trans_monotone c
     · exact hepost
     · intro b
       exact ih b post post' epost epost' hepost hpost
@@ -116,26 +116,35 @@ public theorem wp_monotone [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
 
 @[instance_reducible]
 public noncomputable def wpInst [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
-    [EffWP e m Pred EPred] [WPPartial m Pred EPred div_post div_pre] {α : Type u} :
+    [∀ α, WP (e α) α Pred EPred] [WPPartial m Pred EPred div_post div_pre] {α : Type u} :
     WP (FreerMonad e α) α Pred EPred where
-  wpTrans x := ⟨wp x⟩
+  wpTrans x := ⟨wp (m := m) x⟩
   wp_trans_monotone x := wp_monotone x
 
-public noncomputable instance instWPMonadFreerMonad [WPMonad m Pred EPred]
-    [∀ γ, CCPO (m γ)] [EffWP e m Pred EPred]
+/--
+`WPMonad` structure for `FreerMonad e`, interpreted into `m`.
+
+This is a `def` rather than an `instance`: the interpretation monad `m` does not occur in
+`WPMonad (FreerMonad e) Pred EPred`, so instance search has no way to determine it (and hence
+no way to determine the `WPPartial` `outParam`s `div_post`/`div_pre` either). Supply it
+explicitly at use sites, e.g. `letI := wpMonadInst (m := m)`.
+-/
+@[instance_reducible]
+public noncomputable def wpMonadInst [WPMonad m Pred EPred]
+    [∀ γ, CCPO (m γ)] [∀ α, WP (e α) α Pred EPred]
     [WPPartial m Pred EPred div_post div_pre] :
     WPMonad (FreerMonad e) Pred EPred where
-  toWP _ := wpInst
+  toWP _ := wpInst (m := m)
   pure_le_wp_pure _ _ _ := PartialOrder.rel_refl
   bind_le_wp_bind x f post epost := by
-    show wp x (fun a => wp (f a) post epost) epost ⊑ wp (x >>= f) post epost
+    show wp x (fun a => wp (m := m) (f a) post epost) epost ⊑ wp (x >>= f) post epost
     induction x with
     | ret val =>
       simp [wp, Bind.bind, FreerMonad.bind]
       rfl
     | vis x k k_ih =>
       simp [wp, Bind.bind, FreerMonad.bind]
-      apply ewp_monotone x
+      apply WP.wp_trans_monotone x
       · exact PartialOrder.rel_refl
       · intro s
         apply k_ih
@@ -179,12 +188,10 @@ public noncomputable instance instWPMonadFreerMonad [WPMonad m Pred EPred]
       { apply a b1 }
       apply k_ih
 
-#check wp
-
 theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
-    [∀ γ, CCPO (m γ)] [MonoBind m] [EffWP e m Pred EPred] [LawfulEffWP e m Pred EPred]
+    [∀ γ, CCPO (m γ)] [MonoBind m] [∀ α, WP (e α) α Pred EPred] [LawfulEffWP e m Pred EPred]
     [WPPartial m Pred EPred div_post div_pre] (c : FreerMonad e α):
-    wp c post epost ⊑ Std.Internal.Do.wp c.interp post epost := by
+    wp (m := m) c post epost ⊑ Std.Internal.Do.wp c.interp post epost := by
       induction c with
       | ret val =>
         simp [FreerMonad.wp, FreerMonad.interp]
@@ -194,7 +201,9 @@ theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
         apply PartialOrder.rel_trans; rotate_left
         apply WPMonad.bind_le_wp_bind
         apply PartialOrder.rel_trans
-        · exact LawfulEffWP.ewp_le_wp_interp (m := m) x _ epost
+        · unfold Std.Internal.Do.wp
+          apply LawfulEffWP.ewp_le_wp_interp (m := m) (Pred := Pred) x _ epost
+          exact (fun b => (k b).wp (m := m) post epost)
         · apply WP.wp_consequence
           intro b
           apply k_ih
@@ -210,7 +219,7 @@ theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
           apply ofProp_meet_le_left; intro hbody
           let inv' : β ⊕ β → Pred := fun
             | .inl b => inv b
-            | .inr b => wp (cont b) post epost
+            | .inr b => wp (m := m) (cont b) post epost
           have hloop : Triple
               (Loop.forIn.loop (fun _ b => (f b).interp) init)
               (inv' (.inl init)) (fun b => inv' (.inr b)) epost := by

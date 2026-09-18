@@ -42,10 +42,10 @@ the WP of the interpretation above -- that is the whole point. -/
 noncomputable instance instEffWPPick [Monad m] [Assertion Pred] [∀ (P : Pred), PreservesSup (meet P)]
     [Assertion EPred] [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] :
-    EffWP (PickEff mode m) m Pred EPred where
-  ewp c post epost := match c with
-    | @PickEff.pick _ _ _ p _ => mode.choice p post (div_pre epost)
-  ewp_monotone c post post' epost epost' he hp := by
+    WP (PickEff mode m α) α Pred EPred where
+  wpTrans c := ⟨fun post epost => match c with
+    | @PickEff.pick _ _ _ p _ => mode.choice p post (div_pre epost)⟩
+  wp_trans_monotone c post post' epost epost' he hp := by
     cases c
     exact choice_mono mode _ hp
       (NonDetT.div_pre_mono (m := m) (div_post := div_post) (div_pre := div_pre) he)
@@ -81,10 +81,9 @@ instance instLawfulEffWPPickDemonic [∀ (P : Pred), PreservesSup (meet P)] :
   ewp_le_wp_interp c post epost := by
     match c with
     | @PickEff.pick _ _ _ p wf =>
-      show NondetMode.demonic.choice p post (div_pre epost) ⊑
-        wp ((match wf.find () with
-          | none => CCPOBot.compBot
-          | some x => Pure.pure x : m _)) post epost
+      rw [WP.wpTrans, instEffWPPick]
+      simp only [le_iff_forall_le_1, interp]
+      intro post1 epost1
       rw [choice_demonic]
       split
       · rename_i hfind
@@ -98,8 +97,8 @@ instance instLawfulEffWPPickDemonic [∀ (P : Pred), PreservesSup (meet P)] :
         have hp : p x := Findable.find_some_p hx
         apply PartialOrder.rel_trans (meet_le_right _ _)
         exact PartialOrder.rel_trans
-          (iInf_le (i := (⟨x, hp⟩ : {a // p a})) (fun a => post a.val))
-          (WPMonad.pure_le_wp_pure x post epost)
+          (iInf_le (i := (⟨x, hp⟩ : {a // p a})) (fun a => post1 a.val))
+          (WPMonad.pure_le_wp_pure x post1 epost1)
 
 end Sound
 
@@ -112,6 +111,13 @@ abbrev NonDetF (mode : NondetMode) (m : Type u → Type v) :=
   FreerMonad (NonDetEff mode m)
 
 abbrev DemonicF (m : Type u → Type v) := NonDetF .demonic m
+
+noncomputable instance instWPMonadNonDetF [Monad m] [∀ γ, CCPO (m γ)]
+    [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    [∀ (P : Pred), PreservesSup (meet P)]
+    [WPPartial m Pred EPred div_post div_pre] :
+    WPMonad (NonDetF mode m) Pred EPred :=
+  FreerMonad.wpMonadInst (m := m) (div_post := div_post) (div_pre := div_pre)
 
 instance : MonadLift m (NonDetF mode m) where
   monadLift x := .vis (.inl (.mk x)) .ret
@@ -135,14 +141,14 @@ omit [CCPOBot m] [MonoBind m] [CCPOBotLawful m] in
 @[simp]
 theorem NonDetF.wp_pickSuchThat (τ : Type u) (p : τ → Prop) [wf : Findable p]
     (name : Lean.Name) (post : τ → Pred) (epost : EPred) :
-    FreerMonad.wp (NonDetF.pickSuchThat (mode := mode) (m := m) τ p name) post epost =
+    FreerMonad.wp (m := m) (NonDetF.pickSuchThat (mode := mode) (m := m) τ p name) post epost =
       mode.choice p post (div_pre epost) := rfl
 
 /-- **Payoff.** Demonic soundness for the Freer encoding is the generic
 `FreerMonad.soundness`; no separate induction over the non-determinism syntax. -/
 theorem NonDetF.demonic_soundness {α : Type u} (c : DemonicF m α)
     (post : α → Pred) (epost : EPred) :
-    FreerMonad.wp c post epost ⊑ wp c.interp post epost :=
+    FreerMonad.wp (m := m) c post epost ⊑ wp c.interp post epost :=
   FreerMonad.soundness (div_post := div_post) (div_pre := div_pre) c
 
 /-- ... and the triple-level corollary, matching `ExtractNonDet.extract_refines`. -/
@@ -175,7 +181,7 @@ omit [CCPOBot m] in
 /-- **The two weakest-precondition definitions are literally the same function.** -/
 theorem NonDetT.wp_toFreer {α : Type u} (x : NonDetT mode m α)
     (post : α → Pred) (epost : EPred) :
-    FreerMonad.wp (div_post := div_post) (div_pre := div_pre) x.toFreer post epost
+    FreerMonad.wp (m := m) (div_post := div_post) (div_pre := div_pre) x.toFreer post epost
       = NonDetT.wp (div_post := div_post) (div_pre := div_pre) x post epost := by
   induction x with
   | pure x => rfl
