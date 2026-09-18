@@ -20,12 +20,13 @@ unified environment.
   or demonic semantics.
 - **Partial and total correctness.** Separately verify functional correctness and
   termination, then combine them for total correctness.
-- **Multi-modal proofs.** When SMT automation fails, complete proofs interactively using
-  Lean tactics or any available automation (e.g. `aesop`, `grind`).
 - **Testing before proving.** `#derive_tester_for` turns a contract into an executable
   checker that runs on concrete or randomly generated inputs.
 - **Foundational verification.** A proved method yields `<name>.spec`, a plain Lean
   theorem that Velvet reuses at call sites and that you can use in handwritten proofs.
+- **Access to mathlib** -- use Lean's rich ecosystem of formalised mathematics in program specifications and proofs.
+
+
 
 ## Building
 

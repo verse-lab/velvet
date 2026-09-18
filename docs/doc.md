@@ -22,22 +22,6 @@ The repository uses Lean **v4.34.0**, selected by `lean-toolchain`.
 `import Velvet` is enough for ordinary `method` declarations and `prove_correct`
 proofs.
 
-Open additional namespaces only when your own code uses their names or notation:
-
-```lean
-import Velvet
-
--- For `let ghost` and `x *:= ...` inside do blocks:
-open scoped GhostSyntax
-
--- For handwritten `Triple`, `wp`, and `⦃ ... ⦄` specifications:
-open Std.Internal.Do
-
--- For logical notation such as `⊑`, `⊓`, and `⌜P⌝`:
-open Lean.Order
-```
-
-
 ### Your First Velvet Method
 
 Here is a simple, working example:
@@ -45,6 +29,7 @@ Here is a simple, working example:
 ```lean
 import Velvet
 
+-- set_option velvet.verifyOnDefinition true in
 method isqrt (n : Nat) returns (r : Nat)
   requires True
   ensures r * r ≤ n ∧ n < (r + 1) * (r + 1)
@@ -70,25 +55,14 @@ This example shows:
 
 ---
 
-## 3. Configuration Options
-
-Velvet provides several options to control verification semantics and feedback:
-
-| Option | Values | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `velvet.semantics.termination` | `"total"`, `"partial"` | `"total"` | Require measures on `while'` loops in total mode; choose the inferred Option failure contract (`False` for total, `True` for partial). |
-| `velvet.verifyOnDefinition` | `true`, `false` | `false` | Automatically verify specifications at definition time without `prove_correct`. |
-| `velvet_vcgen.showVCReport` | `true`, `false` | `false` | Show verification-condition reports, including later proof steps in `prove_correct`. |
-
-Example:
-```lean
-set_option velvet.semantics.termination "partial"
-set_option velvet_vcgen.showVCReport true
-```
+**NOTE**: The commented `set_option velvet.verifyOnDefinition true in` will
+try to do the proofs automatically using `velvet_vcgen [<method_name>] with finish`
+and remove the need for `prove_correct`. If the proof couldn't be discharged fully,
+it'd throw an error highlighting the part that couldn't be discharged.
 
 ---
 
-## 4. Writing Methods
+## 3. Writing Methods
 
 ### Method Signatures
 
@@ -116,7 +90,6 @@ Velvet supports all native Lean 4 binder formats in method signatures:
 - **Multi-variable binders**: `(x y : Nat)`
 - **Implicit parameters**: `{α : Type}`, `{α β : Type}`
 - **Typeclass instance binders**: `[Inhabited α]`, `[inst : Add α]`
-- **Strict implicit binders**: `⦃α : Type⦄`
 - **Dependent binders**: `(n : Nat) (xs : List (Fin (n + 1)))`
 
 ```lean
@@ -128,7 +101,7 @@ do
   return (x + y, val)
 ```
 
-### Logical / Ghost Variables (`given` Clause)
+### Logical Variables (`given` Clause)
 
 The `given` clause introduces **logical (ghost) variables** for the contract.
 
@@ -138,7 +111,7 @@ The `given` clause introduces **logical (ghost) variables** for the contract.
 
 #### Canonical Pattern: Capturing Initial State `s₀` in `StateM`
 
-The classic Hoare logic pattern for stateful programs is capturing the initial state `s₀` before mutation, and specifying that the final state differs from the initial state by a given delta `x`:
+A common pattern for stateful programs is capturing the initial state `s₀` before mutation, and specifying that the final state differs from the initial state by a given delta `x`:
 
 ```lean
 method incrementBy (x : Nat) returns (res : PUnit) in StateM Nat
@@ -164,8 +137,27 @@ A `method foo` declaration defines the program and its contract.
 Velvet can then use that contract automatically when verifying calls to `foo`.
 
 Use `method rec` when a method calls itself. A proof can often proceed by induction
-on an argument, passing the induction hypothesis to `velvet_vcgen [ih]` to handle
-the recursive call. See [`Recursion.lean`](../Velvet/Examples/Recursion.lean) for
+on an argument:
+
+```lean
+method rec countUp (n : Nat)
+  returns (res : Nat)
+  ensures res_eq: res = n
+do
+  match n with
+  | .zero => pure 0
+  | .succ k =>
+    let b ← countUp k
+    pure (Nat.succ b)
+
+prove_correct countUp by
+  intro n
+  induction n with
+  | zero => unfold countUp; velvet_vcgen with finish
+  | succ k ih => unfold countUp; velvet_vcgen with finish
+```
+
+See [`Recursion.lean`](Velvet/Examples/Recursion.lean) for
 complete recursive proofs, including methods with `given` parameters.
 
 ### Checking Supplied Inputs
@@ -193,7 +185,7 @@ do
 ```
 
 For property-based testing, use Plausible to generate arguments for the checker.
-[`Testing.lean`](../Velvet/Examples/Testing.lean) includes a 100-case run that reports
+[`Testing.lean`](Velvet/Examples/Testing.lean) includes a 100-case run that reports
 the discarded and passed totals and reports the generated inputs on failure.
 
 A false `requires` returns `.discard` without executing the method. Otherwise,
@@ -206,7 +198,7 @@ Velvet handles many conditions automatically, including bounded `Nat`/`Int`
 quantifiers. If it cannot derive a check, supply one using
 `prove_precondition_decidable_for`, `prove_postcondition_decidable_for`, or
 `prove_signals_decidable_for` with `by …` **before** `#derive_tester_for`.
-See [`Testing.lean`](../Velvet/Examples/Testing.lean), particularly `withdraw`, for an example.
+See [`Testing.lean`](Velvet/Examples/Testing.lean), particularly `withdraw`, for an example.
 
 Testers support `Id`, `Option`, `Except`, `EStateM`, and combinations using `StateT`,
 `ReaderT`, `ExceptT`, and `OptionT`. Other monads may need custom testing support.
@@ -241,15 +233,15 @@ for partial correctness:
 - Multiple signals stack nested `ExceptT` layers (e.g. `signals str : (e : String) => ...` and `signals nat : (e : Nat) => ...` infer `ExceptT String (ExceptT Nat Option) α`).
 
 > 📁 **Examples**:
-> - Basic arithmetic: [`Sqrt.lean`](../Velvet/Examples/Sqrt.lean)
-> - Binder types: [`BindersTest.lean`](../Velvet/Examples/BindersTest.lean)
-> - Recursion & `given`: [`Recursion.lean`](../Velvet/Examples/Recursion.lean), [`MatchRecursion.lean`](../Velvet/Examples/MatchRecursion.lean)
-> - State & Exceptions: [`StateT.lean`](../Velvet/Examples/StateT.lean), [`AutomaticExceptionInference.lean`](../Velvet/Examples/AutomaticExceptionInference.lean)
-> - Intrinsic verification: [`VelvetAndIntrinsicVerification.lean`](../Velvet/Examples/VelvetAndIntrinsicVerification.lean)
+> - Basic arithmetic: [`Sqrt.lean`](Velvet/Examples/Sqrt.lean)
+> - Binder types: [`BindersTest.lean`](Velvet/Examples/BindersTest.lean)
+> - Recursion & `given`: [`Recursion.lean`](Velvet/Examples/Recursion.lean), [`MatchRecursion.lean`](Velvet/Examples/MatchRecursion.lean)
+> - State & Exceptions: [`StateT.lean`](Velvet/Examples/StateT.lean), [`AutomaticExceptionInference.lean`](Velvet/Examples/AutomaticExceptionInference.lean)
+> - Intrinsic verification: [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean)
 
 ---
 
-## 5. Total vs. Partial Correctness
+## 4. Total vs. Partial Correctness
 
 - **Total mode (default)**: `while'` loops require a natural-number `decreasing` measure. For an inferred Option-based monad, the default failure postcondition is `False`, so a proved contract excludes Option failure/divergence under its precondition.
 - **Partial mode**: `set_option velvet.semantics.termination "partial" in` allows `while'` without a measure and changes the inferred Option failure postcondition to `True`. Normal returns must still satisfy `ensures`.
@@ -259,12 +251,12 @@ writing `signals True` allows failure or nontermination even in total mode.
 Use `prove_correct` to establish the contract; declaring the method alone does not prove it.
 
 > 📁 **Examples**:
-> - Total correctness: [`IsSorted.lean`](../Velvet/Examples/IsSorted.lean), [`IsNonPrime.lean`](../Velvet/Examples/IsNonPrime.lean)
-> - Partial correctness: [`LoopControl.lean`](../Velvet/Examples/LoopControl.lean)
+> - Total correctness: [`IsSorted.lean`](Velvet/Examples/IsSorted.lean), [`IsNonPrime.lean`](Velvet/Examples/IsNonPrime.lean)
+> - Partial correctness: [`LoopControl.lean`](Velvet/Examples/LoopControl.lean)
 
 ---
 
-## 6. Loop Verification
+## 5. Loop Verification
 
 ### `while'` Loops
 
@@ -291,6 +283,7 @@ do
 If an invariant only mentions outer mutable state variables (e.g. `s`, `x`, `y`), Velvet automatically uses the invariant as **both the step invariant and the loop-exit condition**:
 
 ```lean
+set_option velvet.verifyOnDefinition true in
 method twoVarPureState (n : Nat) returns (r : Nat)
   ensures r % 2 = 0
 do
@@ -315,6 +308,7 @@ However, variables tied to the loop's iteration:
 go **out of scope** when the loop terminates. When an invariant references any of these iteration-local variables, an explicit `done_with` clause is required to specify what holds upon exit:
 
 ```lean
+set_option velvet.verifyOnDefinition true in
 method twoVar (n : Nat) returns (r : Nat)
   ensures r = n
 do
@@ -333,6 +327,7 @@ do
 You can bind a proof that the current element belongs to the collection:
 
 ```lean
+set_option velvet.verifyOnDefinition true in
 method memberBound (xs : List Nat) (bound : Nat) returns (sum : Nat)
   requires ∀ x ∈ xs, x ≤ bound
   ensures sum ≥ 0
@@ -353,13 +348,13 @@ Velvet supports standard imperative control flow inside both `while'` and `for'`
 - **`return`**: Returns directly from the enclosing method from inside the loop body.
 
 > 📁 **Examples**:
-> - Loop patterns & invariants: [`Loops.lean`](../Velvet/Examples/Loops.lean)
-> - `break`, `continue`, early `return`: [`LoopControl.lean`](../Velvet/Examples/LoopControl.lean)
-> - Range loops: [`LoopsExplicitVCs.lean`](../Velvet/Examples/LoopsExplicitVCs.lean)
+> - Loop patterns & invariants: [`Loops.lean`](Velvet/Examples/Loops.lean)
+> - `break`, `continue`, early `return`: [`LoopControl.lean`](Velvet/Examples/LoopControl.lean)
+> - Range loops: [`LoopsExplicitVCs.lean`](Velvet/Examples/LoopsExplicitVCs.lean)
 
 ---
 
-## 7. In-Body Verification Statements
+## 6. In-Body Verification Statements
 
 ### `assert`
 Emits a proof obligation at that program point and adds the assertion to the context thereafter:
@@ -369,7 +364,7 @@ assert <name> : <Predicate>
 ```
 
 The label is required and lets you refer to the assertion's proof obligation by name.
-Assertions are checked during verification; they do not perform runtime checks.
+Assertions are checked during verification but they are just `pure ()` under the hood.
 
 ### Ghost State (`let ghost` and `var *:= ...`)
 Ghost variables exist purely for specification and verification purposes and are erased at compilation:
@@ -399,11 +394,16 @@ do
 The right-hand side can use ghost variables directly: `ctr *:= ctr + 1`
 increments the ghost counter. Use `ctr.reveal` when referring to it in a specification.
 
-> 📁 **Example**: [`Loops.lean`](../Velvet/Examples/Loops.lean)
+`Ghost` gives us almost-zero overhead at runtime, and can be really useful to
+do logical computations in a monad, that would affect the proof but have no effects during execution.
+
+> Ghost in Velvet is inspired from [Mathlib's Erased.lean](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Data/Erased.lean)
+
+> 📁 **Example**: [`Loops.lean`](Velvet/Examples/Loops.lean)
 
 ---
 
-## 8. Verification & Proving (`velvet_vcgen`)
+## 7. Verification & Proving (`velvet_vcgen`)
 
 ### Clause Naming & Error Locations
 
@@ -430,6 +430,11 @@ When all verification conditions can be discharged automatically with `grind` an
 prove_correct <method_name> by
   velvet_vcgen [<method_name> (, <callee>)*] with finish
 ```
+
+Generally if you expect your proof to be discharged with `finish`, we recommend having
+`set_option velvet.verifyOnDefinition true`, which would remove the need to write out
+the `prove_correct` block, and in case verification fails, it'll generally highlight the
+error at the offending assertion location.
 
 ### Interactive Proofs (`with try finish`)
 
@@ -473,22 +478,6 @@ VS Code also displays it as you move through the proof.
 
 Outside `prove_correct`, the report covers only the `velvet_vcgen` invocation.
 
-### Verifying at Definition Time
-
-With `set_option velvet.verifyOnDefinition true`, Velvet tries to prove each method as soon as it is defined. Successful verification produces `<name>.spec`, so no separate `prove_correct` block is needed:
-
-```lean
-set_option velvet.verifyOnDefinition true
-
-method absDiff (x : Nat) (y : Nat) returns (res : Nat)
-  ensures res ≥ 0
-  ensures x ≥ y → res = x - y
-do
-  if x ≥ y then return x - y else return y - x
-
-#check absDiff.spec  -- Automatically verified and generated!
-```
-
 ### Branch Hypothesis Naming
 
 Velvet automatically names hypotheses from conditionals:
@@ -499,17 +488,17 @@ Velvet automatically names hypotheses from conditionals:
 Use ordinary `if` for Boolean conditions too.
 
 > 📁 **Examples**:
-> - Interactive discharge: [`IsSorted.lean`](../Velvet/Examples/IsSorted.lean), [`IsNonPrime.lean`](../Velvet/Examples/IsNonPrime.lean)
-> - Intrinsic verification: [`IntrinsicVerification.lean`](../Velvet/Examples/IntrinsicVerification.lean)
-> - Branch naming: [`HypNaming.lean`](../Velvet/Examples/HypNaming.lean)
+> - Interactive discharge: [`IsSorted.lean`](Velvet/Examples/IsSorted.lean), [`IsNonPrime.lean`](Velvet/Examples/IsNonPrime.lean)
+> - Intrinsic verification: [`IntrinsicVerification.lean`](Velvet/Examples/IntrinsicVerification.lean)
+> - Branch naming: [`HypNaming.lean`](Velvet/Examples/HypNaming.lean)
 
 ---
 
-## 9. Monad Lifting & Composition
+## 8. Monad Lifting & Composition
 
 Velvet supports lifting between monad layers (`Id`, `Option`, `ExceptT`, `StateT`, `ReaderT`, and custom lifts) and interoperates with Lean intrinsic verification.
 
-> 📁 **Examples**: [`LiftingExamples.lean`](../Velvet/Examples/LiftingExamples.lean), [`VelvetAndIntrinsicVerification.lean`](../Velvet/Examples/VelvetAndIntrinsicVerification.lean)
+> 📁 **Examples**: [`LiftingExamples.lean`](Velvet/Examples/LiftingExamples.lean), [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean)
 
 ### Nondeterministic Choice
 
@@ -540,46 +529,46 @@ For proofs that only need to show that **some** choice meets the contract, use
 `AngelicT Option`. Executing an angelic method may choose a different value from
 the one used in the proof.
 
-See [`NonDet.lean`](../Velvet/Examples/NonDet.lean) for choices with several possible
+See [`NonDet.lean`](Velvet/Examples/NonDet.lean) for choices with several possible
 values, choices inside loops, and stateful examples.
 
 ---
 
-## 10. Examples Reference
+## 9. Examples Reference
 
-All examples are located in [`Velvet/Examples/`](../Velvet/Examples):
+All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 
 | File | Description |
 | :--- | :--- |
-| [`Sqrt.lean`](../Velvet/Examples/Sqrt.lean) | Integer square root with loop invariant and measure |
-| [`IsSorted.lean`](../Velvet/Examples/IsSorted.lean) | Array sortedness checking (total correctness) |
-| [`IsNonPrime.lean`](../Velvet/Examples/IsNonPrime.lean) | Primality testing and bounds (total correctness) |
-| [`SumOfDigits.lean`](../Velvet/Examples/SumOfDigits.lean) | Digit peeling loop |
-| [`MaxElem.lean`](../Velvet/Examples/MaxElem.lean) | Maximum element in array |
-| [`InsertionSort.lean`](../Velvet/Examples/InsertionSort.lean) | In-place insertion sort |
-| [`RunLengthEncoding.lean`](../Velvet/Examples/RunLengthEncoding.lean) | Run-length list encoding |
-| [`Loops.lean`](../Velvet/Examples/Loops.lean) | Loop patterns (`while'`, `for in`, multi-state) |
-| [`LoopsExplicitVCs.lean`](../Velvet/Examples/LoopsExplicitVCs.lean) | Explicit subgoal proofs with `case <tag>` |
-| [`BindersTest.lean`](../Velvet/Examples/BindersTest.lean) | All supported parameter binder kinds and `given` clauses |
-| [`Recursion.lean`](../Velvet/Examples/Recursion.lean) | Recursive `method rec` definitions |
-| [`MatchRecursion.lean`](../Velvet/Examples/MatchRecursion.lean) | Pattern matching recursion |
-| [`StateT.lean`](../Velvet/Examples/StateT.lean) | Stateful verification (`StateT`, `ReaderT`) |
-| [`StateTExplicitVCs.lean`](../Velvet/Examples/StateTExplicitVCs.lean) | Explicit VC proofs for `StateT` |
-| [`AutomaticExceptionInference.lean`](../Velvet/Examples/AutomaticExceptionInference.lean) | Exception channel inference |
-| [`HypNaming.lean`](../Velvet/Examples/HypNaming.lean) | Condition hypothesis naming (`if`, dependent `if`, `match`) |
-| [`LiftingExamples.lean`](../Velvet/Examples/LiftingExamples.lean) | Monad lifting across transformer stacks |
-| [`MemAlloc.lean`](../Velvet/Examples/MemAlloc.lean) | Linked-list allocator with ghost pointers |
-| [`IntrinsicVerification.lean`](../Velvet/Examples/IntrinsicVerification.lean) | Elaboration-time automatic verification (`velvet.verifyOnDefinition`) |
-| [`VelvetAndIntrinsicVerification.lean`](../Velvet/Examples/VelvetAndIntrinsicVerification.lean) | Interoperability with intrinsic contracts and `given` |
-| [`ErrorMsgs.lean`](../Velvet/Examples/ErrorMsgs.lean) | Compiler error diagnostic tests |
-| [`LoopControl.lean`](../Velvet/Examples/LoopControl.lean) | Partial loops, `break`, `continue`, and early return |
-| [`SimplestSort.lean`](../Velvet/Examples/SimplestSort.lean) | Sorting with interactive invariant proofs |
-| [`NonDet.lean`](../Velvet/Examples/NonDet.lean) | Demonic/angelic choice, finders, loops, and execution |
-| [`Testing.lean`](../Velvet/Examples/Testing.lean) | Generated contract checkers and custom decidability |
+| [`Sqrt.lean`](Velvet/Examples/Sqrt.lean) | Integer square root with loop invariant and measure |
+| [`IsSorted.lean`](Velvet/Examples/IsSorted.lean) | Array sortedness checking (total correctness) |
+| [`IsNonPrime.lean`](Velvet/Examples/IsNonPrime.lean) | Primality testing and bounds (total correctness) |
+| [`SumOfDigits.lean`](Velvet/Examples/SumOfDigits.lean) | Digit peeling loop |
+| [`MaxElem.lean`](Velvet/Examples/MaxElem.lean) | Maximum element in array |
+| [`InsertionSort.lean`](Velvet/Examples/InsertionSort.lean) | In-place insertion sort |
+| [`RunLengthEncoding.lean`](Velvet/Examples/RunLengthEncoding.lean) | Run-length list encoding |
+| [`Loops.lean`](Velvet/Examples/Loops.lean) | Loop patterns (`while'`, `for in`, multi-state) |
+| [`LoopsExplicitVCs.lean`](Velvet/Examples/LoopsExplicitVCs.lean) | Explicit subgoal proofs with `case <tag>` |
+| [`BindersTest.lean`](Velvet/Examples/BindersTest.lean) | All supported parameter binder kinds and `given` clauses |
+| [`Recursion.lean`](Velvet/Examples/Recursion.lean) | Recursive `method rec` definitions |
+| [`MatchRecursion.lean`](Velvet/Examples/MatchRecursion.lean) | Pattern matching recursion |
+| [`StateT.lean`](Velvet/Examples/StateT.lean) | Stateful verification (`StateT`, `ReaderT`) |
+| [`StateTExplicitVCs.lean`](Velvet/Examples/StateTExplicitVCs.lean) | Explicit VC proofs for `StateT` |
+| [`AutomaticExceptionInference.lean`](Velvet/Examples/AutomaticExceptionInference.lean) | Exception channel inference |
+| [`HypNaming.lean`](Velvet/Examples/HypNaming.lean) | Condition hypothesis naming (`if`, dependent `if`, `match`) |
+| [`LiftingExamples.lean`](Velvet/Examples/LiftingExamples.lean) | Monad lifting across transformer stacks |
+| [`MemAlloc.lean`](Velvet/Examples/MemAlloc.lean) | Linked-list allocator with ghost pointers |
+| [`IntrinsicVerification.lean`](Velvet/Examples/IntrinsicVerification.lean) | Elaboration-time automatic verification (`velvet.verifyOnDefinition`) |
+| [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean) | Interoperability with intrinsic contracts and `given` |
+| [`ErrorMsgs.lean`](Velvet/Examples/ErrorMsgs.lean) | Compiler error diagnostic tests |
+| [`LoopControl.lean`](Velvet/Examples/LoopControl.lean) | Partial loops, `break`, `continue`, and early return |
+| [`SimplestSort.lean`](Velvet/Examples/SimplestSort.lean) | Sorting with interactive invariant proofs |
+| [`NonDet.lean`](Velvet/Examples/NonDet.lean) | Demonic/angelic choice, finders, loops, and execution |
+| [`Testing.lean`](Velvet/Examples/Testing.lean) | Generated contract checkers and custom decidability |
 
 ## 11. Case Studies
 
-Larger case studies live in [`CaseStudies/`](../CaseStudies/), which is a **separate
+Larger case studies live in [`CaseStudies/`](CaseStudies/), which is a **separate
 Lake package**. The root `velvet` package does not depend on Mathlib and must
 stay that way, so anything needing Mathlib goes there:
 
@@ -591,5 +580,5 @@ lake build
 
 `lake build` at the repository root (and therefore CI) never descends into that
 directory, and Mathlib never appears in the root `lake-manifest.json`. See
-[`CaseStudies/README.md`](../CaseStudies/README.md) for the layout and for how to
+[`CaseStudies/README.md`](CaseStudies/README.md) for the layout and for how to
 write a case-study file.
