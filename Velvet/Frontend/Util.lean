@@ -64,3 +64,17 @@ public meta def contractBinderIdents (binder : Syntax) : Array Ident :=
       else if binder.isOfKind ``Lean.binderIdent && binder[0].isIdent then #[⟨binder[0]⟩]
       else #[]
 
+/-- Split a binder group into one binder per bound identifier, so `(l r : Nat)` becomes
+`(l : Nat) (r : Nat)`. Needed because Lean's fixed/varying parameter split for
+`partial_fixpoint` can cut inside a group, and each side then needs its own binder syntax.
+Binders with a default/tactic annotation are left alone (they are returned as a singleton). -/
+public meta def explodeBinder [Monad m] [MonadQuotation m] (binder : Syntax) :
+    m (Array (TSyntax [`ident, ``Lean.Parser.Term.hole, ``Lean.Parser.Term.bracketedBinder])) := do
+  match binder with
+  | `(Lean.Parser.Term.bracketedBinderF| ($ids* : $ty)) =>
+      if ids.any (!·.raw.isIdent) then return #[⟨binder⟩]
+      ids.mapM fun b => do
+        let id : Ident := ⟨b.raw⟩
+        return ⟨(← `(Lean.Parser.Term.bracketedBinderF| ($id : $ty))).raw⟩
+  | _ => return #[⟨binder⟩]
+

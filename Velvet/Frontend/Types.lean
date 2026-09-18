@@ -33,6 +33,11 @@ public structure MethodElabContext where
   termination : VelvetSemanticsTermination
   isRec : Bool
   body : TSyntax `Lean.Parser.Term.doSeq
+  /-- `termination_by` measure for the generated `def`, if the user supplied one. Only meaningful
+  for a non-`rec` method: `rec` occupies the same syntactic slot with `partial_fixpoint`. -/
+  terminationBy : Option (TSyntax ``Lean.Parser.Termination.terminationBy) := none
+  /-- `decreasing_by` proof for the generated `def`, if the user supplied one. -/
+  decreasingBy : Option (TSyntax ``Lean.Parser.Termination.decreasingBy) := none
   requiresClauses : Array AssertionInfo
   signalsClauses : Array AssertionInfo
   ensuresClauses : Array AssertionInfo
