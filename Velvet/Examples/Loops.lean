@@ -152,6 +152,7 @@ prove_correct boundedRangeValues by
 /- Pure state invariant over outer mutable variables:
 Invariants referencing only outer mutable variables (`x`, `y`) do NOT mention the loop variable `i`,
 so NO `done_with` is required. -/
+set_option velvet.verifyOnDefinition true in
 method twoVarPureState (n : Nat) returns (r : Nat)
   ensures r_even: r % 2 = 0
 do
@@ -164,12 +165,10 @@ do
     y := y + 1
   return x + y
 
-prove_correct twoVarPureState by
-  velvet_vcgen [twoVarPureState] with finish
-
 /- Loop over two mutable variables with loop-variable dependency:
 Because the invariant references the iteration-local loop variable `i` (`x = i ∧ y = i`),
 an explicit `done_with` clause is required to specify what holds upon exit. -/
+set_option velvet.verifyOnDefinition true in
 method twoVar (n : Nat) returns (r : Nat)
   ensures r_eq: r = n
 do
@@ -182,9 +181,6 @@ do
     x := x + 1
     y := y + 1
   return x
-
-prove_correct twoVar by
-  velvet_vcgen [twoVar] with finish
 
 /-! ### Non-Membership Loop (`forIn`) -/
 
@@ -207,6 +203,7 @@ prove_correct sumList by
 /-! ### Membership Loop (`forIn'`) -/
 
 /- Iterating with membership proof `h : x ∈ xs` in scope (elaborates to `forIn'`). -/
+set_option velvet.verifyOnDefinition true in
 method memberElementBound (xs : List Nat) (bound : Nat)
   returns (sum : Nat)
   requires all_le: ∀ x ∈ xs, x ≤ bound
@@ -219,9 +216,6 @@ do
     assert h_in: x ∈ xs
     s := s + x
   return s
-
-prove_correct memberElementBound by
-  velvet_vcgen [memberElementBound] with finish
 
 /- Method-call composition: delegates to `isGreaterWithInvariants`. -/
 method isGreaterWithInvariants' (n : Int) (a : Array Int)

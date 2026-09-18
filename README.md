@@ -22,22 +22,6 @@ The repository uses Lean **v4.34.0**, selected by `lean-toolchain`.
 `import Velvet` is enough for ordinary `method` declarations and `prove_correct`
 proofs.
 
-Open additional namespaces only when your own code uses their names or notation:
-
-```lean
-import Velvet
-
--- For `let ghost` and `x *:= ...` inside do blocks:
-open scoped GhostSyntax
-
--- For handwritten `Triple`, `wp`, and `⦃ ... ⦄` specifications:
-open Std.Internal.Do
-
--- For logical notation such as `⊑`, `⊓`, and `⌜P⌝`:
-open Lean.Order
-```
-
-
 ### Your First Velvet Method
 
 Here is a simple, working example:
@@ -45,6 +29,7 @@ Here is a simple, working example:
 ```lean
 import Velvet
 
+-- set_option velvet.verifyOnDefinition true in
 method isqrt (n : Nat) returns (r : Nat)
   requires True
   ensures r * r ≤ n ∧ n < (r + 1) * (r + 1)
@@ -70,25 +55,14 @@ This example shows:
 
 ---
 
-## 3. Configuration Options
-
-Velvet provides several options to control verification semantics and feedback:
-
-| Option | Values | Default | Description |
-| :--- | :--- | :--- | :--- |
-| `velvet.semantics.termination` | `"total"`, `"partial"` | `"total"` | Require measures on `while'` loops in total mode; choose the inferred Option failure contract (`False` for total, `True` for partial). |
-| `velvet.verifyOnDefinition` | `true`, `false` | `false` | Automatically verify specifications at definition time without `prove_correct`. |
-| `velvet_vcgen.showVCReport` | `true`, `false` | `false` | Show verification-condition reports, including later proof steps in `prove_correct`. |
-
-Example:
-```lean
-set_option velvet.semantics.termination "partial"
-set_option velvet_vcgen.showVCReport true
-```
+**NOTE**: The commented `set_option velvet.verifyOnDefinition true in` will
+try to do the proofs automatically using `velvet_vcgen [<method_name>] with finish`
+and remove the need for `prove_correct`. If the proof couldn't be discharged fully,
+it'd throw an error highlighting the part that couldn't be discharged.
 
 ---
 
-## 4. Writing Methods
+## 3. Writing Methods
 
 ### Method Signatures
 
@@ -116,7 +90,6 @@ Velvet supports all native Lean 4 binder formats in method signatures:
 - **Multi-variable binders**: `(x y : Nat)`
 - **Implicit parameters**: `{α : Type}`, `{α β : Type}`
 - **Typeclass instance binders**: `[Inhabited α]`, `[inst : Add α]`
-- **Strict implicit binders**: `⦃α : Type⦄`
 - **Dependent binders**: `(n : Nat) (xs : List (Fin (n + 1)))`
 
 ```lean
@@ -128,7 +101,7 @@ do
   return (x + y, val)
 ```
 
-### Logical / Ghost Variables (`given` Clause)
+### Logical Variables (`given` Clause)
 
 The `given` clause introduces **logical (ghost) variables** for the contract.
 
@@ -138,7 +111,7 @@ The `given` clause introduces **logical (ghost) variables** for the contract.
 
 #### Canonical Pattern: Capturing Initial State `s₀` in `StateM`
 
-The classic Hoare logic pattern for stateful programs is capturing the initial state `s₀` before mutation, and specifying that the final state differs from the initial state by a given delta `x`:
+A common pattern for stateful programs is capturing the initial state `s₀` before mutation, and specifying that the final state differs from the initial state by a given delta `x`:
 
 ```lean
 method incrementBy (x : Nat) returns (res : PUnit) in StateM Nat
@@ -164,8 +137,27 @@ A `method foo` declaration defines the program and its contract.
 Velvet can then use that contract automatically when verifying calls to `foo`.
 
 Use `method rec` when a method calls itself. A proof can often proceed by induction
-on an argument, passing the induction hypothesis to `velvet_vcgen [ih]` to handle
-the recursive call. See [`Recursion.lean`](Velvet/Examples/Recursion.lean) for
+on an argument:
+
+```lean
+method rec countUp (n : Nat)
+  returns (res : Nat)
+  ensures res_eq: res = n
+do
+  match n with
+  | .zero => pure 0
+  | .succ k =>
+    let b ← countUp k
+    pure (Nat.succ b)
+
+prove_correct countUp by
+  intro n
+  induction n with
+  | zero => unfold countUp; velvet_vcgen with finish
+  | succ k ih => unfold countUp; velvet_vcgen with finish
+```
+
+See [`Recursion.lean`](Velvet/Examples/Recursion.lean) for
 complete recursive proofs, including methods with `given` parameters.
 
 ### Checking Supplied Inputs
@@ -249,7 +241,7 @@ for partial correctness:
 
 ---
 
-## 5. Total vs. Partial Correctness
+## 4. Total vs. Partial Correctness
 
 - **Total mode (default)**: `while'` loops require a natural-number `decreasing` measure. For an inferred Option-based monad, the default failure postcondition is `False`, so a proved contract excludes Option failure/divergence under its precondition.
 - **Partial mode**: `set_option velvet.semantics.termination "partial" in` allows `while'` without a measure and changes the inferred Option failure postcondition to `True`. Normal returns must still satisfy `ensures`.
@@ -264,7 +256,7 @@ Use `prove_correct` to establish the contract; declaring the method alone does n
 
 ---
 
-## 6. Loop Verification
+## 5. Loop Verification
 
 ### `while'` Loops
 
@@ -291,6 +283,7 @@ do
 If an invariant only mentions outer mutable state variables (e.g. `s`, `x`, `y`), Velvet automatically uses the invariant as **both the step invariant and the loop-exit condition**:
 
 ```lean
+set_option velvet.verifyOnDefinition true in
 method twoVarPureState (n : Nat) returns (r : Nat)
   ensures r % 2 = 0
 do
@@ -315,6 +308,7 @@ However, variables tied to the loop's iteration:
 go **out of scope** when the loop terminates. When an invariant references any of these iteration-local variables, an explicit `done_with` clause is required to specify what holds upon exit:
 
 ```lean
+set_option velvet.verifyOnDefinition true in
 method twoVar (n : Nat) returns (r : Nat)
   ensures r = n
 do
@@ -333,6 +327,7 @@ do
 You can bind a proof that the current element belongs to the collection:
 
 ```lean
+set_option velvet.verifyOnDefinition true in
 method memberBound (xs : List Nat) (bound : Nat) returns (sum : Nat)
   requires ∀ x ∈ xs, x ≤ bound
   ensures sum ≥ 0
@@ -359,7 +354,7 @@ Velvet supports standard imperative control flow inside both `while'` and `for'`
 
 ---
 
-## 7. In-Body Verification Statements
+## 6. In-Body Verification Statements
 
 ### `assert`
 Emits a proof obligation at that program point and adds the assertion to the context thereafter:
@@ -369,7 +364,7 @@ assert <name> : <Predicate>
 ```
 
 The label is required and lets you refer to the assertion's proof obligation by name.
-Assertions are checked during verification; they do not perform runtime checks.
+Assertions are checked during verification but they are just `pure ()` under the hood.
 
 ### Ghost State (`let ghost` and `var *:= ...`)
 Ghost variables exist purely for specification and verification purposes and are erased at compilation:
@@ -399,11 +394,16 @@ do
 The right-hand side can use ghost variables directly: `ctr *:= ctr + 1`
 increments the ghost counter. Use `ctr.reveal` when referring to it in a specification.
 
+`Ghost` gives us almost-zero overhead at runtime, and can be really useful to
+do logical computations in a monad, that would affect the proof but have no effects during execution.
+
+> Ghost in Velvet is inspired from [Mathlib's Erased.lean](https://github.com/leanprover-community/mathlib4/blob/master/Mathlib/Data/Erased.lean)
+
 > 📁 **Example**: [`Loops.lean`](Velvet/Examples/Loops.lean)
 
 ---
 
-## 8. Verification & Proving (`velvet_vcgen`)
+## 7. Verification & Proving (`velvet_vcgen`)
 
 ### Clause Naming & Error Locations
 
@@ -430,6 +430,11 @@ When all verification conditions can be discharged automatically with `grind` an
 prove_correct <method_name> by
   velvet_vcgen [<method_name> (, <callee>)*] with finish
 ```
+
+Generally if you expect your proof to be discharged with `finish`, we recommend having
+`set_option velvet.verifyOnDefinition true`, which would remove the need to write out
+the `prove_correct` block, and in case verification fails, it'll generally highlight the
+error at the offending assertion location.
 
 ### Interactive Proofs (`with try finish`)
 
@@ -473,22 +478,6 @@ VS Code also displays it as you move through the proof.
 
 Outside `prove_correct`, the report covers only the `velvet_vcgen` invocation.
 
-### Verifying at Definition Time
-
-With `set_option velvet.verifyOnDefinition true`, Velvet tries to prove each method as soon as it is defined. Successful verification produces `<name>.spec`, so no separate `prove_correct` block is needed:
-
-```lean
-set_option velvet.verifyOnDefinition true
-
-method absDiff (x : Nat) (y : Nat) returns (res : Nat)
-  ensures res ≥ 0
-  ensures x ≥ y → res = x - y
-do
-  if x ≥ y then return x - y else return y - x
-
-#check absDiff.spec  -- Automatically verified and generated!
-```
-
 ### Branch Hypothesis Naming
 
 Velvet automatically names hypotheses from conditionals:
@@ -505,7 +494,7 @@ Use ordinary `if` for Boolean conditions too.
 
 ---
 
-## 9. Monad Lifting & Composition
+## 8. Monad Lifting & Composition
 
 Velvet supports lifting between monad layers (`Id`, `Option`, `ExceptT`, `StateT`, `ReaderT`, and custom lifts) and interoperates with Lean intrinsic verification.
 
@@ -545,7 +534,7 @@ values, choices inside loops, and stateful examples.
 
 ---
 
-## 10. Examples Reference
+## 9. Examples Reference
 
 All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 

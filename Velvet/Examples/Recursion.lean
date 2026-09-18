@@ -20,8 +20,8 @@ do
 prove_correct countUp by
   intro n
   induction n with
-  | zero => rw [countUp.eq_1]; velvet_vcgen with finish
-  | succ k ih => rw [countUp.eq_2]; velvet_vcgen [ih] with finish
+  | zero => unfold countUp; velvet_vcgen with finish
+  | succ k ih => unfold countUp; velvet_vcgen with finish
 
 @[expose, grind]
 public def fibAccSpec : Nat → Nat → Nat → Nat

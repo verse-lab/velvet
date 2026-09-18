@@ -15,6 +15,7 @@ public def sameElems (a b : Array Int) : Prop := ∀ x, cnt a x = cnt b x
 public def SortedUpTo (arr : Array Int) (n : Nat) : Prop :=
   ∀ i j, i ≤ j → j < n → arr[i]! ≤ arr[j]!
 
+
 set_option maxHeartbeats 10000000 in
 set_option velvet.semantics.termination "total" in
 method insertionSort (arr : Array Int)
