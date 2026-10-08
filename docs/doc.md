@@ -17,7 +17,7 @@ You can combine automatic verification with interactive Lean proofs:
 
 ## 2. Quick Start
 
-The repository uses Lean **v4.34.0**, selected by `lean-toolchain`.
+The repository uses Lean **v4.34.1**, selected by `lean-toolchain`.
 
 `import Velvet` is enough for ordinary `method` declarations and `prove_correct`
 proofs.

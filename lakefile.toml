@@ -2,6 +2,8 @@ name = "velvet"
 version = "0.1.0"
 defaultTargets = ["velvet"]
 
+# Plausible has no v4.34.1 tag; v4.34.0 is the commit Mathlib v4.34.1 pins, and
+# CaseStudies needs both to agree.
 [[require]]
 name = "plausible"
 git = "https://github.com/leanprover-community/plausible"
