@@ -53,27 +53,32 @@ else
   CONTEXT=3
 fi
 
-# Define mappings: toolchain relative path -> repo relative path -> output diff name
-# Format: "toolchain_path|repo_path|out_diff_name"
+# Define mappings: toolchain relative path -> repo relative path(s) -> output diff name
+# Format: "toolchain_path|repo_path[+repo_path…]|out_diff_name"; several repo files are compared
+# as one, in order. Upstream's ForIn.lean holds both the loop gadgets and their specifications.
 MAPPINGS=(
   "src/lean/Lean/Elab/BuiltinDo/For.lean|Velvet/Core/Loop/Elaboration.lean|LoopElaboration"
-  "src/lean/Std/WP/Gadget/ForIn.lean|Velvet/Core/Loop/Gadgets.lean|Loop"
+  "src/lean/Std/WP/Gadget/ForIn.lean|Velvet/Core/Loop/Gadgets.lean+Velvet/Core/Loop/Specs.lean|Loop"
 )
 
 for mapping in "${MAPPINGS[@]}"; do
   IFS='|' read -r tc_rel repo_rel out_name <<< "$mapping"
   src="$TOOLCHAIN/$tc_rel"
-  dst="$REPO_ROOT/$repo_rel"
+  IFS='+' read -r -a repo_files <<< "$repo_rel"
 
   [[ -f "$src" ]] || { echo "warning: missing $src" >&2; continue; }
-  [[ -f "$dst" ]] || { echo "warning: missing $dst" >&2; continue; }
+  dst_files=()
+  for f in "${repo_files[@]}"; do
+    [[ -f "$REPO_ROOT/$f" ]] || { echo "warning: missing $REPO_ROOT/$f" >&2; continue 2; }
+    dst_files+=("$REPO_ROOT/$f")
+  done
 
   out="$DIFF_DIR/$out_name.diff"
   rc=0
   diff -u -U "$CONTEXT" \
     --label "a/$tc_rel" \
     --label "b/$repo_rel" \
-    "$src" "$dst" > "$out" || rc=$?
+    "$src" <(cat "${dst_files[@]}") > "$out" || rc=$?
 
   case $rc in
     0) echo "wrote $out (no differences)";;

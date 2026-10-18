@@ -9,6 +9,7 @@ prelude
 public import Init.Data.Sum.Basic
 public import Lean.Elab.Tactic.VCGen.Context
 public import Lean.Elab.Tactic.VCGen.Util
+public import Lean.Elab.Tactic.VCGen.WPApp
 public import Lean.Meta.Sym.AlphaShareBuilder
 public import Lean.Meta.Sym.Intro
 public import Lean.Meta.Transform
@@ -37,6 +38,10 @@ public def mkGeneratedControlSimpMethods : MetaM Sym.Simp.Methods := do
     thms := thms.insert (← Sym.Simp.mkTheoremFromDecl declName)
   return {
     pre := fun e => do
+      -- Programs, and the binder-name hints that `vcgen` consumes, are left to `vcgen`. Reducing
+      -- inside them would, for example, turn a loop invariant's `match` on the loop state into
+      -- projections, losing the state's names.
+      if (isWPApp? e).isSome || e.isAppOfArity ``binderNameHint 6 then return .rfl (done := true)
       let some e' ← reduceHead? e | return ← Sym.Simp.simpControl e
       return .step e' (← mkAppM ``Eq.refl #[e']) (done := false)
     post := thms.rewrite

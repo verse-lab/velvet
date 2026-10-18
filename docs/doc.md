@@ -272,9 +272,11 @@ After `import Velvet`, loops with Velvet clauses use Velvet's elaborators: a
 single-collection `for` with an `invariant` or `done_with` clause, and a `while` with an
 `invariant`, `decreasing` or `done_with` clause. In total mode, such a `while` requires a
 `decreasing` clause. A loop without any of these clauses is Lean's own loop. `velvet_vcgen`
-verifies Lean's own `for` with the invariant `True`; Lean's own `while` needs Lean's loop
-annotations, except in partial mode, where Velvet verifies it as a loop with invariant `True`. Lean's additional forms, such as parallel `for`
-and `while let`, retain their built-in behavior.
+verifies Lean's own `for` without an invariant: each exit, and finishing the last element, goes
+straight to the code after the loop with what is known there, and an empty collection reaches it
+directly. Lean's own `while` needs Lean's loop annotations, except in partial mode, where Velvet
+verifies it as a loop with invariant `True`. Lean's additional forms, such as parallel `for` and
+`while let`, retain their built-in behavior.
 
 Lean's own loop annotations, written `invariant exit => P`, stay available after
 `import Velvet` and are proved with Lean's `vcgen`; `exit` is `true` once the loop has
@@ -302,7 +304,7 @@ do
 ```
 
 #### 1. Pure State Invariants (No `done_with` needed)
-If an invariant only mentions outer mutable state variables (e.g. `s`, `x`, `y`), Velvet automatically uses the invariant as **both the step invariant and the loop-exit condition**:
+If an invariant only mentions outer mutable state variables (e.g. `s`, `x`, `y`), it holds before the loop and after every iteration, and the code after the loop starts from it once the elements run out:
 
 ```lean
 set_option velvet.verifyOnDefinition true in
@@ -364,15 +366,44 @@ do
 ```
 
 #### 4. Control Flow: `break`, `continue`, and Early `return`
-Velvet supports standard imperative control flow inside both `while` and `for` loops:
-- **`continue`**: Skips the remainder of the current iteration while preserving the loop invariant.
-- **`break`**: Exits the loop early (specifying `done_with` handles the early exit condition).
-- **`return`**: Returns directly from the enclosing method from inside the loop body.
+`while` and `for` loops support `break`, `continue` and `return`. Each way of leaving or continuing
+the loop has its own obligation:
+
+| | Without `done_with` | With `done_with D` |
+|---|---|---|
+| End of the body, `continue` | the invariants (and, for `while`, a smaller measure) | the same |
+| `while` condition false, last element of a `for` | the code after the loop is verified from the invariants (and `¬cond`) | the invariants and `D` |
+| `break` | the code after the loop is verified from what is known at the `break` | the invariants and `D` |
+| `return` | `ensures` is checked where the `return` happens | the same |
+
+Without `done_with`, the code after a loop is verified once for each way of leaving it, each time
+with that exit's facts. With `done_with`, it is verified once, from the invariants and `D` alone,
+which keeps the number of verification conditions down when a loop has many exits:
+
+```lean
+method breakAtFive (n : Nat) returns (res : Nat)
+  ensures res ≤ n
+do
+  let mut i := 0
+  while i < n
+    invariant bound: i ≤ n
+    decreasing n - i
+  do
+    if i = 5 then break   -- the code after the loop sees `i = 5` and `i < n`
+    i := i + 1
+  return i                -- …and, after the normal exit, `bound` and `¬i < n`
+```
+
+In the verification conditions, the loop condition's hypothesis is named after `while h : cond`,
+or `h_loop` by default. In `for` loops, the facts about the position in the collection are named
+`h_mem` (the element is in the collection), `h_prefix` (the collection is `pref ++ x :: rest`),
+`h_last` (`rest = []`, for Lean's own `for`), and `h_empty` / `h_nonempty` on entry.
+
+A `return` inside a nested `do` block, as in `let v ← (do … return e)`, leaves only that block.
 
 > 📁 **Examples**:
 > - Loop patterns & invariants: [`Loops.lean`](Velvet/Examples/Loops.lean)
 > - `break`, `continue`, early `return`: [`LoopControl.lean`](Velvet/Examples/LoopControl.lean)
-> - Range loops: [`LoopsExplicitVCs.lean`](Velvet/Examples/LoopsExplicitVCs.lean)
 
 ---
 
@@ -570,12 +601,10 @@ All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 | [`InsertionSort.lean`](Velvet/Examples/InsertionSort.lean) | In-place insertion sort |
 | [`RunLengthEncoding.lean`](Velvet/Examples/RunLengthEncoding.lean) | Run-length list encoding |
 | [`Loops.lean`](Velvet/Examples/Loops.lean) | Loop patterns (`while`, `for in`, multi-state) |
-| [`LoopsExplicitVCs.lean`](Velvet/Examples/LoopsExplicitVCs.lean) | Explicit subgoal proofs with `case <tag>` |
 | [`BindersTest.lean`](Velvet/Examples/BindersTest.lean) | All supported parameter binder kinds and `given` clauses |
 | [`Recursion.lean`](Velvet/Examples/Recursion.lean) | Recursive `method rec` definitions |
 | [`MatchRecursion.lean`](Velvet/Examples/MatchRecursion.lean) | Pattern matching recursion |
 | [`StateT.lean`](Velvet/Examples/StateT.lean) | Stateful verification (`StateT`, `ReaderT`) |
-| [`StateTExplicitVCs.lean`](Velvet/Examples/StateTExplicitVCs.lean) | Explicit VC proofs for `StateT` |
 | [`AutomaticExceptionInference.lean`](Velvet/Examples/AutomaticExceptionInference.lean) | Exception channel inference |
 | [`HypNaming.lean`](Velvet/Examples/HypNaming.lean) | Condition hypothesis naming (`if`, dependent `if`, `match`) |
 | [`LiftingExamples.lean`](Velvet/Examples/LiftingExamples.lean) | Monad lifting across transformer stacks |
@@ -583,7 +612,7 @@ All examples are located in [`Velvet/Examples/`](Velvet/Examples):
 | [`IntrinsicVerification.lean`](Velvet/Examples/IntrinsicVerification.lean) | Elaboration-time automatic verification (`velvet.verifyOnDefinition`) |
 | [`VelvetAndIntrinsicVerification.lean`](Velvet/Examples/VelvetAndIntrinsicVerification.lean) | Interoperability with intrinsic contracts and `given` |
 | [`ErrorMsgs.lean`](Velvet/Examples/ErrorMsgs.lean) | Compiler error diagnostic tests |
-| [`LoopControl.lean`](Velvet/Examples/LoopControl.lean) | Partial loops, `break`, `continue`, and early return |
+| [`LoopControl.lean`](Velvet/Examples/LoopControl.lean) | `break`, `continue`, early `return` and `done_with` in `while` and `for` loops |
 | [`SimplestSort.lean`](Velvet/Examples/SimplestSort.lean) | Sorting with interactive invariant proofs |
 | [`NonDet.lean`](Velvet/Examples/NonDet.lean) | Demonic/angelic choice, finders, loops, and execution |
 | [`Testing.lean`](Velvet/Examples/Testing.lean) | Generated contract checkers and custom decidability |

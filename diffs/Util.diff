@@ -1,6 +1,6 @@
 --- a/Lean/Elab/Tactic/VCGen/Util.lean
 +++ b/Velvet/Core/VCGen/Util.lean
-@@ -6,116 +6,122 @@
+@@ -6,116 +6,127 @@
  module
  
  prelude
@@ -9,6 +9,7 @@
  public import Lean.Elab.Tactic.VCGen.Context
 -public import Lean.Elab.Tactic.VCGen.Reduce
 +public import Lean.Elab.Tactic.VCGen.Util
++public import Lean.Elab.Tactic.VCGen.WPApp
  public import Lean.Meta.Sym.AlphaShareBuilder
  public import Lean.Meta.Sym.Intro
 -public import Lean.Meta.Sym.Simp.Goal
@@ -45,6 +46,10 @@
 +    thms := thms.insert (← Sym.Simp.mkTheoremFromDecl declName)
 +  return {
 +    pre := fun e => do
++      -- Programs, and the binder-name hints that `vcgen` consumes, are left to `vcgen`. Reducing
++      -- inside them would, for example, turn a loop invariant's `match` on the loop state into
++      -- projections, losing the state's names.
++      if (isWPApp? e).isSome || e.isAppOfArity ``binderNameHint 6 then return .rfl (done := true)
 +      let some e' ← reduceHead? e | return ← Sym.Simp.simpControl e
 +      return .step e' (← mkAppM ``Eq.refl #[e']) (done := false)
 +    post := thms.rewrite
@@ -216,7 +221,7 @@
      let .goal _ goal ← Sym.intros goal names | return goal
      return goal
  
-@@ -124,37 +130,6 @@
+@@ -124,37 +135,6 @@
    introsHygienicN goal (numBindersToIntro (← goal.getType))
  
  /--
@@ -254,7 +259,7 @@
  Solves conjunctions whose leaves are `True` or `e₁ = e₂`, and returns a residual goal containing
  exactly the conjuncts that could not be solved.
  The goal is head-reduced first, so a conjunction that a `match` on a constructor or a projection
-@@ -169,22 +144,31 @@
+@@ -169,22 +149,31 @@
    let (goal, ty) ← match ← reduceHead? ty with
      | some ty' => pure (← goal.replaceTargetDefEqFast ty', ty')
      | none => pure (goal, ty)
@@ -288,7 +293,7 @@
        return some combined.mvarId!
    else if let some (ty, lhs, rhs) := ty.app3? ``Eq then
      let lhs ← reduceHead lhs
-@@ -201,4 +185,4 @@
+@@ -201,4 +190,4 @@
    else
      return some goal
  

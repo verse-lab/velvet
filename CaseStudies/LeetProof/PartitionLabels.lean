@@ -1014,13 +1014,13 @@ prove_correct partitionLabels by
   case max_parts =>
     rename_i s
     have hi : i = s.size :=
-      Nat.le_antisymm build_bounds (Nat.le_of_not_gt h_done_with)
+      Nat.le_antisymm build_bounds (Nat.le_of_not_gt building_last)
     subst i
     rw [build_model] at scan_model
     have hj : j = s.size :=
-      Nat.le_antisymm scan_bounds (Nat.le_of_not_gt h_done_with_1)
+      Nat.le_antisymm scan_bounds (Nat.le_of_not_gt greedy_scan)
     have hscan := scan_model
-    rw [greedyRun.eq_def, dite_eq_right h_done_with_1] at hscan
+    rw [greedyRun.eq_def, dite_eq_right greedy_scan] at hscan
     rw [greedyRun_full_eq_buildParts] at hscan
     apply (arrayPostcondition_eq _ _).mp
     rw [hscan]
@@ -1045,7 +1045,7 @@ prove_correct partitionLabels by
   case scan_model =>
     rename_i s
     have hlast : lastJ = getLast lastMap s[j]! j := by
-      have he : entries = [] := by simpa using h_done_with_1
+      have he : entries = [] := by simpa using lookup_last
       subst entries
       simpa [lookupRun, getLast] using lookup_model
     have hm : Nat.max endIdx lastJ = lastJ := Nat.max_eq_right (by omega)
@@ -1056,7 +1056,7 @@ prove_correct partitionLabels by
   case scan_model =>
     rename_i s
     have hlast : lastJ = getLast lastMap s[j]! j := by
-      have he : entries = [] := by simpa using h_done_with_1
+      have he : entries = [] := by simpa using lookup_last
       subst entries
       simpa [lookupRun, getLast] using lookup_model
     have hm : Nat.max endIdx lastJ = lastJ := Nat.max_eq_right (by omega)
@@ -1067,7 +1067,7 @@ prove_correct partitionLabels by
   case scan_model =>
     rename_i s
     have hlast : lastJ = getLast lastMap s[j]! j := by
-      have he : entries = [] := by simpa using h_done_with_1
+      have he : entries = [] := by simpa using lookup_last
       subst entries
       simpa [lookupRun, getLast] using lookup_model
     have hm : Nat.max endIdx lastJ = endIdx := Nat.max_eq_left (by omega)
@@ -1078,7 +1078,7 @@ prove_correct partitionLabels by
   case scan_model =>
     rename_i s
     have hlast : lastJ = getLast lastMap s[j]! j := by
-      have he : entries = [] := by simpa using h_done_with_1
+      have he : entries = [] := by simpa using lookup_last
       subst entries
       simpa [lookupRun, getLast] using lookup_model
     have hm : Nat.max endIdx lastJ = endIdx := Nat.max_eq_left (by omega)

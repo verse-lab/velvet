@@ -253,8 +253,8 @@ prove_correct mergeSorted by
   case continuation => simp [merge]
   case merged =>
     rename_i a b
-    have hi : ¬i < a.size := fun h => h_done_with (Or.inl h)
-    have hj : ¬j < b.size := fun h => h_done_with (Or.inr h)
+    have hi : ¬i < a.size := fun h => remaining_input (Or.inl h)
+    have hj : ¬j < b.size := fun h => remaining_input (Or.inr h)
     rw [mergeGo.eq_def] at continuation
     simp [hi, hj] at continuation
     rw [continuation]

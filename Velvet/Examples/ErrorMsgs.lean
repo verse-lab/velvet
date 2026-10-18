@@ -163,10 +163,8 @@ do
 
 /--
 error: No spec applicable to program Gadget.whileLoopPartial 0
-  (fun __u __s => if h_loop : __s < n✝ then pure (ForInStep.yield (__s + 1)) else pure (ForInStep.done __s))
-  (fun i => ⌜⟪invariant1 : True⟫⌝) fun i =>
-  ⌜⟪invariant1 : True⟫⌝ ⊓
-    ⌜⟪h_done_with : ¬i < n✝⟫⌝ in monad NoWPPartialMonad. Candidates were [SpecProof.global Loop.Spec.whileLoop_partial].
+  (fun __u __s => if h_loop : __s < n✝ then pure (ForInStep.yield (__s + 1)) else pure (ForInStep.done __s)) fun i =>
+  ⌜⟪invariant1 : True⟫⌝ in monad NoWPPartialMonad. Candidates were [SpecProof.global Loop.Spec.whileLoopPartial].
 -/
 #guard_msgs in
 prove_correct badWhileNoWPPartial by

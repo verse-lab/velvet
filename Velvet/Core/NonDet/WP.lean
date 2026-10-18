@@ -1,10 +1,10 @@
 module
 
 public import Velvet.Core.NonDet.Defs
-public import Velvet.Core.Loop.Gadgets
+public import Velvet.Core.Loop.Specs
 public import Std.WP
 
-open Std.WP Lean.Order Loop.Gadget WPPartial
+open Std.WP Lean.Order Loop Loop.Gadget WPPartial
 
 universe u v w z
 
@@ -425,8 +425,8 @@ public theorem angelic_assume_spec {m : Type u → Type v} {Pred EPred : Type u}
   refine Triple.intro ?_
   rw [wp_assume']
 
-@[spec 1250]
-public theorem Spec.whileLoop_partial
+/-- Partial-correctness rule for a `while` loop over `NonDetT`: every exit establishes `done`. -/
+public theorem whileLoopPartial_nondet
     {mode : NondetMode} {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -441,10 +441,10 @@ public theorem Spec.whileLoop_partial
         (fun r => match r with
           | .yield b' => inv b'
           | .done b' => done b') einv) :
-    Triple (whileLoopPartial init f inv done) (inv init)
+    Triple (whileLoopPartialAndDone init f inv done) (inv init)
       (fun b => binderNameHint b done <| done b) einv := by
   apply Triple.intro
-  dsimp only [whileLoopPartial, forIn, instForInLoopNonDetT, NonDetT.wp,
+  dsimp only [whileLoopPartialAndDone, forIn, instForInLoopNonDetT, NonDetT.wp,
     binderNameHint]
   let stepPost : β → ForInStep β → Pred := fun _ r => match r with
     | .yield b' => inv b'
@@ -478,8 +478,8 @@ public theorem Spec.whileLoop_partial
       (le_top _))
     (le_top _)
 
-@[spec 1250]
-public theorem Spec.whileLoop_total
+/-- Total-correctness rule for a `while` loop over `NonDetT`: every exit establishes `done`. -/
+public theorem whileLoopTotal_nondet
     {mode : NondetMode} {m : Type u → Type v} {Pred EPred : Type u}
     {div_post : EPred} {div_pre : EPred → Pred}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -498,10 +498,10 @@ public theorem Spec.whileLoop_total
                   ⌜Named.mk name stx (next < current)⌝ ⊓ inv b'
           | .done b' => done b')
         einv) :
-    Triple (whileLoopTotal init f inv done measure) (inv init)
+    Triple (whileLoopTotalAndDone init f inv done measure) (inv init)
       (fun b => binderNameHint b done <| done b) einv := by
   apply Triple.intro
-  dsimp only [whileLoopTotal, forIn, instForInLoopNonDetT, NonDetT.wp,
+  dsimp only [whileLoopTotalAndDone, forIn, instForInLoopNonDetT, NonDetT.wp,
     binderNameHint]
   let inv' : ForInStep β → Pred := fun
     | .yield b => inv b
@@ -545,6 +545,114 @@ public theorem Spec.whileLoop_total
   exact le_meet _ _ _
     (le_meet _ _ _ (le_top _) PartialOrder.rel_refl)
     (le_top _)
+
+section Specs
+variable {m : Type u → Type v} {Pred EPred : Type u} {div_post : EPred} {div_pre : EPred → Pred}
+  [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
+  [Assertion EPred] [WPMonad m Pred EPred]
+  [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
+
+@[spec 1250]
+public theorem Spec.whileLoopPartial
+    {β : Type u} {init : β} {f : Unit → β → NonDetT mode m (ForInStep β)} {einv : EPred}
+    {Q : β → Pred} (inv : β → Pred)
+    (hdiv : ∀ b, inv b ⊑ div_pre einv)
+    (step : ∀ b, Triple (f () b) (binderNameHint b inv <| inv b) (stepPost inv Q) einv) :
+    Triple (whileLoopPartial init f inv) (inv init) Q einv :=
+  whileLoopPartial_nondet inv Q hdiv fun b =>
+    triple_post_le (step b) fun r => by cases r <;> exact PartialOrder.rel_refl
+
+@[spec 1250]
+public theorem Spec.whileLoopPartialAndDone
+    {β : Type u} {init : β} {f : Unit → β → NonDetT mode m (ForInStep β)} {einv : EPred}
+    (inv done : β → Pred)
+    (hdiv : ∀ b, inv b ⊑ div_pre einv)
+    (step : ∀ b, Triple (f () b) (binderNameHint b inv <| inv b) (stepPost inv done) einv) :
+    Triple (whileLoopPartialAndDone init f inv done) (inv init)
+      (fun b => binderNameHint b done <| done b) einv :=
+  whileLoopPartial_nondet inv done hdiv fun b =>
+    triple_post_le (step b) fun r => by cases r <;> exact PartialOrder.rel_refl
+
+@[spec 1250]
+public theorem Spec.whileLoopPartialAndDoneReturning
+    {γ τ : Type u} {init : Option γ × τ}
+    {f : Unit → Option γ × τ → NonDetT mode m (ForInStep (Option γ × τ))} {einv : EPred}
+    {Q : Option γ × τ → Pred} (inv done : τ → Pred)
+    (hdiv : ∀ s, inv s ⊑ div_pre einv)
+    (step : ∀ s, Triple (f () (none, s)) (binderNameHint s inv <| inv s)
+      (stepPost (noReturn inv) (onExit Q done)) einv)
+    (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
+    Triple (whileLoopPartialAndDoneReturning init f inv done) (noReturn inv init) Q einv :=
+  triple_onExit (whileLoopPartial_nondet (noReturn inv) (onExit Q done) (noReturn_le hdiv) fun b =>
+    triple_post_le (noReturn_step (inv := inv) (x := f ())
+      (post := fun _ => stepPost (noReturn inv) (onExit Q done)) step b)
+      fun r => by cases r <;> exact PartialOrder.rel_refl) hD
+
+@[spec 1250]
+public theorem Spec.whileLoopPartialReturning
+    {γ τ : Type u} {init : Option γ × τ}
+    {f : Unit → Option γ × τ → NonDetT mode m (ForInStep (Option γ × τ))} {einv : EPred}
+    {Q : Option γ × τ → Pred} (inv : τ → Pred)
+    (hdiv : ∀ s, inv s ⊑ div_pre einv)
+    (step : ∀ s, Triple (f () (none, s)) (binderNameHint s inv <| inv s)
+      (stepPost (noReturn inv) Q) einv) :
+    Triple (whileLoopPartialReturning init f inv) (noReturn inv init) Q einv :=
+  whileLoopPartial_nondet (noReturn inv) Q (noReturn_le hdiv) fun b =>
+    triple_post_le (noReturn_step (inv := inv) (x := f ())
+      (post := fun _ => stepPost (noReturn inv) Q) step b)
+      fun r => by cases r <;> exact PartialOrder.rel_refl
+
+@[spec 1250]
+public theorem Spec.whileLoopTotal
+    {β : Type u} {init : β} {f : Unit → β → NonDetT mode m (ForInStep β)} {einv : EPred}
+    {Q : β → Pred} (inv : β → Pred) (measure : β → Named.Measure)
+    (step : ∀ b,
+      Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure Q b) einv) :
+    Triple (whileLoopTotal init f inv measure) (inv init) Q einv :=
+  whileLoopTotal_nondet inv Q measure fun b =>
+    triple_post_le (step b) fun r => by cases r <;> exact PartialOrder.rel_refl
+
+@[spec 1250]
+public theorem Spec.whileLoopTotalAndDone
+    {β : Type u} {init : β} {f : Unit → β → NonDetT mode m (ForInStep β)} {einv : EPred}
+    (inv done : β → Pred) (measure : β → Named.Measure)
+    (step : ∀ b,
+      Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure done b) einv) :
+    Triple (whileLoopTotalAndDone init f inv done measure) (inv init)
+      (fun b => binderNameHint b done <| done b) einv :=
+  whileLoopTotal_nondet inv done measure fun b =>
+    triple_post_le (step b) fun r => by cases r <;> exact PartialOrder.rel_refl
+
+@[spec 1250]
+public theorem Spec.whileLoopTotalAndDoneReturning
+    {γ τ : Type u} {init : Option γ × τ}
+    {f : Unit → Option γ × τ → NonDetT mode m (ForInStep (Option γ × τ))} {einv : EPred}
+    {Q : Option γ × τ → Pred} (inv done : τ → Pred) (measure : τ → Named.Measure)
+    (step : ∀ s,
+      Triple (f () (none, s)) (binderNameHint s inv <| inv s)
+        (stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) (none, s)) einv)
+    (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
+    Triple (whileLoopTotalAndDoneReturning init f inv done measure) (noReturn inv init) Q einv :=
+  triple_onExit (whileLoopTotal_nondet (noReturn inv) (onExit Q done) (fun b => measure b.2) fun b =>
+    triple_post_le (noReturn_step (inv := inv) (x := f ())
+      (post := fun b => stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) b) step b)
+      fun r => by cases r <;> exact PartialOrder.rel_refl) hD
+
+@[spec 1250]
+public theorem Spec.whileLoopTotalReturning
+    {γ τ : Type u} {init : Option γ × τ}
+    {f : Unit → Option γ × τ → NonDetT mode m (ForInStep (Option γ × τ))} {einv : EPred}
+    {Q : Option γ × τ → Pred} (inv : τ → Pred) (measure : τ → Named.Measure)
+    (step : ∀ s,
+      Triple (f () (none, s)) (binderNameHint s inv <| inv s)
+        (stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q (none, s)) einv) :
+    Triple (whileLoopTotalReturning init f inv measure) (noReturn inv init) Q einv :=
+  whileLoopTotal_nondet (noReturn inv) Q (fun b => measure b.2) fun b =>
+    triple_post_le (noReturn_step (inv := inv) (x := f ())
+      (post := fun b => stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q b) step b)
+      fun r => by cases r <;> exact PartialOrder.rel_refl
+
+end Specs
 
 end NonDetT
 

@@ -3,6 +3,7 @@ import Velvet.Core.FreerMonad.Effects
 import Velvet.Core.Specs
 import Velvet.Core.Partial
 import Std.WP.Gadget.ForIn
+import Velvet.Core.Loop.Specs
 import Std.WP.Triple.SpecLemmas
 
 open Lean.Order
