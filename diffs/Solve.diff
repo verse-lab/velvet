@@ -1,78 +1,43 @@
---- a/Lean/Elab/Tactic/Do/Internal/VCGen/Solve.lean
+--- a/Lean/Elab/Tactic/VCGen/Solve.lean
 +++ b/Velvet/Core/VCGen/Solve.lean
-@@ -6,9 +6,13 @@
- module
- 
- prelude
-+public import Init.Data.Prod
- public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
- public import Lean.Elab.Tactic.Do.Internal.VCGen.RuleCache
- public import Lean.Elab.Tactic.Do.Internal.VCGen.Entails
+@@ -10,6 +10,8 @@
+ public import Lean.Elab.Tactic.VCGen.RuleCache
+ public import Lean.Elab.Tactic.VCGen.Entails
+ public import Lean.Elab.Tactic.VCGen.BinderName
 +public import Velvet.Core.VCGen.Util
-+public import Velvet.Core.VCGen.BinderName
 +public import Velvet.Core.VCGen.HypNaming
  public import Lean.Meta.Sym.InstantiateS
+ public import Lean.Meta.Sym.Simp.App
  import Lean.Meta.Sym.InferType
- import Lean.Meta.Sym.InstantiateMVarsS
-@@ -18,7 +22,7 @@
- open Lean.Elab.Tactic.Do.Internal
- open Std.Internal.Do Lean.Order
+@@ -21,8 +23,9 @@
+ open Lean.Elab.Tactic.VCGen
+ open Std.WP Lean.Order
  
--namespace Lean.Elab.Tactic.Do.Internal
-+open Lean.Elab.Tactic.Do.Internal.VCGen
+-namespace Lean.Elab.Tactic.VCGen
  
++namespace VCGen
++
  /-!
  The main `solve` step. Runs once per worklist iteration and either fully
-@@ -61,17 +65,38 @@
-   unless target.isMData do return none
-   return some (← goal.replaceTargetDefEqFast target.consumeMData)
- 
-+/-- Split `∀ p : Nat × Nat, P p` into `∀ a b, P (a, b)`. -/
-+private def splitProdBinder (goal : MVarId) (target : Expr) : VCGenM MVarId :=
-+  goal.withContext do
-+  let .forallE _ dom body _ := target | return goal
-+  let dom ← instantiateMVarsIfMVarAppS dom
-+  let_expr c@Prod α β := dom | return goal
-+  let us := c.constLevels!
+ decomposes the current goal into subgoals, or reports why no further
+@@ -70,10 +73,10 @@
+   let dom ← instantiateMVarsIfMVarAppS dom
+   let_expr c@Prod α β := dom | return goal
+   let us := c.constLevels!
+-  let mk ← mkAppNS (← mkConstS ``Prod.mk us) #[α, β, .bvar 1, .bvar 0]
 +  let mk ← mkAppNS (← mkConstS ``Prod.mk us) #[α, β, ← mkBVarS 1, ← mkBVarS 0]
-+  let newTarget := Expr.forallE `a α (.forallE `b β (body.instantiate1 mk) .default) .default
-+  let g ← liftMetaM <| mkFreshExprSyntheticOpaqueMVar (← shareCommon newTarget)
+   let newTarget := Expr.forallE `a α (.forallE `b β (body.instantiate1 mk) .default) .default
+   let g ← liftMetaM <| mkFreshExprSyntheticOpaqueMVar (← shareCommon newTarget)
+-  let motive := Expr.lam `p dom body .default
 +  let motive ← mkLambdaS `p .default dom body
-+  let prodForall ← mkAppNS (← mkConstS ``Prod.forall us) #[α, β, motive]
-+  goal.assign <| mkApp4 (.const ``Iff.mpr []) target newTarget prodForall g
-+  return g.mvarId!
-+
- /-- Strategy 1: simp the target, then introduce binders if the target is a `∀`. -/
--private def forallIntro? (goal : MVarId) (target : Expr) : VCGenM (Option (List MVarId)) := do
-+private def forallIntro? (oldGoal : MVarId) (target : Expr) : VCGenM (Option (List MVarId)) := do
-   unless target.isForall do return none
--  let (goal, simped) ← match ← simpGoalTelescope goal with
-+  let mut goal ← match ← simpGoalTelescope oldGoal with
-     | .closed => return some []
--    | .goal goal' => pure (goal', true)
--    | .noProgress => pure (goal, false)
--  let goal' ← introsHygienic goal
--  if !simped && goal' == goal then
-+    | .goal goal => pure goal
-+    | .noProgress => pure oldGoal
-+  let mut target ← goal.getType
-+  while target.isForall do
-+    let n := numBindersToIntro target
-+    let goal' ← if n == 0 then splitProdBinder goal target else introsHygienicN goal n
-+    if goal' == goal then break
-+    goal := goal'
-+    target ← goal.getType
-+  if goal == oldGoal then
-     throwError "Failed to intro forall target {goal}"
--  return some [goal']
-+  return some [goal]
- 
- private def throwIfUnsupportedJP (name : Name) (val : Expr) : VCGenM Unit := do
-   if (← read).useJP && Lean.Elab.Tactic.Do.isJP name && val.isLambda then
-@@ -166,20 +191,30 @@
+   let prodForall ← mkAppNS (← mkConstS ``Prod.forall us) #[α, β, motive]
+   goal.assign <| mkApp4 (.const ``Iff.mpr []) target newTarget prodForall g
+   return g.mvarId!
+@@ -205,6 +208,16 @@
+   let .goals [g] ← (← read).backwardRules.meetTop.applyChecked goal
      | throwError "Failed to cancel the `⊓ ⊤` precondition of {goal}"
    return some g
- 
++
 +
 +-- This is basically introPre from Stdlib (in VCGen/Entails.lean) but the only difference is that we call our own introsHygienic
 +private def introPre' (rule : BackwardRule) (goal : MVarId) : VCGenM (MVarId × FVarId) := do
@@ -82,10 +47,10 @@
 +  let some decl := (← goal.withContext getLCtx).lastDecl
 +    | throwError "Failed to intro the lifted precondition of {goal}"
 +  return (goal, decl.fvarId)
-+
+ 
  /-- Strategy 5: lift an embedded pure precondition `⌜φ⌝` into the local context, leaving `⊤`
  as the residual precondition. Runs before state-argument introduction, which would otherwise
- leave `⌜φ⌝` applied to the introduced arguments. Returns the new goal and the hypothesis. -/
+@@ -212,14 +225,14 @@
  private def ofPropPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
    let_expr CompleteLattice.ofProp _l _inst φ := pre | return none
    if φ.isTrue then return none
@@ -102,7 +67,7 @@
  
  /-- Strategy 5: eliminate an `iSup` precondition via `iSup_le`, leaving the pointwise entailment
  `∀ i, P i ⊑ rhs` for `∀`-introduction. -/
-@@ -195,7 +230,7 @@
+@@ -235,7 +248,7 @@
  private def barePreIntro? (goal : MVarId) (α pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
    unless α.isProp do return none
    if pre.isAppOf ``Lean.Order.top then return none
@@ -111,14 +76,15 @@
  
  /-- Strategy 7: replace a `True` precondition by `⊤` via `true_le_of_top_le`, or reduce a lifted
  `⊤ s₁ … sₙ` precondition (the bare top applied to the state arguments introduced by
-@@ -211,6 +246,30 @@
+@@ -250,6 +263,30 @@
+   if let some g ← reduceTopAppliedPre? goal target pre then
      return some [g]
    return none
- 
++
 +/-- Selectively normalize the precondition operand of `pre ⊑ rhs`: simplify generated concrete
-+control flow (e.g. `(inl a).isRight ↦ false`, `(a, b).fst ↦ a`) to expose a selected loop branch,
-+and peel applied pure embeddings one state argument at a time (`(⌜p⌝ : σ₂ → Prop) s₂ ↦ ⌜p⌝`) so the
-+bare `⌜p⌝` reaches `ofPropPreIntro?` on a later worklist iteration. Each step's equality proof is
++control flow over loop state tuples (e.g. `(a, b).fst ↦ a`, `match (a, b) with …`), and peel
++applied pure embeddings one state argument at a time (`(⌜p⌝ : σ₂ → Prop) s₂ ↦ ⌜p⌝`) so the bare
++`⌜p⌝` reaches `ofPropPreIntro?` on a later worklist iteration and is lifted as the plain `p`. Each step's equality proof is
 +transported through the entailment with `congrArg`/`replaceTargetEq` (not defEq — `ofProp_apply` is
 +propositional), leaving the RHS and Grind state untouched. -/
 +private def reducePre? (goal : MVarId) (pre target : Expr) : VCGenM (Option MVarId) := do
@@ -138,52 +104,19 @@
 +  let targetEq ← mkAppS₆ (← mkConstS ``congrArg [uα, .succ .zero])
 +    α (← mkSortS .zero) pre pre' congrFn h
 +  return some (← goal.replaceTargetEq target' targetEq)
-+
+ 
  /-- Phase 2: drive the precondition of `pre ⊑ rhs` toward `⊤`, lifting any pure content into the
  local context so a later spec application sees a `⊤` precondition. In order: cancel a redundant
- `⊓ ⊤`; lift an embedded `⌜φ⌝` (before state-argument introduction, which would otherwise leave
-@@ -219,6 +278,8 @@
+@@ -259,6 +296,8 @@
  Returns the updated scope, recording any lifted hypothesis. -/
- private def normalizePre? (scope : VCGen.Scope) (goal : MVarId) (α pre target : Expr) :
-     VCGenM (Option (VCGen.Scope × List MVarId)) := do
+ private def normalizePre? (scope : Scope) (goal : MVarId) (α pre target : Expr) :
+     VCGenM (Option (Scope × List MVarId)) := do
 +  if let some g ← reducePre? goal pre target then
 +    return some (scope, [g])
    if let some g ← stripMeetTopPre? goal pre then
      return some (scope, [g])
    if let some (g, h) ← ofPropPreIntro? goal pre then
-@@ -274,6 +335,31 @@
-       | throwError "Failed to intro hoisted let"
-     return some goal
- 
-+/-- Strategy 11b: fold the state arguments of the program's `wp` application, so the symbolic
-+state a spec application threads through the goal is normalized as it is produced rather than left
-+to the discharging tactic. Runs the `simplifying_assumptions` rewrite set when one is configured
-+and the plain `Sym.Simp` methods otherwise; the program, the postcondition and the precondition are
-+left untouched. -/
-+private def wpSimpStateArgs? (goal : MVarId) (info : WPApp) :
-+    VCGenM (Option (List MVarId)) := goal.withContext do
-+  if info.excessArgs.isEmpty then return none
-+  let some methods := (← read).hypSimpMethods | return none
-+  let start := info.args.size
-+  let target ← goal.getType
-+  match h : target with
-+  | .app f rhs =>
-+    let (result, simpState') ← Sym.Simp.SimpM.run
-+      (do
-+        let ar ← Sym.Simp.simpAppArgRange rhs start (start + info.excessArgs.size)
-+        Sym.Simp.mkCongr target f rhs .rfl ar h)
-+      methods {} (← get).simpState
-+    modify fun st => { st with simpState := simpState' }
-+    match ← result.toSimpGoalResult goal with
-+    | .closed => return some []
-+    | .goal g => return some [g]
-+    | .noProgress => return none
-+  | _ => return none
-+
- /-- Strategy 11b: split an `ite`/`dite`/match program, or iota-reduce a matcher with a concrete
- discriminant. -/
- private def wpMatch? (goal : MVarId) (info : WPApp) :
-@@ -291,7 +377,7 @@
+@@ -358,7 +397,7 @@
      | .goal g' => simpGoals := simpGoals.push g'
      | .noProgress => simpGoals := simpGoals.push g
      | .closed => continue
@@ -192,26 +125,10 @@
  
  /-- Strategy 11c: zeta-unfold a local let-bound fvar used as the program head. -/
  private def wpFVarZeta? (goal : MVarId) (info : WPApp) :
-@@ -504,6 +590,7 @@
+@@ -658,5 +697,4 @@
  
-   -- Phase 1: simplify `target` until it is of the form `pre ⊑ rhs`.
-   if let some g ← consumeMData? goal target then return .goals scope [g]
-+  if let some g ← consumeBinderNameHint? goal target then return .goals scope [g]
-   if let some gs ← forallIntro? goal target then return .goals scope gs
-   if let some g ← targetLetIntro? goal target then return .goals scope [g]
-   if let some g ← tripleUnfold? goal target then return .goals scope [g]
-@@ -542,6 +629,8 @@
-     if let some g ← wpLet? goal info then
-       VCGen.burnOne
-       return .goals scope [g]
-+    if let some gs ← wpSimpStateArgs? goal info then
-+      return .goals scope gs
-     if let some gs ← wpMatch? goal info then
-       VCGen.burnOne
-       return .goals scope gs
-@@ -560,5 +649,3 @@
    return .stop (.noProgress pre rhs)
  
- end VCGen
 -
--end Lean.Elab.Tactic.Do.Internal
+-end Lean.Elab.Tactic.VCGen
++end VCGen

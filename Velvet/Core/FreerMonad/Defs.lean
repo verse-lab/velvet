@@ -1,6 +1,6 @@
 import Velvet.Core.Named
 import Velvet.Core.Loop.Gadgets
-import Std.Internal.Do
+import Std.WP
 
 open Lean.Order
 

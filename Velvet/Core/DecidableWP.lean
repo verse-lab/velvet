@@ -1,6 +1,6 @@
 module
 
-public import Std.Internal.Do
+public import Std.WP
 
 @[expose] public section
 
@@ -31,14 +31,11 @@ instance {α : Type u} {Pred : Type v} [AssertionDecidability Pred] :
 instance [AssertionDecidability P] [AssertionDecidability Q] : AssertionDecidability (P × Q) where
   PointwiseDecidable p := PointwiseDecidable p.1 × PointwiseDecidable p.2
 
-instance : AssertionDecidability Std.Internal.Do.EPost.Nil where
+/-- The end of an exception postcondition stack `EStack⟨…⟩`, whose layers are products. -/
+instance : AssertionDecidability Std.WP.EStackEnd where
   PointwiseDecidable _ := Unit
 
-instance [AssertionDecidability P] [AssertionDecidability Q] :
-    AssertionDecidability (Std.Internal.Do.EPost.Cons P Q) where
-  PointwiseDecidable p := PointwiseDecidable p.head × PointwiseDecidable p.tail
-
-open Std.Internal.Do Lean.Order
+open Std.WP Lean.Order
 
 /-- An executable decision procedure for a selected WP interpretation. Each leaf decision
 carries a proof, connecting the tester to that interpretation. Custom monads can supply an
@@ -56,20 +53,20 @@ abbrev decideWP {m : Type u → Type v} [Monad m] [Assertion Pred] [Assertion EP
     (postDec : ∀ a, PointwiseDecidable (post a)) (epostDec : PointwiseDecidable epost) :=
   DecidableWP.decideWP x post epost postDec epostDec
 
-instance : DecidableWP Id Prop EPost.Nil where
+instance : DecidableWP Id Prop EStack⟨⟩ where
   decideWP x _ _ postDec _ := postDec x
 
-instance : DecidableWP Option Prop Prop where
+instance : DecidableWP Option Prop (Unit → Prop) where
   decideWP x _ _ postDec epostDec :=
     match x with
     | some a => postDec a
-    | none => epostDec
+    | none => epostDec ()
 
-instance : DecidableWP (Except ε) Prop EPost⟨ε → Prop⟩ where
+instance : DecidableWP (Except ε) Prop (ε → Prop) where
   decideWP x _ _ postDec epostDec :=
     match x with
     | .ok a => postDec a
-    | .error e => epostDec.1 e
+    | .error e => epostDec e
 
 instance {m : Type u → Type v} {S : Type u}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -89,9 +86,9 @@ instance {m : Type u → Type v} {R : Type u}
 instance {m : Type u → Type v} {ε : Type u}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
     [AssertionDecidability Pred] [AssertionDecidability EPred] [DecidableWP m Pred EPred] :
-    DecidableWP (ExceptT ε m) Pred (EPost.Cons (ε → Pred) EPred) where
+    DecidableWP (ExceptT ε m) Pred ((ε → Pred) × EPred) where
   decideWP x post epost postDec epostDec :=
-    decideWP x.run (epost.pushExcept post) epost.tail
+    decideWP x.run (pushExcept post epost.fst) epost.snd
       (fun r => match r with
         | .ok a => postDec a
         | .error e => epostDec.1 e) epostDec.2
@@ -99,12 +96,12 @@ instance {m : Type u → Type v} {ε : Type u}
 instance {m : Type u → Type v} {Pred : Type u}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
     [AssertionDecidability Pred] [AssertionDecidability EPred] [DecidableWP m Pred EPred] :
-    DecidableWP (OptionT m) Pred (EPost.Cons Pred EPred) where
+    DecidableWP (OptionT m) Pred ((Unit → Pred) × EPred) where
   decideWP x post epost postDec epostDec :=
-    decideWP x.run (epost.pushOption post) epost.tail
+    decideWP x.run (pushOption post epost.fst) epost.snd
       (fun r => match r with
         | some a => postDec a
-        | none => epostDec.1) epostDec.2
+        | none => epostDec.1 ()) epostDec.2
 
 instance : DecidableWP (EStateM ε S) (S → Prop) (ε → S → Prop) where
   decideWP x post epost postDec epostDec := fun s =>

@@ -3,14 +3,14 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.Internal.Do Lean.Order
+open Std.WP Lean.Order
 
 namespace Velvet.Examples.NonDet
 
 /-- Demonic extraction preserves triples for every exceptional postcondition,
 including both partial- and total-correctness endpoints. -/
 example {α : Type} (s : DemonicT Option α) (pre : Prop)
-    (post : α → Prop) (epost : Prop) (h : Triple s pre post epost) :
+    (post : α → Prop) (epost : Unit → Prop) (h : Triple s pre post epost) :
     Triple s.run pre post epost := by
   exact Soundness.DemonicChoice.ExtractNonDet.extract_refines h
 

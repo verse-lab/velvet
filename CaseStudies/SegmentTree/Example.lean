@@ -1,7 +1,7 @@
 import Velvet
 import CaseStudies.SegmentTree.SegmentTree
 
-open Std.Internal.Do
+open Std.WP
 
 instance set_monoid : Monoid (Option Nat) where
   one := none

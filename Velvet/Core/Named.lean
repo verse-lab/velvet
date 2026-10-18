@@ -8,14 +8,14 @@ public import Lean.Meta.Tactic.Cases
 public import Lean.Meta.Tactic.Rename
 public import Lean.Meta.Tactic.Replace
 public meta import Lean.Meta.Sym.SymM
-public import Std.Internal.Do
+public import Std.WP
 
 open Lean Meta Elab Term Lean.Meta.Sym
 
 namespace Named
 
-attribute [instance] Lean.Order.instCompleteLatticeProp_std
-attribute [instance] Lean.Order.instPartialOrderProp_std
+attribute [instance] Std.Internal.Order.instCompleteLatticeProp
+attribute [instance] Std.Internal.Order.instPartialOrderProp
 
 /-- Attach a user-facing name and source syntax without changing a value's denotation. -/
 @[expose, grind .]
@@ -49,12 +49,12 @@ private meta partial def liftNamedClause (name stx value type : Expr) : TermElab
   let type ← instantiateMVars (← whnf type)
   if type.isProp then
     let named ← mkAppM ``Named.mk #[name, stx, value]
-    let inst := Lean.mkConst ``Lean.Order.instCompleteLatticeProp_std
+    let inst := Lean.mkConst ``Std.Internal.Order.instCompleteLatticeProp
     return mkApp3 (Lean.mkConst ``Lean.Order.CompleteLattice.ofProp [0]) (mkSort 0) inst named
   match type with
   | .forallE binderName domain body binderInfo =>
       withLocalDecl binderName binderInfo domain fun x => do
-        let lifted ← liftNamedClause name stx (mkApp value x) (body.instantiate1 x)
+        let lifted ← liftNamedClause name stx (mkApp value x).headBeta (body.instantiate1 x)
         mkLambdaFVars #[x] lifted
   | _ =>
       /- Fires when a named loop assertion does not end in `Prop` after following its function
@@ -78,7 +78,7 @@ syntax (name := assertionMeet) "assertion_meet%[" term ", " term "]" : term
 private meta partial def meetAssertions (lhs rhs type : Expr) : TermElabM Expr := do
   let type ← instantiateMVars (← whnf type)
   if type.isProp then
-    let inst := Lean.mkConst ``Lean.Order.instCompleteLatticeProp_std
+    let inst := Lean.mkConst ``Std.Internal.Order.instCompleteLatticeProp
     return mkApp4 (Lean.mkConst ``Lean.Order.meet [0]) (mkSort 0) inst lhs rhs
   match type with
   | .forallE binderName domain body binderInfo =>
@@ -243,12 +243,14 @@ public meta def elabSignalsList : TermElab := fun stx expectedType? => do
     "signals require an expected assertion type"
   let rec build (type : Expr) (remaining : List (TSyntax `term)) : TermElabM Expr := do
     let type ← whnf type
-    if type.isConstOf ``Std.Internal.Do.EPost.Nil then
+    -- An exception postcondition stack `EStack⟨e₁, …, eₙ⟩` is `e₁ × … × eₙ × EStackEnd`, and
+    -- `EStackEnd` reduces to `Unit`.
+    if type.isConstOf ``PUnit then
       unless remaining.isEmpty do throwError "too many signals clauses"
-      return mkConst ``Std.Internal.Do.EPost.Nil.mk
-    if let some (headType, tailType) := type.app2? ``Std.Internal.Do.EPost.Cons then
+      return mkConst ``Std.WP.EStackEnd.mk
+    if let some (headType, tailType) := type.app2? ``Prod then
       let head :: tail := remaining | throwError "missing signals clause"
-      return ← mkAppM ``Std.Internal.Do.EPost.Cons.mk
+      return ← mkAppM ``Prod.mk
         #[← elabTermEnsuringType head headType, ← build tailType tail]
     let [term] := remaining | throwError "expected one signals clause for {type}"
     elabTermEnsuringType term type

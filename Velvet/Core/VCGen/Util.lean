@@ -7,8 +7,8 @@ module
 
 prelude
 public import Init.Data.Sum.Basic
-public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
-public import Lean.Elab.Tactic.Do.Internal.VCGen.Util
+public import Lean.Elab.Tactic.VCGen.Context
+public import Lean.Elab.Tactic.VCGen.Util
 public import Lean.Meta.Sym.AlphaShareBuilder
 public import Lean.Meta.Sym.Intro
 public import Lean.Meta.Transform
@@ -19,14 +19,14 @@ public import Lean.Meta.Sym.Simp.Rewrite
 public import Velvet.Core.Named
 
 open Lean Meta Sym Sym.Internal
-open Lean.Elab.Tactic.Do.Internal
-open Lean.Elab.Tactic.Do.Internal.VCGen
+open Lean.Elab.Tactic.VCGen
 
 namespace VCGen
 
 /-!
-Introduction and VC cleanup follow Lean nightly-2026-08-22, with Velvet's named-clause
-handling and simplification. Unchanged utilities are imported from the v4.34 toolchain.
+Velvet overrides of the upstream VCGen utilities: binder introduction and VC cleanup keep
+Velvet's named clauses, and generated control flow is simplified. Everything else, including
+`isProgramName` and `numBindersToIntro`, is imported from the toolchain.
 -/
 
 /-- Narrow methods for simplifying generated control flow and applied pure embeddings. -/
@@ -41,18 +41,6 @@ public def mkGeneratedControlSimpMethods : MetaM Sym.Simp.Methods := do
       return .step e' (← mkAppM ``Eq.refl #[e']) (done := false)
     post := thms.rewrite
   }
-
-/-- Whether `n` is a program variable's own name: no macro scopes and no implementation-detail
-`__` prefix. Such a name stays accessible in a verification condition. -/
-public def isProgramName (n : Name) : Bool :=
-  !n.hasMacroScopes && !n.isImplementationDetail
-
-/-- Count leading binders, stopping before a product that `solve` must split first.
-Backported from the newer Lean VCGen alongside `splitProdBinder`. -/
-public def numBindersToIntro : Expr → Nat
-  | .forallE _ d b _ => if d.isAppOf ``Prod then 0 else numBindersToIntro b + 1
-  | .letE _ _ _ b _ => numBindersToIntro b + 1
-  | _ => 0
 
 /-- Prepare the first `n` binders before `Sym.intros` introduces them into the goal.
 

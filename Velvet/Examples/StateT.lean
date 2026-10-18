@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.Internal.Do
+open Std.WP
 
 namespace Velvet.Examples.StateT
 
@@ -60,7 +60,7 @@ public theorem boundedIncrement_correct (limit : Nat) :
     Triple (boundedIncrement limit)
       (fun s => s < limit)
       (fun current s => current < limit ∧ s = current + 1)
-      False := by
+      (fun _ => False) := by
   velvet_vcgen [boundedIncrement] with finish
 
 /-- A finite-range loop over `StateT Nat Option`. -/
@@ -79,7 +79,7 @@ public theorem countRange_correct (n : Nat) :
     Triple (countRange n)
       (fun _ => True)
       (fun r s => r = n ∧ s = n)
-      False := by
+      (fun _ => False) := by
   velvet_vcgen [countRange] with finish
 
 /- A larger `StateT Nat (ExceptT String Option)` stack. -/
@@ -154,7 +154,7 @@ public theorem countToReaderLimit_correct :
     Triple countToReaderLimit
       (fun state limit => state ≤ limit)
       (fun result state limit => result = limit ∧ state = limit)
-      EPost.Nil.mk := by
+      estack⟨⟩ := by
   velvet_vcgen [countToReaderLimit] with finish
 
 /- A method without `signals` in a monad stack with 0 exception channels (`ReaderCounter`). -/
@@ -203,7 +203,7 @@ public theorem addToReaderLimit_correct :
       (fun initial limit => initial ≤ limit)
       (fun initial final limit =>
         initial ≤ limit ∧ final = initial + triangular limit)
-      EPost.Nil.mk := by
+      estack⟨⟩ := by
   velvet_vcgen [addToReaderLimit] with try finish
   all_goals (dsimp [triangular]; omega)
 

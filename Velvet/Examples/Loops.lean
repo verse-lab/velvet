@@ -58,10 +58,10 @@ def isGreaterWhileDef (n : Int) (a : Array Int) : Option Bool := do
 
 /- Verify the ordinary definition using its inline loop annotations. -/
 theorem isGreaterWhileDef_correct (n : Int) (a : Array Int) :
-    Std.Internal.Do.Triple (isGreaterWhileDef n a)
+    Std.WP.Triple (isGreaterWhileDef n a)
       (Named.mk `precond Option.none True)
       (Named.mk `postcond Option.none (fun result => result = true ↔ ∀ i, i < a.size → a[i]! < n))
-      False := by
+      (fun _ => False) := by
   velvet_vcgen [isGreaterWhileDef] with finish
 
 /- The same loop using Velvet's inline loop annotations. -/
@@ -300,3 +300,78 @@ method partialTick' returns (res : Nat)
 
 prove_correct partialTick' by
   velvet_vcgen [partialTick'] with finish
+
+/- A `while` loop without Velvet clauses is Lean's own `while`, so ordinary code keeps compiling
+in total correctness. -/
+def plainWhile (n : Nat) : Id Nat := do
+  let mut i := 0
+  while i < n do
+    i := i + 1
+  return i
+
+def plainWhileIO (n : Nat) : IO Nat := do
+  let mut i := 0
+  while _h : i < n do
+    i := i + 2
+  return i
+
+#guard (plainWhile 5).run == 5
+
+/- Likewise, a `for` loop without Velvet clauses is Lean's own `for`. -/
+def plainFor (xs : List Nat) : Nat := Id.run do
+  let mut s := 0
+  for x in xs do
+    s := s + x
+  return s
+
+#guard plainFor [1, 2, 3] == 6
+
+/- Nested loops followed by another loop: every loop gadget elaborates at the monad's assertion
+type, so a single `velvet_vcgen` applies all their specs (verse-lab/velvet#9). -/
+method nestedThenLoop (n : Nat) returns (res : Nat)
+  requires True
+  ensures res = 0
+do
+  let mut x : Nat := 0
+  let mut i : Nat := 0
+  while i < n
+    decreasing n - i
+  do
+    let mut j : Nat := 0
+    while j < n
+      decreasing n - j
+    do
+      x := 1
+      j := j + 1
+    i := i + 1
+  while x > 0
+    decreasing x
+  do
+    x := x - 1
+  return x
+
+prove_correct nestedThenLoop by
+  velvet_vcgen [nestedThenLoop] with finish
+
+/- Lean's own `for` loops are verified with the invariant `⊤`. -/
+method sumPlainFor (xs : List Nat) returns (r : Nat)
+  ensures True
+do
+  let mut s := 0
+  for x in xs do
+    s := s + x
+  return s
+
+prove_correct sumPlainFor by
+  velvet_vcgen [sumPlainFor] with finish
+
+method sumRange (xs : Array Nat) returns (r : Nat)
+  ensures True
+do
+  let mut s := 0
+  for h : i in [0:xs.size] do
+    s := s + xs[i]
+  return s
+
+prove_correct sumRange by
+  velvet_vcgen [sumRange] with finish

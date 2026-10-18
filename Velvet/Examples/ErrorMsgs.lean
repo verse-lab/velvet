@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.Internal.Do Named Loop Specs WPPartial Lean.Order
+open Std.WP Named Loop Specs WPPartial Lean.Order
 
 /-
 # Error message examples
@@ -117,7 +117,7 @@ do
 /- Partial correctness while loop in a monad stack lacking a partial-loop instance. -/
 @[expose] public def NoCCPOMonad (α : Type) : Type := Option α
 public instance : Monad NoCCPOMonad := inferInstanceAs (Monad Option)
-public instance : WPMonad NoCCPOMonad Prop Prop := inferInstanceAs (WPMonad Option Prop Prop)
+public instance : WPMonad NoCCPOMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
 
 /--
 error: failed to synthesize instance of type class
@@ -142,7 +142,7 @@ do
 /- Partial correctness while loop in a monad with CCPO & MonoBind but lacking WPPartial instance. -/
 @[expose] public def NoWPPartialMonad (α : Type) : Type := Option α
 public instance : Monad NoWPPartialMonad := inferInstanceAs (Monad Option)
-public instance : WPMonad NoWPPartialMonad Prop Prop := inferInstanceAs (WPMonad Option Prop Prop)
+public instance : WPMonad NoWPPartialMonad Prop (Unit → Prop) := inferInstanceAs (WPMonad Option Prop (Unit → Prop))
 public instance (α : Type) : CCPO (NoWPPartialMonad α) := inferInstanceAs (CCPO (Option α))
 public instance : MonoBind NoWPPartialMonad where
   bind_mono_left := MonoBind.bind_mono_left (m := Option)

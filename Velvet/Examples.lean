@@ -26,3 +26,5 @@ public import Velvet.Examples.VelvetAndIntrinsicVerification
 public import Velvet.Examples.SimplestSort
 public import Velvet.Examples.NonDet
 public import Velvet.Examples.Testing
+public import Velvet.Examples.SplitProdBinder
+public import Velvet.Examples.LoopEarlyExit

@@ -1,7 +1,7 @@
 import Velvet.Core.FreerMonad.WP
 import Velvet.Core.NonDet.Soundness
 
-open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order Loop.Gadget WPPartial
+open Std.WP Lean.Order Loop.Gadget WPPartial
 
 
 universe u v w z
@@ -186,7 +186,7 @@ theorem NonDetT.wp_toFreer {α : Type u} (x : NonDetT mode m α)
   induction x with
   | pure x => rfl
   | vis c f ih =>
-      show Std.Internal.Do.wp c (fun b => FreerMonad.wp (f b).toFreer post epost) epost = _
+      show Std.WP.wp c (fun b => FreerMonad.wp (f b).toFreer post epost) epost = _
       simp only [ih]
       rfl
   | pickCont τ p f ih =>

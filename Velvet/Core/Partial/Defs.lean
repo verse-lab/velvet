@@ -4,11 +4,11 @@ module
 -- admissibility proofs below requires importing its implementation.
 import all Init.Internal.Order.Basic
 public import Velvet.Core.Specs
-public import Std.Internal.Do
-public import Std.Internal.Do.Triple.SpecLemmas
+public import Std.WP
+public import Std.WP.Triple.SpecLemmas
 
-open Std.Internal.Do
-open Std.Internal.Do.Assertion
+open Std.WP
+open Std.WP.Assertion
 open Lean.Order
 
 universe u u₁ u₂ v w

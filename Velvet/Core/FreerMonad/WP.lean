@@ -2,12 +2,12 @@ import Velvet.Core.FreerMonad.Defs
 import Velvet.Core.FreerMonad.Effects
 import Velvet.Core.Specs
 import Velvet.Core.Partial
-import Std.Internal.Do.Gadget.ForIn
-import Std.Internal.Do.Triple.SpecLemmas
+import Std.WP.Gadget.ForIn
+import Std.WP.Triple.SpecLemmas
 
 open Lean.Order
 
-open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order Loop.Gadget WPPartial
+open Std.WP Lean.Order Loop.Gadget WPPartial
 
 
 theorem inf_mono [Assertion Pred] {P P' Q Q' : Pred} (hp : P ⊑ P') (hq : Q ⊑ Q'):
@@ -191,7 +191,7 @@ public noncomputable def wpMonadInst [WPMonad m Pred EPred]
 theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
     [∀ γ, CCPO (m γ)] [MonoBind m] [∀ α, WP (e α) α Pred EPred] [LawfulEffWP e m Pred EPred]
     [WPPartial m Pred EPred div_post div_pre] (c : FreerMonad e α):
-    wp (m := m) c post epost ⊑ Std.Internal.Do.wp c.interp post epost := by
+    wp (m := m) c post epost ⊑ Std.WP.wp c.interp post epost := by
       induction c with
       | ret val =>
         simp [FreerMonad.wp, FreerMonad.interp]
@@ -201,7 +201,7 @@ theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
         apply PartialOrder.rel_trans; rotate_left
         apply WPMonad.bind_le_wp_bind
         apply PartialOrder.rel_trans
-        · unfold Std.Internal.Do.wp
+        · unfold Std.WP.wp
           apply LawfulEffWP.ewp_le_wp_interp (m := m) (Pred := Pred) x _ epost
           exact (fun b => (k b).wp (m := m) post epost)
         · apply WP.wp_consequence

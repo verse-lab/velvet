@@ -1,7 +1,7 @@
 import CaseStudies.SegmentTree.Asymptotics
 import Velvet
 
-open Std.Internal.Do
+open Std.WP
 
 open Lean Elab Tactic
 
@@ -41,7 +41,7 @@ prove_correct buildTreeMethod by
     all_goals grind [arrFold] }
   repeat' velvet_vcgen
   all_goals try grind [arrFold, depth, log2_up]
-  { rename_i l r _ _ _ _ _ _
+  { rename_i l r _ _ _ _
     have hlt : l < r := by grind
     simp [depth]
     rw [ensures4_1, ensures4]

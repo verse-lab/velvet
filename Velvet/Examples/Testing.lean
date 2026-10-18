@@ -220,7 +220,7 @@ do
 
 method optional (present : Bool) returns (result : Nat) in OptionT (ReaderT Nat Option)
   requires (env : Nat) => env < 10
-  signals (env : Nat) => env = 0
+  signals (_ : Unit) (env : Nat) => env = 0
   signals False
   ensures (env : Nat) => result = env
 do
@@ -274,7 +274,7 @@ section AlternativeWP
 
 -- A direct WP instance can override the one from WPMonad. Do not silently test a
 -- different interpretation, even when both have the same assertion types.
-@[instance_reducible] public def alternativeWP : Std.Internal.Do.WP (Id Nat) Nat Prop Std.Internal.Do.EPost.Nil where
+@[instance_reducible] public def alternativeWP : Std.WP.WP (Id Nat) Nat Prop Std.WP.EStackEnd where
   wpTrans _ := ⟨fun _ _ => True⟩
   wp_trans_monotone _ := fun _ _ _ _ _ _ => id
 

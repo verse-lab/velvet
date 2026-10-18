@@ -5,10 +5,10 @@
 # Usage:
 #   generate_vcgen_diff [--full] [toolchain]
 #     --full    show the whole file (don't trim unchanged lines)
-#     toolchain # elan dir name, e.g. leanprover--lean4-nightly---nightly-2026-08-11
+#     toolchain # elan dir name, e.g. leanprover--lean4---v4.35.0
 #               # or a full path to a toolchain root; defaults to the active one
 #
-# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util, plus BinderName.
+# Writes diffs/<File>.diff for Driver, Solve, Frontend and Util.
 set -euo pipefail
 
 # Resolve the real location of this script (follow symlinks) so it works
@@ -82,14 +82,3 @@ for f in Driver Solve Frontend Util; do
     *) echo "error: diff failed for $f (exit $rc)" >&2; rm -f "$out";;
   esac
 done
-
-# BinderName is a Velvet addition, not a replacement for Lean's similarly named file.
-out="$DIFF_DIR/BinderName.diff"
-rc=0
-diff -u --label /dev/null --label "b/Velvet/Core/VCGen/BinderName.lean" \
-  /dev/null "$VCGEN_DIR/BinderName.lean" > "$out" || rc=$?
-if [[ $rc -gt 1 ]]; then
-  echo "error: diff failed for BinderName (exit $rc)" >&2
-  exit "$rc"
-fi
-echo "wrote $out"
