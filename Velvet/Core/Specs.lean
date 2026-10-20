@@ -33,19 +33,6 @@ public def specTermToTerm (stx : TSyntax `velvSpecTerm) : MacroM (TSyntax `term)
 /-- Option failure is a postcondition over `Unit`; an assertion states it for every argument. -/
 public instance {Pred : Type u} [Assertion Pred] : Coe Pred (Unit → Pred) := ⟨fun p _ => p⟩
 
-/-- The assertion type of the monad `m`, which its `WPMonad` instance computes as an output
-parameter: `Prop` for `Option`, `Nat → Prop` for `StateM Nat`. `none` when `m` has no `WPMonad`
-instance. -/
-public def assertionType? (m : Expr) : MetaM (Option Expr) := do
-  let wpMonad ← mkConstWithFreshMVarLevels ``Std.WP.WPMonad
-  let (args, _, _) ← forallMetaTelescope (← inferType wpMonad)
-  let some m' := args[0]? | return none
-  unless ← isDefEq m' m do return none
-  let .some _ ← trySynthInstance (mkAppN wpMonad args) | return none
-  let some pred := args[1]? | return none
-  let pred ← instantiateMVars pred
-  return if pred.hasExprMVar then none else some pred
-
 variable {m : Type u → Type v} {Pred EPred : Type u}
 
 /-- A runtime no-op that introduces an assertion into verification conditions. -/

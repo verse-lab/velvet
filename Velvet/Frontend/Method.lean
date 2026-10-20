@@ -12,6 +12,7 @@ public import Velvet.Core.Named
 public meta import Velvet.Core.Named
 public import Velvet.Core.Specs
 public meta import Velvet.Core.Specs
+public import Velvet.Core.AssertionTypes
 public import Velvet.Core.Loop
 public meta import Velvet.Core.Loop
 public import Velvet.Core.VCGen
@@ -118,8 +119,8 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     let ids := ctx.binders.flatMap (fun b => contractBinderIdents b.raw)
     let binderStxs := ctx.binders
     let allBinderStxs := binderStxs ++ ctx.givenBinders
-    let reqNames := makeNameArrayFromIdents (ctx.requiresClauses.map (·.name)) "requires"
-    let ensNames := makeNameArrayFromIdents (ctx.ensuresClauses.map (·.name)) "ensures"
+    let reqNames := clauseNames (ctx.requiresClauses.map (·.name)) "requires"
+    let ensNames := clauseNames (ctx.ensuresClauses.map (·.name)) "ensures"
     let reqTerms ← liftMacroM <| ctx.requiresClauses.mapM (fun c => buildFun c.binders c.term)
     let ensTerms ← liftMacroM <| ctx.ensuresClauses.mapM (fun c => buildFun c.binders c.term)
     let pre ← liftMacroM <| mkAssertionList reqTerms reqNames
@@ -138,7 +139,7 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
       | .totalCorrectness => `(term| False)
       | .partialCorrectness => `(term| True)
     let sigFunTerms ← liftMacroM <| ctx.signalsClauses.mapM (fun c => buildFun c.binders c.term)
-    let sigNamesBase := makeNameArrayFromIdents (ctx.signalsClauses.map (·.name)) "signals"
+    let sigNamesBase := clauseNames (ctx.signalsClauses.map (·.name)) "signals"
     let mut sigTerms : Array (TSyntax `term) := sigFunTerms
     let mut sigNames : Array Name := sigNamesBase
     let mut monadStack' : TSyntax `term ← `(term| PUnit)
@@ -207,16 +208,16 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
         `(term|
           Std.WP.Triple
             (($(ctx.name) $ids* : $monadStack'))
-            $pre
-            ($post)
-            ($sigs))
+            ($pre : assertion_type% $monadStack')
+            ($post : $(ctx.retType) → assertion_type% $monadStack')
+            ($sigs : exception_assertion_type% $monadStack'))
       else
         `(term|
           ∀ $allBinderStxs*, Std.WP.Triple
             (($(ctx.name) $ids* : $monadStack'))
-            $pre
-            ($post)
-            ($sigs))
+            ($pre : assertion_type% $monadStack')
+            ($post : $(ctx.retType) → assertion_type% $monadStack')
+            ($sigs : exception_assertion_type% $monadStack'))
     let specCmd ← `(command|
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
