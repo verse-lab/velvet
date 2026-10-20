@@ -133,7 +133,15 @@ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
   let some mvarId ← cleanupVC goal.mvarId | return
   let some emittedGoal ← processNamedGoal { goal with mvarId } | return
   -- Unwrapping a named goal can expose new trivial conjuncts, so clean up once more.
+  let source? := Named.sourceRef? (← emittedGoal.mvarId.getType)
   let some mvarId ← cleanupVC emittedGoal.mvarId | return
+  -- Splitting a conjunction or rebuilding an equation drops the clause's source position, which
+  -- the discharger reports failures at; put it back on what is left.
+  let mvarId ← match source? with
+    | some source =>
+        if (Named.sourceRef? (← mvarId.getType)).isSome then pure mvarId
+        else mvarId.replaceTargetDefEqFast (Named.annotateSourceRef (← mvarId.getType) source)
+    | none => pure mvarId
   mvarId.setKind .syntheticOpaque
   modify fun s => { s with vcs := s.vcs.push { emittedGoal with mvarId } }
 
