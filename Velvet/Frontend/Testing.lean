@@ -204,7 +204,7 @@ private meta def deriveDecisions (name : Ident) (kind suffix : Name)
   let cmd ← `(command|
     public def $declId : testing_decision_type% $name $kindId := by
       prepare_testing_decisions
-      all_goals (simp only [Named.mk, Lean.Order.ofProp_prop_eq, Lean.Order.meet])
+      all_goals (try simp only [Named.mk, Lean.Order.ofProp_prop_eq, Lean.Order.meet_prop_eq_and])
       ($proof))
   elabCommand cmd
 
