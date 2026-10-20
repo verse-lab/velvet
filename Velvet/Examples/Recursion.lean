@@ -119,7 +119,7 @@ prove_correct spinRec by
   refine spinRec.fixpoint_induct (motive := spinRec.fixpoint_triple_motive) ?_ ?_
   · apply admissible_triple
     intro _
-    simp [Named.mk]
+    velvet_vcgen with finish
   · intro p ih
     velvet_vcgen [ih] with finish
 
@@ -134,7 +134,7 @@ prove_correct spinRecStateM by
   refine spinRecStateM.fixpoint_induct (motive := spinRecStateM.fixpoint_triple_motive) ?_ ?_
   · apply admissible_triple
     intro _
-    simp [Named.mk]
+    velvet_vcgen with finish
   · intro p ih
     velvet_vcgen [ih] with finish
 
@@ -153,7 +153,7 @@ prove_correct countdownRec by
   refine countdownRec.fixpoint_induct (motive := countdownRec.fixpoint_triple_motive) ?_ ?_ n
   · apply admissible_pi_triple
     intro _
-    simp [Named.mk]
+    velvet_vcgen with finish
   · intro p ih n
     velvet_vcgen [ih] with finish
 
@@ -171,7 +171,7 @@ prove_correct spinWithGiven by
     intro g
     apply admissible_triple
     intro _
-    simp [Named.mk]
+    velvet_vcgen with finish
   · intro p ih g
     have ih_g := ih g
     velvet_vcgen [ih_g] with finish
@@ -197,7 +197,7 @@ prove_correct countdownWithGiven by
     intro g
     apply admissible_triple
     intro _
-    simp [Named.mk]
+    velvet_vcgen with finish
   · intro p ih n g
     have ih_n_g := ih (n - 1) g
     velvet_vcgen [ih_n_g] with finish

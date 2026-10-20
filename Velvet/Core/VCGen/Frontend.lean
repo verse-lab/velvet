@@ -420,14 +420,18 @@ private meta def parseArgs (stx : Syntax) (goal : MVarId) : TermElabM ParsedArgs
   -- distinguish "default true" from "user-set true"); not yet wired.
   let (ctx, scope) ← mkContext stx[2] goal
   -- The program type, inferred once from the goal, is the expected type for the `frames`/`until`
-  -- program patterns (so overloaded heads resolve). A goal with no program cannot be a `vcgen` goal.
-  let some progTy ← inferProgType? (← goal.getType)
-    | throwError "vcgen: could not determine the program type of the goal"
+  -- program patterns (so overloaded heads resolve). Only they need it: any other goal, such as an
+  -- entailment with no program, goes straight to the solver.
+  let progTy? ← inferProgType? (← goal.getType)
+  let progTyFor (clause : String) : TermElabM Expr := do
+    let some progTy := progTy?
+      | throwError "vcgen: `{clause}` needs a program in the goal"
+    return progTy
   let frameProcs ← getFrameProcs
   let untilPat? ← if stx[3].isNone then pure none
-    else some <$> elabUntilPattern progTy ⟨stx[3][1]⟩
+    else some <$> elabUntilPattern (← progTyFor "until") ⟨stx[3][1]⟩
   let frameDB ← if stx[4].isNone then pure ({} : FrameDB)
-    else elabFrameDB progTy stx[4][1].getArgs
+    else elabFrameDB (← progTyFor "frames") stx[4][1].getArgs
   let invariantAlts? ← parseInvariantMap stx[5]
   let hypSimpMethods ← elabSimplifyingAssumptions stx[6]
   let ctx := { ctx with
@@ -454,6 +458,9 @@ public meta def evalSymVCGenVendored : Lean.Elab.Tactic.Grind.GrindTactic := fun
   if let some frameStx := result.unmatchedFrames[0]? then
     throwErrorAt frameStx "`frames` alternative matched no program in the goal"
   let invariants ← result.invariants.filterM (not <$> ·.isAssigned)
+  -- Fail when the worklist took no step on the goal.
+  if result.steps == 0 && invariants.isEmpty && result.vcs.size == 1 then
+    throwError "vcgen: no progress on the goal"
   let newGoals ← Lean.Elab.Tactic.Grind.liftGrindM do
     let invGoals ← invariants.toList.mapM Grind.mkGoalCore
     return invGoals ++ result.vcs.toList
