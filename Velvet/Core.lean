@@ -3,6 +3,7 @@ module
 public import Velvet.Core.Ghost
 public import Velvet.Core.GhostSyntax
 public import Velvet.Core.Named
+public import Velvet.Core.AssertionTypes
 public import Velvet.Core.Specs
 public import Velvet.Core.Loop
 public import Velvet.Core.Partial

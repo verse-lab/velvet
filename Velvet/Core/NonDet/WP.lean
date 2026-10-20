@@ -1,7 +1,7 @@
 module
 
 public import Velvet.Core.NonDet.Defs
-public import Velvet.Core.Loop.Specs
+public import Velvet.Core.Loop.Gadgets
 public import Std.WP
 
 open Std.WP Lean.Order Loop Loop.Gadget WPPartial

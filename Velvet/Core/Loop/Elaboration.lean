@@ -4,6 +4,7 @@ public import Velvet.Core.Named
 public meta import Velvet.Core.Named
 public import Velvet.Core.Specs
 public meta import Velvet.Core.Specs
+public meta import Velvet.Core.AssertionTypes
 public import Velvet.Core.Loop.Gadgets
 public import Lean.Data.KVMap
 public meta import Lean.Parser
@@ -170,8 +171,8 @@ private meta def LoopApp.mkStateFun (g : LoopApp) (e : Term) : DoElabM Term := d
 private meta def LoopApp.mkCall (g : LoopApp) (gadget : Name) (args : Array Term) : DoElabM Expr := do
   -- Fix the assertion type up front. Left to unification, it can stay pending until an enclosing
   -- loop body abstracts over its binders, leaving an unreduced redex where `vcgen` expects `Prop`.
-  let call ← match ← assertionType? (← read).monadInfo.m with
-    | some pred => `($(mkIdent gadget) (Pred := $(← Term.exprToSyntax pred)) $args*)
+  let call ← match ← assertionTypes? (← read).monadInfo.m with
+    | some info => `($(mkIdent gadget) (Pred := $(← Term.exprToSyntax info.pred)) $args*)
     | none => `($(mkIdent gadget) $args*)
   Term.elabTermEnsuringType call (mkApp (← read).monadInfo.m g.σ)
 
@@ -306,27 +307,23 @@ public meta def elabDoForVelvet : DoElab := fun stx dec => do
   let α ← mkFreshExprMVar (mkSort (uα.succ)) (userName := `α)
   let ρ ← mkFreshExprMVar (mkSort (uρ.succ)) (userName := `ρ)
   let xs ← Term.elabTermEnsuringType xs ρ
-  let binders : Array (Name × (Array Expr → DoElabM Expr)) ← match h? with
-    | none => pure #[(x.getId, fun _ => pure α)]
-    | some h =>
-      let d ← mkFreshExprMVar (mkApp2 (mkConst ``Membership [uα, uρ]) α ρ) (userName := `d)
-      pure #[(x.getId, fun _ => pure α),
-        (h.getId, fun x => pure (mkApp5 (mkConst ``Membership.mem [uα, uρ]) α ρ d xs x[0]!))]
+  -- The body always takes the membership proof, named `h_mem` unless the loop names it.
+  let d ← mkFreshExprMVar (mkApp2 (mkConst ``Membership [uα, uρ]) α ρ) (userName := `d)
+  let hName := (h?.map (·.getId)).getD `h_mem
+  let binders : Array (Name × (Array Expr → DoElabM Expr)) := #[(x.getId, fun _ => pure α),
+    (hName, fun x => pure (mkApp5 (mkConst ``Membership.mem [uα, uρ]) α ρ d xs x[0]!))]
   let addBinderInfo (xh : Array Expr) : DoElabM Unit := do
     Term.addLocalVarInfo x xh[0]!
     if let some h := h? then
       Term.addLocalVarInfo h xh[1]!
   elabLoop dec body binders addBinderInfo fun g => do
-    let invs' ← liftMacroM <| mkAssertionList invs (makeNameArrayFromIdents ns "invariant")
+    let invs' ← liftMacroM <| mkAssertionList invs (clauseNames ns "invariant")
     let stateInvLam ← g.mkStateFun invs'
     let loopArgs := #[← Term.exprToSyntax xs, ← Term.exprToSyntax g.init, ← Term.exprToSyntax g.body]
     match ← classifyForLoopInvariants x.getId invs ns stateInvLam done hDone with
     | .pureState =>
-      let gadget := match h?.isSome, g.returnsEarly with
-        | true, true => ``Loop.Gadget.forLoopMemWithInvariantReturning
-        | true, false => ``Loop.Gadget.forLoopMemWithInvariant
-        | false, true => ``Loop.Gadget.forLoopWithInvariantReturning
-        | false, false => ``Loop.Gadget.forLoopWithInvariant
+      let gadget := if g.returnsEarly then ``Loop.Gadget.forLoopWithInvariantReturning
+        else ``Loop.Gadget.forLoopWithInvariant
       g.mkCall gadget (loopArgs.push stateInvLam)
     | .invAndDone doneTerm doneName =>
       let done' ← liftMacroM <| mkAssertionList #[doneTerm] #[doneName]
@@ -334,11 +331,8 @@ public meta def elabDoForVelvet : DoElab := fun stx dec => do
       let rest := mkIdent `__rest
       let invLam ← `(fun $pref:ident $x:ident $rest:ident => $(← g.mkStateFun invs'))
       let doneLam ← `(fun $pref:ident => $(← g.mkStateFun done'))
-      let gadget := match h?.isSome, g.returnsEarly with
-        | true, true => ``Loop.Gadget.forLoopMemWithInvariantAndDoneReturning
-        | true, false => ``Loop.Gadget.forLoopMemWithInvariantAndDone
-        | false, true => ``Loop.Gadget.forLoopWithInvariantAndDoneReturning
-        | false, false => ``Loop.Gadget.forLoopWithInvariantAndDone
+      let gadget := if g.returnsEarly then ``Loop.Gadget.forLoopWithInvariantAndDoneReturning
+        else ``Loop.Gadget.forLoopWithInvariantAndDone
       g.mkCall gadget (loopArgs ++ #[invLam, doneLam])
 
 @[doElem_control_info doWhileVelvet]
@@ -378,7 +372,7 @@ public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
   let binders : Array (Name × (Array Expr → DoElabM Expr)) :=
     #[(← mkFreshUserName `__u, fun _ => pure (Lean.mkConst ``Unit))]
   elabLoop dec loopBody binders (fun _ => pure ()) fun g => do
-    let invNames := makeNameArrayFromIdents ns "invariant"
+    let invNames := clauseNames ns "invariant"
     let invs' ← liftMacroM <| mkAssertionList invs invNames
     let invLam ← g.mkStateFun invs'
     let mut loopArgs := #[← Term.exprToSyntax g.init, ← Term.exprToSyntax g.body, invLam]
@@ -387,16 +381,14 @@ public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
     if let some doneWith := d then
       let doneName := h_done.join.map (fun (id : Ident) => id.getId) |>.getD `h_done_with
       let exitedInvs ← liftMacroM <| mkAssertionList (invs.push doneWith) (invNames.push doneName)
-      loopArgs := loopArgs.push (← g.mkStateFun exitedInvs)
-    let gadget := match m.isSome, d.isSome, g.returnsEarly with
-      | false, false, false => ``Loop.Gadget.whileLoopPartial
-      | false, false, true => ``Loop.Gadget.whileLoopPartialReturning
-      | false, true, false => ``Loop.Gadget.whileLoopPartialAndDone
-      | false, true, true => ``Loop.Gadget.whileLoopPartialAndDoneReturning
-      | true, false, false => ``Loop.Gadget.whileLoopTotal
-      | true, false, true => ``Loop.Gadget.whileLoopTotalReturning
-      | true, true, false => ``Loop.Gadget.whileLoopTotalAndDone
-      | true, true, true => ``Loop.Gadget.whileLoopTotalAndDoneReturning
+      loopArgs := loopArgs.push (← `(some $(← g.mkStateFun exitedInvs)))
+    else
+      loopArgs := loopArgs.push (← `(none))
+    let gadget := match m.isSome, g.returnsEarly with
+      | false, false => ``Loop.Gadget.whileLoopPartial
+      | false, true => ``Loop.Gadget.whileLoopPartialReturning
+      | true, false => ``Loop.Gadget.whileLoopTotal
+      | true, true => ``Loop.Gadget.whileLoopTotalReturning
     match m with
     | none =>
       if isPartial == false then

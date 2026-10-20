@@ -347,8 +347,9 @@ do
   return x
 ```
 
-#### 3. In-Scope Membership Proof (`for h : x in xs`)
-You can bind a proof that the current element belongs to the collection:
+#### 3. In-Scope Membership Proof (`h_mem`, or `for h : x in xs`)
+The body of a `for` loop with clauses has a proof that the current element belongs to the
+collection, named `h_mem`:
 
 ```lean
 set_option velvet.verifyOnDefinition true in
@@ -357,13 +358,16 @@ method memberBound (xs : List Nat) (bound : Nat) returns (sum : Nat)
   ensures sum ≥ 0
 do
   let mut s := 0
-  for h : x in xs
+  for x in xs
     invariant nonneg: s ≥ 0
   do
-    assert h_in: x ∈ xs  -- `h : x ∈ xs` is in scope!
+    have _ : x ∈ xs := h_mem  -- `h_mem : x ∈ xs` is in scope
     s := s + x
   return s
 ```
+
+`for h : x in xs` names it `h` instead. A `for` loop without clauses is Lean's own, which has the
+proof only with `h :`.
 
 #### 4. Control Flow: `break`, `continue`, and Early `return`
 `while` and `for` loops support `break`, `continue` and `return`. Each way of leaving or continuing
