@@ -157,29 +157,31 @@ prove_correct countUp by
   | succ k ih => unfold countUp; velvet_vcgen with finish
 ```
 
-When no argument decreases, prove the method by `fixpoint_induction`, which inducts on the
-approximations of the method instead. This proves partial correctness, so the method's
-`signals` must allow it to diverge:
+When no argument decreases, prove the method by `fixpoint_induction` instead, which inducts on
+the approximations of the method. McCarthy's 91 function is an example: its recursive calls grow
+`n`, and pass one call's result to the other.
 
 ```lean
-method rec countdownRec (n : Nat) returns (res : Nat) in Option
+method rec f91 (n : Nat) returns (res : Nat) in Option
   signals True
-  ensures res = 0
+  ensures res = if n > 100 then n - 10 else 91
 do
-  if n = 0 then
-    return 0
+  if n > 100 then
+    return n - 10
   else
-    countdownRec (n - 1)
+    let r ← f91 (n + 11)
+    f91 r
 
-prove_correct countdownRec by
-  fixpoint_induction countdownRec
+prove_correct f91 by
+  fixpoint_induction f91
   all_goals velvet_vcgen with finish
 ```
 
-`fixpoint_induction` leaves the method's body as the goal, with the recursive calls going to an
-approximation whose spec is the induction hypothesis, and a goal `hdiv` stating that the
-`signals` allow divergence. The goal can be any statement about the
-method built from `∀`, `→`, `∧` and triples, not only its contract.
+`fixpoint_induction f91` abstracts the goal over `f91`, so the goal can be any statement about
+`f91`, not only its contract. It proves the admissibility side conditions of the induction itself,
+and leaves goals that do not involve its internals: the method's body, with the recursive calls
+going to an approximation that satisfies the goal, and for each triple, that its `signals` allow
+divergence, since fixpoint induction proves partial correctness.
 
 See [`Recursion.lean`](Velvet/Examples/Recursion.lean) for
 complete recursive proofs, including methods with `given` parameters.
