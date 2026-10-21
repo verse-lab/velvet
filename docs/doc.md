@@ -157,6 +157,30 @@ prove_correct countUp by
   | succ k ih => unfold countUp; velvet_vcgen with finish
 ```
 
+When no argument decreases, prove the method by `fixpoint_induction`, which inducts on the
+approximations of the method instead. This proves partial correctness, so the method's
+`signals` must allow it to diverge:
+
+```lean
+method rec countdownRec (n : Nat) returns (res : Nat) in Option
+  signals True
+  ensures res = 0
+do
+  if n = 0 then
+    return 0
+  else
+    countdownRec (n - 1)
+
+prove_correct countdownRec by
+  fixpoint_induction countdownRec
+  all_goals velvet_vcgen with finish
+```
+
+`fixpoint_induction` leaves the method's body as the goal, with the recursive calls going to an
+approximation whose spec is the induction hypothesis, and a goal `hdiv` stating that the
+`signals` allow divergence. The goal can be any statement about the
+method built from `∀`, `→`, `∧` and triples, not only its contract.
+
 See [`Recursion.lean`](Velvet/Examples/Recursion.lean) for
 complete recursive proofs, including methods with `given` parameters.
 
