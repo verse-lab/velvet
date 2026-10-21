@@ -2,4 +2,4 @@
 - Report upstream: Lean's `vcgen` loses what holds at a `return` inside a loop, and the workarounds leave lattice terms in the VCs (repro: Velvet/Examples/LoopVCGenUpstreamIssue.lean).
 - Report upstream: `splitProdBinder` builds unshared terms and panics under `sym.debug` (repro: Velvet/Examples/SplitProdBinder.lean).
 - Allow `decreasing` measures of any well-founded type, not just `Nat`.
-- `velvet_vcgen` fails to split an `if` program after `clear` and `constructor` (repro: Velvet/Examples/SplitAfterClear.lean).
+- Report upstream: Lean's `vcgen`, and so `velvet_vcgen`, fails to split an `if` program after `clear` and `constructor` (repro: Velvet/Examples/SplitAfterClear.lean).
