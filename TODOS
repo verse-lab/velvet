@@ -3,3 +3,7 @@
 - Report upstream: `splitProdBinder` builds unshared terms and panics under `sym.debug` (repro: Velvet/Examples/SplitProdBinder.lean).
 - Allow `decreasing` measures of any well-founded type, not just `Nat`.
 - Report upstream: Lean's `vcgen`, and so `velvet_vcgen`, fails to split an `if` program after `clear` and `constructor` (repro: Velvet/Examples/SplitAfterClear.lean).
+- IO effects: a deriving-style command for the `Embeds`/`Distinct` instances of an event type (all are `rfl`).
+- IO effects: `while` loops in `method` over `IOProg` (`ForIn (FreerMonad e) Loop.PartialLoop` plus `@[spec]` lemmas; `FreerMonad.iter_partial` is the rule).
+- IO effects: a real `IO` interpreter as the sibling of `Model` (`read`/`write` on actual handles), unverified by construction.
+- IO effects: program-level rules over the whole event list (cross-channel, e.g. "log before replying"); a `Protocol` only sees its own channel.
