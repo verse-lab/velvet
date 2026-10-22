@@ -23,6 +23,6 @@ inductive IOEvent (In Out Err : Type) where
   | write (o : Out) (r : WriteOutcome Err)
 
 structure Protocol (In Out Err : Type) where
-  guarantee : List (IOEvent In Out Err) → Out → Prop
-  readAssumption : List (IOEvent In Out Err) → ReadOutcome In Err → Prop
-  writeAssumption : List (IOEvent In Out Err) → Out → WriteOutcome Err → Prop
+  allow : List (IOEvent In Out Err) → Out → Prop
+  onRead : List (IOEvent In Out Err) → ReadOutcome In Err → Prop
+  onWrite : List (IOEvent In Out Err) → Out → WriteOutcome Err → Prop

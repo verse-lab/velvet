@@ -10,43 +10,66 @@ class Distinct (c c' : Type) {In Out Err In' Out' Err' : outParam Type}
   left : ∀ (ch' : c') e, Embeds.proj (c := c) (Embeds.inj ch' e : E) = none
   right : ∀ (ch : c) e, Embeds.proj (c := c') (Embeds.inj ch e : E) = none
 
-section
+structure Trace (E : Type) where
+  events : List E
+
+namespace Trace
 variable {E c In Out Err : Type} [Channel c In Out Err] [DecidableEq c] [Embeds c E]
 
 def Embeds.on (ch : c) (x : E) : Option (IOEvent In Out Err) :=
   (Embeds.proj x).bind fun (ch', e) => if ch' = ch then some e else none
 
-def trace (h : List E) (ch : c) : List (IOEvent In Out Err) := h.filterMap (Embeds.on ch)
+def traceOf (t : Trace E) (ch : c) : List (IOEvent In Out Err) := t.events.filterMap (Embeds.on ch)
 
-def record (h : List E) (ch : c) (e : IOEvent In Out Err) : List E := h ++ [Embeds.inj ch e]
+def recordFor (t : Trace E) (ch : c) (e : IOEvent In Out Err) : Trace E := ⟨t.events ++ [Embeds.inj ch e]⟩
+
+omit [DecidableEq c] in
+@[simp, grind =]
+theorem mem_recordFor (x : E) (t : Trace E) (ch : c) (e : IOEvent In Out Err) :
+    x ∈ (t.recordFor ch e).events ↔ x ∈ t.events ∨ x = Embeds.inj ch e := by
+  simp [recordFor]
+
+omit [DecidableEq c] in
+@[simp, grind =]
+theorem getLast?_recordFor (t : Trace E) (ch : c) (e : IOEvent In Out Err) :
+    (t.recordFor ch e).events.getLast? = some (Embeds.inj ch e) := by
+  simp [recordFor]
 
 @[simp, grind =]
-theorem trace_record_self (h : List E) (ch : c) (e : IOEvent In Out Err) :
-    trace (record h ch e) ch = trace h ch ++ [e] := by
-  simp [trace, record, Embeds.on, List.filterMap_append, Embeds.proj_inj]
+theorem traceOf_recordFor_self (t : Trace E) (ch : c) (e : IOEvent In Out Err) :
+    (t.recordFor ch e).traceOf ch = t.traceOf ch ++ [e] := by
+  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Embeds.proj_inj]
 
 @[simp, grind =]
-theorem trace_record_ne (h : List E) {ch ch' : c} (hne : ch ≠ ch') (e : IOEvent In Out Err) :
-    trace (record h ch' e) ch = trace h ch := by
-  simp [trace, record, Embeds.on, List.filterMap_append, Embeds.proj_inj, Ne.symm hne]
+theorem traceOf_recordFor_ne (t : Trace E) {ch ch' : c} (hne : ch ≠ ch') (e : IOEvent In Out Err) :
+    (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
+  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Embeds.proj_inj, Ne.symm hne]
 
 variable {c' In' Out' Err' : Type} [Channel c' In' Out' Err'] [Embeds c' E]
 
 @[simp, grind =]
-theorem trace_record_other [Distinct c c' E] (h : List E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
-    trace (record h ch' e) ch = trace h ch := by
-  simp [trace, record, Embeds.on, List.filterMap_append, Distinct.left]
+theorem traceOf_recordFor_other [Distinct c c' E] (t : Trace E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
+    (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
+  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Distinct.left]
 
 @[simp, grind =]
-theorem trace_record_other' [Distinct c' c E] (h : List E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
-    trace (record h ch' e) ch = trace h ch := by
-  simp [trace, record, Embeds.on, List.filterMap_append, Distinct.right]
+theorem traceOf_recordFor_other' [Distinct c' c E] (t : Trace E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
+    (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
+  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Distinct.right]
 
-end
+end Trace
+
+class Policy (E : Type) where
+  allow : Trace E → Prop
+
+instance (priority := low) Policy.default {E : Type} : Policy E := ⟨fun _ => True⟩
+
+@[simp, grind =]
+theorem Policy.allow_default {E : Type} (t : Trace E) : @Policy.allow E Policy.default t = True := rfl
 
 class Model {In Out Err : outParam Type} (P : outParam (Protocol In Out Err)) (c : Type)
     [Channel c In Out Err] (E : Type) [DecidableEq c] [Embeds c E] where
-  read : List E → c → ReadOutcome In Err
-  read_ok : ∀ h ch, P.readAssumption (trace h ch) (read h ch)
-  write : List E → c → Out → WriteOutcome Err
-  write_ok : ∀ h ch o, P.writeAssumption (trace h ch) o (write h ch o)
+  read : Trace E → c → ReadOutcome In Err
+  read_ok : ∀ t ch, P.onRead (t.traceOf ch) (read t ch)
+  write : Trace E → c → Out → WriteOutcome Err
+  write_ok : ∀ t ch o, P.onWrite (t.traceOf ch) o (write t ch o)
