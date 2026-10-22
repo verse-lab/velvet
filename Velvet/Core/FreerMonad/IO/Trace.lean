@@ -10,6 +10,48 @@ class Distinct (c c' : Type) {In Out Err In' Out' Err' : outParam Type}
   left : ∀ (ch' : c') e, Embeds.proj (c := c) (Embeds.inj ch' e : E) = none
   right : ∀ (ch : c) e, Embeds.proj (c := c') (Embeds.inj ch e : E) = none
 
+instance instEmbedsProd {c In Out Err : Type} [Channel c In Out Err] : Embeds c (c × IOEvent In Out Err) where
+  inj ch e := (ch, e)
+  proj x := some x
+  proj_inj _ _ := rfl
+
+instance instEmbedsSumRight {c In Out Err A B : Type} [Channel c In Out Err] [Embeds c B] : Embeds c (A ⊕ B) where
+  inj ch e := .inr (Embeds.inj ch e)
+  proj
+    | .inr x => Embeds.proj x
+    | .inl _ => none
+  proj_inj _ _ := by simp [Embeds.proj_inj]
+
+instance instEmbedsSumLeft {c In Out Err A B : Type} [Channel c In Out Err] [Embeds c A] : Embeds c (A ⊕ B) where
+  inj ch e := .inl (Embeds.inj ch e)
+  proj
+    | .inl x => Embeds.proj x
+    | .inr _ => none
+  proj_inj _ _ := by simp [Embeds.proj_inj]
+
+section Sum
+variable {c c' In Out Err In' Out' Err' A B : Type} [Channel c In Out Err] [Channel c' In' Out' Err']
+
+instance [Embeds c A] [Embeds c' B] :
+    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumRight :=
+  ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+
+instance [Embeds c B] [Embeds c' A] :
+    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumLeft :=
+  ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+
+instance [Embeds c A] [Embeds c' A] [Distinct c c' A] :
+    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumLeft :=
+  ⟨fun ch' e => by simp [Embeds.proj, Embeds.inj, Distinct.left],
+   fun ch e => by simp [Embeds.proj, Embeds.inj, Distinct.right]⟩
+
+instance [Embeds c B] [Embeds c' B] [Distinct c c' B] :
+    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumRight :=
+  ⟨fun ch' e => by simp [Embeds.proj, Embeds.inj, Distinct.left],
+   fun ch e => by simp [Embeds.proj, Embeds.inj, Distinct.right]⟩
+
+end Sum
+
 structure Trace (E : Type) where
   events : List E
 
