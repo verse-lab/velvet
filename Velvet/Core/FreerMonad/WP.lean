@@ -270,29 +270,6 @@ abbrev Triple {e : Type u → Type v'} [WPMonad m Pred EPred] [∀ γ, CCPO (m �
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   Std.WP.Triple x pre post epost
 
-theorem iter_partial [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
-    [∀ α, WP (e α) α Pred EPred] [WPPartial m Pred EPred div_post div_pre]
-    {α β : Type u} (init : β) (f : β → FreerMonad e (ForInStep β)) (cont : β → FreerMonad e α)
-    (inv : β → Pred) (post : α → Pred) (epost : EPred)
-    (hbody : ∀ b, inv b ⊑ wp (m := m) (f b)
-      (fun r => match r with
-        | .yield b' => inv b'
-        | .done b' => wp (m := m) (cont b') post epost) epost)
-    (hdiv : ∀ b, inv b ⊑ div_pre epost) :
-    inv init ⊑ wp (m := m) (.iter init f cont) post epost := by
-  simp only [wp]
-  apply le_join_of_le_left
-  apply le_iSup_of_le inv
-  apply le_iSup_of_le (fun _ r => match r with
-    | .yield b' => inv b'
-    | .done b' => wp (m := m) (cont b') post epost)
-  refine le_meet _ _ _ (le_meet _ _ _ (le_meet _ _ _ (le_meet _ _ _ ?_ ?_) ?_) ?_) ?_
-  · exact le_ofProp _ _ hbody
-  · exact PartialOrder.rel_refl
-  · exact le_ofProp _ _ (fun _ _ => PartialOrder.rel_refl)
-  · exact le_ofProp _ _ (fun _ _ => PartialOrder.rel_refl)
-  · exact le_ofProp _ _ hdiv
-
 end FreerMonad
 
 end

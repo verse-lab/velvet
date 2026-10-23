@@ -1,5 +1,6 @@
 import Velvet.Core.FreerMonad.IO.Trace
 import Velvet.Core.Partial
+import Velvet.Core.Ghost
 
 open Std.WP Lean.Order
 
@@ -10,6 +11,7 @@ inductive IOEff (E Err : Type) : Type → Type 1 where
       [Model P c E] (ch : c) : IOEff E Err In
   | write {c In Out : Type} [Channel c In Out Err] [DecidableEq c] [Embeds c E] {P : Protocol In Out Err}
       [Model P c E] (ch : c) (o : Out) : IOEff E Err Unit
+  | snapshot : IOEff E Err (Ghost (Trace E))
 
 abbrev IOProg (E Err : Type) := FreerMonad (IOEff E Err)
 
@@ -28,7 +30,8 @@ noncomputable instance instWPIOEff [Policy E] {α : Type} :
         Policy.allow (h.recordFor ch (.write o .ok)) ∧
         P.allow (h.traceOf ch) o ∧
         (P.onWrite (h.traceOf ch) o .ok → post () (h.recordFor ch (.write o .ok))) ∧
-        ∀ e, P.onWrite (h.traceOf ch) o (.error e) → epost.1 e (h.recordFor ch (.write o (.error e)))⟩
+        ∀ e, P.onWrite (h.traceOf ch) o (.error e) → epost.1 e (h.recordFor ch (.write o (.error e)))
+    | .snapshot => post (Ghost.mk h) h⟩
   wp_trans_monotone x post post' epost epost' he hp h := by
     cases x with
     | read ch =>
@@ -36,6 +39,7 @@ noncomputable instance instWPIOEff [Policy E] {α : Type} :
     | write ch o =>
       exact fun ⟨hpol, hg, hk, hn⟩ =>
         ⟨hpol, hg, fun hok => hp _ _ (hk hok), fun e he' => he.1 e _ (hn e he')⟩
+    | snapshot => exact hp _ _
 
 instance instInterpIOEff : HasInterpreter (IOEff E Err) (IOModel E Err) where
   interp
@@ -45,6 +49,7 @@ instance instInterpIOEff : HasInterpreter (IOEff E Err) (IOModel E Err) where
     | @IOEff.write _ _ _ In _ _ _ _ P _ ch o => fun h =>
         some ((Model.write (In := In) (P := P) h ch o).toExcept,
           h.recordFor ch (.write o (Model.write (In := In) (P := P) h ch o)))
+    | .snapshot => fun h => some (.ok (Ghost.mk h), h)
 
 instance instLawfulEffWPIOEff [Policy E] :
     LawfulEffWP (IOEff E Err) (IOModel E Err) (Trace E → Prop) ((Err → Trace E → Prop) × (Unit → Prop)) where
@@ -69,6 +74,7 @@ instance instLawfulEffWPIOEff [Policy E] :
       cases r with
       | ok => exact hk hok
       | error e => exact hn e hok
+    | snapshot => exact id
 
 end Effect
 
@@ -103,6 +109,9 @@ def read (ch : c) : IOProg E Err In := .vis (.read ch) .ret
 
 def write (ch : c) (o : Out) : IOProg E Err Unit := .vis (.write ch o) .ret
 
+/-- The trace so far, as a ghost value for specs and invariants. -/
+def snapshot : IOProg E Err (Ghost (Trace E)) := .vis .snapshot .ret
+
 @[spec]
 theorem read_spec (ch : c) {post : In → Trace E → Prop} {epost : (Err → Trace E → Prop) × (Unit → Prop)} :
     Triple (read (E := E) ch)
@@ -134,5 +143,11 @@ theorem write_spec (ch : c) (o : Out) {post : Unit → Trace E → Prop}
   simp only [meet_apply, meet_prop_eq_and]
   intro hw
   exact ⟨hw.1 _ rfl, hw.2.1, fun hok => hw.2.2.1 hok _ rfl, fun e he => hw.2.2.2 e he _ rfl⟩
+
+@[spec]
+theorem snapshot_spec {post : Ghost (Trace E) → Trace E → Prop}
+    {epost : (Err → Trace E → Prop) × (Unit → Prop)} :
+    Triple (snapshot (E := E) (Err := Err)) (fun h => post (Ghost.mk h) h) post epost :=
+  ⟨fun _ hk => hk⟩
 
 end IOProg

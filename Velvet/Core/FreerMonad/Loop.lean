@@ -76,6 +76,7 @@ theorem whileLoopTotal_core
         exact le_meet _ _ _ (meet_le_right _ _) (meet_le_left _ _)
 
 /-- A partial-correctness `while` loop without `done_with`. -/
+@[spec 1250]
 theorem Spec.whileLoopPartial
     {β : Type u} {init : β} {f : Unit → β → FreerMonad e (ForInStep β)} {einv : EPred}
     {Q : β → Pred} (inv : β → Pred)
@@ -85,6 +86,7 @@ theorem Spec.whileLoopPartial
   whileLoopPartial_core inv Q hdiv step
 
 /-- A partial-correctness `while` loop with `done_with`. -/
+@[spec 1250]
 theorem Spec.whileLoopPartialAndDone
     {β : Type u} {init : β} {f : Unit → β → FreerMonad e (ForInStep β)} {einv : EPred}
     (inv done : β → Pred)
@@ -95,6 +97,7 @@ theorem Spec.whileLoopPartialAndDone
   whileLoopPartial_core inv done hdiv step
 
 /-- A partial-correctness `while` loop with `done_with` whose body can `return`. -/
+@[spec 1250]
 theorem Spec.whileLoopPartialAndDoneReturning
     {γ τ : Type u} {init : Option γ × τ}
     {f : Unit → Option γ × τ → FreerMonad e (ForInStep (Option γ × τ))} {einv : EPred}
@@ -110,6 +113,7 @@ theorem Spec.whileLoopPartialAndDoneReturning
       step)) hD
 
 /-- A partial-correctness `while` loop without `done_with` whose body can `return`. -/
+@[spec 1250]
 theorem Spec.whileLoopPartialReturning
     {γ τ : Type u} {init : Option γ × τ}
     {f : Unit → Option γ × τ → FreerMonad e (ForInStep (Option γ × τ))} {einv : EPred}
@@ -123,6 +127,7 @@ theorem Spec.whileLoopPartialReturning
     (noReturn_step (inv := inv) (x := f ()) (post := fun _ => stepPost (noReturn inv) Q) step)
 
 /-- A total-correctness `while` loop without `done_with`. -/
+@[spec 1250]
 theorem Spec.whileLoopTotal
     {β : Type u} {init : β} {f : Unit → β → FreerMonad e (ForInStep β)} {einv : EPred}
     {Q : β → Pred} (inv : β → Pred) (measure : β → Named.Measure)
@@ -132,6 +137,7 @@ theorem Spec.whileLoopTotal
   whileLoopTotal_core inv Q measure step
 
 /-- A total-correctness `while` loop with `done_with`. -/
+@[spec 1250]
 theorem Spec.whileLoopTotalAndDone
     {β : Type u} {init : β} {f : Unit → β → FreerMonad e (ForInStep β)} {einv : EPred}
     (inv done : β → Pred) (measure : β → Named.Measure)
@@ -142,6 +148,7 @@ theorem Spec.whileLoopTotalAndDone
   whileLoopTotal_core inv done measure step
 
 /-- A total-correctness `while` loop with `done_with` whose body can `return`. -/
+@[spec 1250]
 theorem Spec.whileLoopTotalAndDoneReturning
     {γ τ : Type u} {init : Option γ × τ}
     {f : Unit → Option γ × τ → FreerMonad e (ForInStep (Option γ × τ))} {einv : EPred}
@@ -158,6 +165,7 @@ theorem Spec.whileLoopTotalAndDoneReturning
       step)) hD
 
 /-- A total-correctness `while` loop without `done_with` whose body can `return`. -/
+@[spec 1250]
 theorem Spec.whileLoopTotalReturning
     {γ τ : Type u} {init : Option γ × τ}
     {f : Unit → Option γ × τ → FreerMonad e (ForInStep (Option γ × τ))} {einv : EPred}
