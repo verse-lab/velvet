@@ -124,17 +124,19 @@ private def processNamedGoal (goal : Grind.Goal) : SymM (Option Grind.Goal) := d
 /--
 Called when decomposing the goal further did not succeed; in this case we emit a VC for the goal.
 Invariant subgoals are handled separately by `handleInvariantSubgoals` directly inside `work`,
-so they never reach this path.
+so they never reach this path. Returns whether it closed the goal or unwrapped a named clause.
 -/
-public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
+public def emitVC (goal : Grind.Goal) : VCGenM Bool := do
   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
   goal ← processHypotheses goal
-  if goal.inconsistent then return
-  let some mvarId ← cleanupVC goal.mvarId | return
-  let some emittedGoal ← processNamedGoal { goal with mvarId } | return
+  if goal.inconsistent then return true
+  let some mvarId ← cleanupVC goal.mvarId | return true
+  let some emittedGoal ← processNamedGoal { goal with mvarId } | return true
+  -- `processNamedGoal` returns the goal itself when it has no named clause to unwrap.
+  let unwrapped := emittedGoal.mvarId != mvarId
   -- Unwrapping a named goal can expose new trivial conjuncts, so clean up once more.
   let source? := Named.sourceRef? (← emittedGoal.mvarId.getType)
-  let some mvarId ← cleanupVC emittedGoal.mvarId | return
+  let some mvarId ← cleanupVC emittedGoal.mvarId | return true
   -- Splitting a conjunction or rebuilding an equation drops the clause's source position, which
   -- the discharger reports failures at; put it back on what is left.
   let mvarId ← match source? with
@@ -144,14 +146,18 @@ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
     | none => pure mvarId
   mvarId.setKind .syntheticOpaque
   modify fun s => { s with vcs := s.vcs.push { emittedGoal with mvarId } }
+  return unwrapped
 
 private structure WorkItem where
   goal : Grind.Goal
   scope : Scope
 
-public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Unit := do
+/-- Run the worklist on `goal`. Returns the number of steps taken: `solve` decomposing a goal, the
+simplifier closing or changing one, or `emitVC` closing one or unwrapping a named clause. -/
+public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Nat := do
   let mvarId ← preprocessMVar goal.mvarId
   let mut worklist : Array WorkItem := #[{ goal := { goal with mvarId }, scope }]
+  let mut steps := 0
   while let some s := worklist.back? do
     worklist := worklist.pop
     if ← s.goal.mvarId.isAssigned then continue
@@ -159,20 +165,23 @@ public def work (scope : Scope) (goal : Grind.Goal) : VCGenM Unit := do
     if goal.inconsistent then continue
     match ← solve s.scope goal.mvarId with
     | .stop .outOfFuel | .stop (.untilPatternMatched _) =>
-      emitVC goal
+      if ← emitVC goal then steps := steps + 1
     | .stop _ =>
       match ← Sym.simpGoal goal.mvarId (← mkGeneratedControlSimpMethods) with
-      | .closed => continue
-      | .noProgress => emitVC goal
+      | .closed => steps := steps + 1
+      | .noProgress => if ← emitVC goal then steps := steps + 1
       | .goal mvarId =>
+          steps := steps + 1
           worklist := worklist.push { goal := { goal with mvarId }, scope := s.scope }
     | .goals scope subgoals =>
+      steps := steps + 1
       -- Handle invariant subgoals eagerly here, so that VC subgoals popped
       -- from the worklist later see the invariant MVar already assigned.
       -- Non-invariant subgoals go to the worklist as usual and will eventually go through `emitVC`.
       let subgoals ← handleInvariantSubgoals subgoals
       worklist := worklist ++ subgoals.reverse.map (fun mv =>
         { goal := { goal with mvarId := mv }, scope })
+  return steps
 
 public structure Result where
   /-- All invariant goals emitted during VC generation, in emit order. The MVarId at
@@ -188,6 +197,8 @@ public structure Result where
   inlineHandledInvariants : Std.HashSet Nat := {}
   /-- Frame terms of `frames` alternatives whose program pattern matched no program. -/
   unmatchedFrames : Array Syntax := #[]
+  /-- The number of steps the worklist took (see `work`). -/
+  steps : Nat := 0
 
 /--
 Generate verification conditions for a goal of the form `pre ⊑ wp e post epost s₁ ... sₙ` by repeatedly
@@ -204,7 +215,7 @@ public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.VCGen.Context
   -- VCGen temporarily violates the `SymM` folded-projections invariant: `reduceHead?`
   -- exposes kernel projections in intermediate terms and restores the invariant in its
   -- final result, so the `shareCommon` kernel-projection check is disabled.
-  let ((), state) ← Sym.withoutFoldProjsCheck <| StateRefT'.run (ReaderT.run (work scope goal) ctx) initState
+  let (steps, state) ← Sym.withoutFoldProjsCheck <| StateRefT'.run (ReaderT.run (work scope goal) ctx) initState
   _ ← state.invariants.mapIdxM fun idx mv => do
     mv.setTag (Name.mkSimple ("inv" ++ toString (idx + 1)))
   _ ← state.vcs.mapIdxM fun idx g => do
@@ -222,6 +233,7 @@ public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.VCGen.Context
     invariants := state.invariants,
     vcs,
     inlineHandledInvariants := state.inlineHandledInvariants,
-    unmatchedFrames }
+    unmatchedFrames,
+    steps }
 
 end VCGen
