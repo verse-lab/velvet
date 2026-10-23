@@ -71,27 +71,35 @@ theorem inputClosed_recordFor_stdout (h : Trace Console) (e : IOEvent String Str
 
 abbrev Prog := IOProg Console IOErr
 
-method echo returns (r : Unit) in Prog
-  requires (h : Trace Console) => ¬ inputClosed h
+method echo returns (line : String) in Prog
+  given (h₀ : Trace Console)
+  requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) => e = .eof
   signals False
-  ensures (h : Trace Console) => ¬ inputClosed h
+  ensures (h : Trace Console) =>
+    h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok line)] ∧
+      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write line .ok]
 do
   let s ← read Stdin.mk
   write Stdout.mk s
+  return s
 
 prove_correct echo by
   velvet_vcgen [echo] with finish
 
-method greet returns (r : Unit) in Prog
-  requires (h : Trace Console) => ¬ inputClosed h
+method greet returns (name : String) in Prog
+  given (h₀ : Trace Console)
+  requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) => e = .eof
   signals False
-  ensures (h : Trace Console) => ¬ inputClosed h
+  ensures (h : Trace Console) =>
+    h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok name)] ∧
+      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" .ok, .write s!"hello {name}" .ok]
 do
   write Stdout.mk "name?"
   let s ← read Stdin.mk
   write Stdout.mk s!"hello {s}"
+  return s
 
 prove_correct greet by
   velvet_vcgen [greet] with finish
