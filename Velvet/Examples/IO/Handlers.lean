@@ -2,7 +2,7 @@ import Velvet.Examples.IO.Setup
 
 open Std.WP Lean.Order IOProg
 
-namespace Velvet.Examples.IO
+namespace Velvet.Examples.IO.Handlers
 
 method handleOne (s : Socket) returns (q : Request) in Prog
   given (h₀ : Trace Event)
@@ -91,4 +91,4 @@ do
 prove_correct handleCmd by
   velvet_vcgen [handleCmd] with finish
 
-end Velvet.Examples.IO
+end Velvet.Examples.IO.Handlers
