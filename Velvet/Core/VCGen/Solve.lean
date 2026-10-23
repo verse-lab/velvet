@@ -66,11 +66,33 @@ private def consumeMData? (goal : MVarId) (target : Expr) : VCGenM (Option MVarI
   unless target.isMData do return none
   return some (← goal.replaceTargetDefEqFast target.consumeMData)
 
-/-- Split `∀ p : Nat × Nat, P p` into `∀ a b, P (a, b)`. -/
-private def splitProdBinder (goal : MVarId) (target : Expr) : VCGenM MVarId :=
+/-- Whether a binder ranges over a loop state, which the `do` elaborator packs as nested pairs,
+with `PUnit` for an empty state. -/
+private def isStateType (dom : Expr) : Bool :=
+  dom.isAppOf ``Prod || dom.isConstOf ``PUnit || dom.isConstOf ``Unit
+
+/-- The number of binders before the first one over a loop state. -/
+private def numBindersBeforeState : Expr → Nat
+  | .forallE _ d b _ => if isStateType d then 0 else numBindersBeforeState b + 1
+  | .letE _ _ _ b _ => numBindersBeforeState b + 1
+  | _ => 0
+
+/-- Take apart a binder over a loop state, by eta for its structure: `∀ p : Nat × Nat, P p`
+becomes `∀ a b, P (a, b)`, and `∀ u : PUnit, P u` becomes `P ()`, so an empty state leaves no
+hypothesis. -/
+private def splitStateBinder (goal : MVarId) (target : Expr) : VCGenM MVarId :=
   goal.withContext do
   let .forallE _ dom body _ := target | return goal
   let dom ← instantiateMVarsIfMVarAppS dom
+  let unit? ← match dom with
+    | .const ``PUnit [u] => some <$> mkConstS ``PUnit.unit [u]
+    | .const ``Unit [] => some <$> mkConstS ``Unit.unit
+    | _ => pure none
+  if let some unit := unit? then
+    let g ← liftMetaM <| mkFreshExprSyntheticOpaqueMVar (← shareCommon (body.instantiate1 unit))
+    -- `P u` and `P ()` agree for every `u : PUnit`, by eta for structures.
+    goal.assign (.lam `u dom g .default)
+    return g.mvarId!
   let_expr c@Prod α β := dom | return goal
   let us := c.constLevels!
   let mk ← mkAppNS (← mkConstS ``Prod.mk us) #[α, β, ← mkBVarS 1, ← mkBVarS 0]
@@ -90,8 +112,8 @@ private def forallIntro? (oldGoal : MVarId) (target : Expr) : VCGenM (Option (Li
     | .noProgress => pure oldGoal
   let mut target ← goal.getType
   while target.isForall do
-    let n := numBindersToIntro target
-    let goal' ← if n == 0 then splitProdBinder goal target else introsHygienicN goal n
+    let n := numBindersBeforeState target
+    let goal' ← if n == 0 then splitStateBinder goal target else introsHygienicN goal n
     if goal' == goal then break
     goal := goal'
     target ← goal.getType

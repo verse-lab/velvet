@@ -266,7 +266,7 @@ prove_correct countNegatives by
     simp [negCount]
   case count_correct =>
     rename_i grid
-    exact exit_correct grid cnt i j inv_accounting h_done_with
+    exact exit_correct grid cnt i j inv_accounting scanning
   case inv_accounting =>
     rename_i grid
     exact step_neg_correct grid valid.2.1 cnt i j bounds.1 scanning.1 scanning.2 is_neg inv_accounting

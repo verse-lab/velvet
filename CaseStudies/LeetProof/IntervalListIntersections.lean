@@ -427,16 +427,6 @@ theorem intersectGo_step_skip_second (fl sl : Array Interval) (i j : Nat) (acc :
 prove_correct intervalListIntersections by
   velvet_vcgen [intervalListIntersections, postcondition]
   · simp [intervalIntersection]
-  ·
-    rename_i firstList secondList
-    rw [intersectGo.eq_def] at continuation
-    split_ifs at continuation with h1 h2
-    · exfalso; exact h_done_with ⟨h1, h2⟩
-    · exfalso; exact h_done_with ⟨h1, h2⟩
-    · exfalso; exact h_done_with ⟨h1, h2⟩
-    · exfalso; exact h_done_with ⟨h1, h2⟩
-    · rw [continuation]; exact intersectGo_correct firstList secondList valid_inputs
-    · rw [continuation]; exact intersectGo_correct firstList secondList valid_inputs
   · omega
   · rw [← continuation]
     exact (intersectGo_step_push_first _ _ _ _ _ loop_active.1 loop_active.2
@@ -453,8 +443,16 @@ prove_correct intervalListIntersections by
   · rw [← continuation]
     exact (intersectGo_step_skip_second _ _ _ _ _ loop_active.1 loop_active.2
       push_interval advance_first).symm
-  · exact continuation
-  · omega
+  ·
+    rename_i firstList secondList
+    rw [intersectGo.eq_def] at continuation
+    split_ifs at continuation with h1 h2
+    · exfalso; exact loop_active ⟨h1, h2⟩
+    · exfalso; exact loop_active ⟨h1, h2⟩
+    · exfalso; exact loop_active ⟨h1, h2⟩
+    · exfalso; exact loop_active ⟨h1, h2⟩
+    · rw [continuation]; exact intersectGo_correct firstList secondList valid_inputs
+    · rw [continuation]; exact intersectGo_correct firstList secondList valid_inputs
 
 end Proof
 

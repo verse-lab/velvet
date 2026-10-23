@@ -20,8 +20,39 @@
  /-!
  The main `solve` step. Runs once per worklist iteration and either fully
  decomposes the current goal into subgoals, or reports why no further
-@@ -70,10 +73,10 @@
+@@ -63,17 +66,39 @@
+   unless target.isMData do return none
+   return some (← goal.replaceTargetDefEqFast target.consumeMData)
+ 
+-/-- Split `∀ p : Nat × Nat, P p` into `∀ a b, P (a, b)`. -/
+-private def splitProdBinder (goal : MVarId) (target : Expr) : VCGenM MVarId :=
++/-- Whether a binder ranges over a loop state, which the `do` elaborator packs as nested pairs,
++with `PUnit` for an empty state. -/
++private def isStateType (dom : Expr) : Bool :=
++  dom.isAppOf ``Prod || dom.isConstOf ``PUnit || dom.isConstOf ``Unit
++
++/-- The number of binders before the first one over a loop state. -/
++private def numBindersBeforeState : Expr → Nat
++  | .forallE _ d b _ => if isStateType d then 0 else numBindersBeforeState b + 1
++  | .letE _ _ _ b _ => numBindersBeforeState b + 1
++  | _ => 0
++
++/-- Take apart a binder over a loop state, by eta for its structure: `∀ p : Nat × Nat, P p`
++becomes `∀ a b, P (a, b)`, and `∀ u : PUnit, P u` becomes `P ()`, so an empty state leaves no
++hypothesis. -/
++private def splitStateBinder (goal : MVarId) (target : Expr) : VCGenM MVarId :=
+   goal.withContext do
+   let .forallE _ dom body _ := target | return goal
    let dom ← instantiateMVarsIfMVarAppS dom
++  let unit? ← match dom with
++    | .const ``PUnit [u] => some <$> mkConstS ``PUnit.unit [u]
++    | .const ``Unit [] => some <$> mkConstS ``Unit.unit
++    | _ => pure none
++  if let some unit := unit? then
++    let g ← liftMetaM <| mkFreshExprSyntheticOpaqueMVar (← shareCommon (body.instantiate1 unit))
++    -- `P u` and `P ()` agree for every `u : PUnit`, by eta for structures.
++    goal.assign (.lam `u dom g .default)
++    return g.mvarId!
    let_expr c@Prod α β := dom | return goal
    let us := c.constLevels!
 -  let mk ← mkAppNS (← mkConstS ``Prod.mk us) #[α, β, .bvar 1, .bvar 0]
@@ -33,7 +64,18 @@
    let prodForall ← mkAppNS (← mkConstS ``Prod.forall us) #[α, β, motive]
    goal.assign <| mkApp4 (.const ``Iff.mpr []) target newTarget prodForall g
    return g.mvarId!
-@@ -205,6 +208,16 @@
+@@ -87,8 +112,8 @@
+     | .noProgress => pure oldGoal
+   let mut target ← goal.getType
+   while target.isForall do
+-    let n := numBindersToIntro target
+-    let goal' ← if n == 0 then splitProdBinder goal target else introsHygienicN goal n
++    let n := numBindersBeforeState target
++    let goal' ← if n == 0 then splitStateBinder goal target else introsHygienicN goal n
+     if goal' == goal then break
+     goal := goal'
+     target ← goal.getType
+@@ -205,6 +230,16 @@
    let .goals [g] ← (← read).backwardRules.meetTop.applyChecked goal
      | throwError "Failed to cancel the `⊓ ⊤` precondition of {goal}"
    return some g
@@ -50,7 +92,7 @@
  
  /-- Strategy 5: lift an embedded pure precondition `⌜φ⌝` into the local context, leaving `⊤`
  as the residual precondition. Runs before state-argument introduction, which would otherwise
-@@ -212,14 +225,14 @@
+@@ -212,14 +247,14 @@
  private def ofPropPreIntro? (goal : MVarId) (pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
    let_expr CompleteLattice.ofProp _l _inst φ := pre | return none
    if φ.isTrue then return none
@@ -67,7 +109,7 @@
  
  /-- Strategy 5: eliminate an `iSup` precondition via `iSup_le`, leaving the pointwise entailment
  `∀ i, P i ⊑ rhs` for `∀`-introduction. -/
-@@ -235,7 +248,7 @@
+@@ -235,7 +270,7 @@
  private def barePreIntro? (goal : MVarId) (α pre : Expr) : VCGenM (Option (MVarId × FVarId)) := do
    unless α.isProp do return none
    if pre.isAppOf ``Lean.Order.top then return none
@@ -76,7 +118,7 @@
  
  /-- Strategy 7: replace a `True` precondition by `⊤` via `true_le_of_top_le`, or reduce a lifted
  `⊤ s₁ … sₙ` precondition (the bare top applied to the state arguments introduced by
-@@ -250,6 +263,30 @@
+@@ -250,6 +285,30 @@
    if let some g ← reduceTopAppliedPre? goal target pre then
      return some [g]
    return none
@@ -107,7 +149,7 @@
  
  /-- Phase 2: drive the precondition of `pre ⊑ rhs` toward `⊤`, lifting any pure content into the
  local context so a later spec application sees a `⊤` precondition. In order: cancel a redundant
-@@ -259,6 +296,8 @@
+@@ -259,6 +318,8 @@
  Returns the updated scope, recording any lifted hypothesis. -/
  private def normalizePre? (scope : Scope) (goal : MVarId) (α pre target : Expr) :
      VCGenM (Option (Scope × List MVarId)) := do
@@ -116,7 +158,7 @@
    if let some g ← stripMeetTopPre? goal pre then
      return some (scope, [g])
    if let some (g, h) ← ofPropPreIntro? goal pre then
-@@ -358,7 +397,7 @@
+@@ -358,7 +419,7 @@
      | .goal g' => simpGoals := simpGoals.push g'
      | .noProgress => simpGoals := simpGoals.push g
      | .closed => continue
@@ -125,10 +167,11 @@
  
  /-- Strategy 11c: zeta-unfold a local let-bound fvar used as the program head. -/
  private def wpFVarZeta? (goal : MVarId) (info : WPApp) :
-@@ -658,5 +697,4 @@
+@@ -657,6 +718,5 @@
+     return ← stopOrErrorOnMissingSpec info.prog info.M #[]
  
    return .stop (.noProgress pre rhs)
- 
 -
+ 
 -end Lean.Elab.Tactic.VCGen
 +end VCGen
