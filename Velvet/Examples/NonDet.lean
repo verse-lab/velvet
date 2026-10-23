@@ -546,4 +546,160 @@ prove_correct partitionLists by
 
 example : (partitionLists [5, 2, 8, 1, 9, 3]).run = some ⟨5, [3, 1, 2, 5], [9, 8]⟩ := by native_decide
 
+/- ============================================================================
+   6. Every kind of non-deterministic `while` loop
+
+   One program per `while` spec over `NonDetT`: partial or total correctness, with or without
+   `done_with`, and with or without a `return`. `NonDetLoopVCs.lean` pins their VCs.
+   ============================================================================ -/
+
+/-- Read `n` items from a source that returns one or two items per read. -/
+method batchedRead (n : Nat) returns (reads : Nat) in DemonicT Option
+  signals False
+  ensures at_most_n : reads ≤ n
+do
+  let mut left := n
+  let mut reads := 0
+  while 0 < left
+    invariant progress : reads + left ≤ n
+    decreasing left
+  do
+    let (got : Nat) :| got = 1 ∨ got = 2
+    left := left - min got left
+    reads := reads + 1
+  return reads
+
+prove_correct batchedRead by
+  velvet_vcgen [batchedRead] with finish
+
+/-- Send `total` bytes over a channel that accepts one or two bytes at a time. -/
+method chunkedSend (total : Nat) returns (sent : Nat) in DemonicT Option
+  signals False
+  ensures all_sent : sent = total
+do
+  let mut sent := 0
+  while sent < total
+    invariant sent_le : sent ≤ total
+    decreasing total - sent
+    done_with finished : sent = total
+  do
+    let (chunk : Nat) :| chunk = 1 ∨ chunk = 2
+    sent := sent + min chunk (total - sent)
+  return sent
+
+prove_correct chunkedSend by
+  velvet_vcgen [chunkedSend] with finish
+
+/-- Try an operation up to `maxAttempts` times; it reports status `0` on success. Return the
+attempt that succeeded. -/
+method retry (maxAttempts : Nat) returns (res : Option Nat) in DemonicT Option
+  signals False
+  ensures within_budget : ∀ k, res = some k → k < maxAttempts
+do
+  let mut attempt := 0
+  while attempt < maxAttempts
+    invariant bound : attempt ≤ maxAttempts
+    decreasing maxAttempts - attempt
+  do
+    let (status : Nat) :| status = 0 ∨ status = 1
+    if status = 0 then return some attempt
+    attempt := attempt + 1
+  return none
+
+prove_correct retry by
+  velvet_vcgen [retry] with finish
+
+/-- `retry`, returning how many attempts were made. -/
+method retryCount (maxAttempts : Nat) returns (used : Nat) in DemonicT Option
+  signals False
+  ensures within_budget : used ≤ maxAttempts
+do
+  let mut attempt := 0
+  while attempt < maxAttempts
+    invariant bound : attempt ≤ maxAttempts
+    decreasing maxAttempts - attempt
+    done_with exhausted : attempt = maxAttempts
+  do
+    let (status : Nat) :| status = 0 ∨ status = 1
+    if status = 0 then return attempt + 1
+    attempt := attempt + 1
+  return attempt
+
+prove_correct retryCount by
+  velvet_vcgen [retryCount] with finish
+
+set_option velvet.semantics.termination "partial" in
+/-- Poll a service until it reports ready, which may never happen. -/
+method pollUntilReady returns (polls : Nat) in DemonicT Option
+  signals divergence_allowed : True
+  ensures polled : 1 ≤ polls
+do
+  let mut ready := false
+  let mut polls := 0
+  while !ready
+    invariant counted : ready = true → 1 ≤ polls
+  do
+    let (r : Bool) :| r = true ∨ r = false
+    ready := r
+    polls := polls + 1
+  return polls
+
+set_option velvet.semantics.termination "partial" in
+prove_correct pollUntilReady by
+  velvet_vcgen [pollUntilReady] with finish
+
+set_option velvet.semantics.termination "partial" in
+/-- Rejection sampling: draw values until one is at least `t`. -/
+method sampleAtLeast (t : Nat) returns (v : Nat) in DemonicT Option
+  signals divergence_allowed : True
+  ensures accepted : t ≤ v
+do
+  let mut v := 0
+  while v < t
+    done_with accepted : t ≤ v
+  do
+    let (x : Nat) :| True
+    v := x
+  return v
+
+set_option velvet.semantics.termination "partial" in
+prove_correct sampleAtLeast by
+  velvet_vcgen [sampleAtLeast] with finish
+
+set_option velvet.semantics.termination "partial" in
+/-- Rejection sampling written with an early `return`. -/
+method sampleAtLeastReturn (t : Nat) returns (v : Nat) in DemonicT Option
+  signals divergence_allowed : True
+  ensures accepted : t ≤ v
+do
+  while true
+    invariant sampling : True
+  do
+    let (x : Nat) :| True
+    if t ≤ x then return x
+  return t
+
+set_option velvet.semantics.termination "partial" in
+prove_correct sampleAtLeastReturn by
+  velvet_vcgen [sampleAtLeastReturn] with finish
+
+set_option velvet.semantics.termination "partial" in
+/-- Rejection sampling into `[lo, hi]`, accepting `lo` as soon as it is drawn. -/
+method sampleInRange (lo hi : Nat) returns (v : Nat) in DemonicT Option
+  signals divergence_allowed : True
+  ensures in_range : lo ≤ v ∧ v ≤ hi
+do
+  let mut v := hi + 1
+  while v < lo ∨ hi < v
+    done_with in_range : lo ≤ v ∧ v ≤ hi
+  do
+    let (x : Nat) :| True
+    if x = lo ∧ lo ≤ hi then return lo
+    v := x
+  return v
+
+set_option velvet.semantics.termination "partial" in
+prove_correct sampleInRange by
+  velvet_vcgen [sampleInRange] with finish
+
 end Velvet.Examples.NonDet

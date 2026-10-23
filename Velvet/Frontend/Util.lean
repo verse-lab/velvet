@@ -37,14 +37,14 @@ public meta def parseSpecTerm (name : Option Ident) (stx : TSyntax `velvSpecTerm
 /-- Reconstruct a `fun` term from explicit binders. -/
 public meta def buildFun (binders : Array AssertionBinder) (body : TSyntax `term) :
     MacroM (TSyntax `term) := do
-  if binders.isEmpty then
-    return body
+  let some first := binders[0]? | return body
   let funBinders ← binders.mapM fun b => do
     let id := b.ident
     match b.type with
     | some ty => `(term| ($id : $ty))
     | none => `(term| $id)
-  `(term| fun $funBinders* => $body)
+  -- Span the user's binders and body, so that errors about the assertion point at it.
+  withRef (mkNullNode #[first.stx, body]) `(term| fun $funBinders* => $body)
 
 /-- Build `ExceptT e₁ (ExceptT e₂ … Option) retType` from the signal exception types. -/
 public meta def mkExceptTStackType (retType : TSyntax `term) (exTypes : Array (TSyntax `term)) :

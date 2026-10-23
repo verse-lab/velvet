@@ -163,8 +163,9 @@ do
 
 /--
 error: No spec applicable to program Gadget.whileLoopPartial 0
-  (fun __u __s => if h_loop : __s < n✝ then pure (ForInStep.yield (__s + 1)) else pure (ForInStep.done __s)) fun i =>
-  ⌜⟪invariant1 : True⟫⌝ in monad NoWPPartialMonad. Candidates were [SpecProof.global Loop.Spec.whileLoopPartial].
+  (fun __u __s => if h_loop : __s < n✝ then pure (ForInStep.yield (__s + 1)) else pure (ForInStep.done __s))
+  (fun i => ⌜⟪invariant1 : True⟫⌝)
+  none in monad NoWPPartialMonad. Candidates were [SpecProof.global Loop.Spec.whileLoopPartial].
 -/
 #guard_msgs in
 prove_correct badWhileNoWPPartial by
@@ -199,6 +200,95 @@ method badSignalsUntyped returns (res : Nat)
   ensures res = 0
 do
   return 0
+
+/- A clause must take the arguments of the monad's assertions: here, the state. -/
+/-- error: `requires1` must take 1 argument (Nat), but takes none -/
+#guard_msgs in
+method badRequiresNoState (x : Nat) returns (res : Nat) in StateM Nat
+  requires x > 0
+  ensures (s : Nat) => res = x
+do
+  return x
+
+/-- error: `pos` must take 1 argument (Nat), but takes none -/
+#guard_msgs in
+method badNamedRequiresNoState (x : Nat) returns (res : Nat) in StateM Nat
+  requires pos: x > 0
+  ensures (s : Nat) => res = x
+do
+  return x
+
+/-- error: `ensures1` must take 1 argument (Nat), but takes none -/
+#guard_msgs in
+method badEnsuresNoState (x : Nat) returns (res : Nat) in StateM Nat
+  requires (s : Nat) => x > 0
+  ensures res = x
+do
+  return x
+
+/-- error: `requires1` must take 1 argument (Nat), but takes 2 -/
+#guard_msgs in
+method badRequiresTwoStates (x : Nat) returns (res : Nat) in StateM Nat
+  requires (s : Nat) (t : Nat) => s = t
+  ensures (s : Nat) => res = x
+do
+  return x
+
+/--
+error: argument 1 of `requires1` has type
+  Bool
+but should have type
+  Nat
+-/
+#guard_msgs in
+method badRequiresStateType (x : Nat) returns (res : Nat) in StateM Nat
+  requires (s : Bool) => s = true
+  ensures (s : Nat) => res = x
+do
+  return x
+
+/--
+error: argument 1 of `signals1` has type
+  Nat
+but should have type
+  String
+-/
+#guard_msgs in
+method badSignalsType (x : Nat) returns (res : Nat) in Except String
+  signals (e : Nat) => e = 0
+  ensures res = x
+do
+  return x
+
+/- The number of `signals` clauses must match the monad's exceptions. -/
+/-- error: too many `signals` clauses -/
+#guard_msgs in
+method badSignalsTooMany (x : Nat) returns (res : Nat) in Except String
+  signals (e : String) => e = ""
+  signals (e : String) => e = ""
+  ensures res = x
+do
+  return x
+
+/--
+error: missing a `signals` clause for
+  Unit → Prop
+-/
+#guard_msgs in
+method badSignalsMissing (x : Nat) returns (res : Nat) in ExceptT String (StateT Nat Option)
+  requires (s : Nat) => True
+  signals (e : String) (s : Nat) => e = "bad"
+  ensures (s : Nat) => res = x
+do
+  return x
+
+/- `signals False` for `Option` failure is coerced to `Unit → Prop`, so it is not reported. -/
+#guard_msgs in
+method okSignalsOption (x : Nat) returns (res : Nat) in Option
+  signals False
+  ensures res = x
+do
+  return x
 
 /- Partial correctness loop in `Option` with `signals False` fails intrinsic verification.
    The while loop without a decreasing measure allows divergence (`divergence_post Option` is `True`),
