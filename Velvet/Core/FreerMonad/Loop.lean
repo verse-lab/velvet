@@ -81,7 +81,7 @@ theorem Spec.whileLoopPartial
     {Q : β → Pred} (inv : β → Pred)
     (hdiv : ∀ b, inv b ⊑ div_pre einv)
     (step : ∀ b, Triple m (f () b) (binderNameHint b inv <| inv b) (stepPost inv Q) einv) :
-    Triple m (whileLoopPartial init f inv) (inv init) Q einv :=
+    Triple m (Gadget.whileLoopPartial init f inv none) (inv init) Q einv :=
   whileLoopPartial_core inv Q hdiv step
 
 /-- A partial-correctness `while` loop with `done_with`. -/
@@ -90,7 +90,7 @@ theorem Spec.whileLoopPartialAndDone
     (inv done : β → Pred)
     (hdiv : ∀ b, inv b ⊑ div_pre einv)
     (step : ∀ b, Triple m (f () b) (binderNameHint b inv <| inv b) (stepPost inv done) einv) :
-    Triple m (whileLoopPartialAndDone init f inv done) (inv init)
+    Triple m (Gadget.whileLoopPartial init f inv (some done)) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   whileLoopPartial_core inv done hdiv step
 
@@ -103,7 +103,7 @@ theorem Spec.whileLoopPartialAndDoneReturning
     (step : ∀ s, Triple m (f () (none, s)) (binderNameHint s inv <| inv s)
       (stepPost (noReturn inv) (onExit Q done)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple m (whileLoopPartialAndDoneReturning init f inv done) (noReturn inv init) Q einv :=
+    Triple m (Gadget.whileLoopPartialReturning init f inv (some done)) (noReturn inv init) Q einv :=
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   triple_onExit (whileLoopPartial_core (noReturn inv) _ (noReturn_le hdiv)
     (noReturn_step (inv := inv) (x := f ()) (post := fun _ => stepPost (noReturn inv) (onExit Q done))
@@ -117,7 +117,7 @@ theorem Spec.whileLoopPartialReturning
     (hdiv : ∀ s, inv s ⊑ div_pre einv)
     (step : ∀ s, Triple m (f () (none, s)) (binderNameHint s inv <| inv s)
       (stepPost (noReturn inv) Q) einv) :
-    Triple m (whileLoopPartialReturning init f inv) (noReturn inv init) Q einv :=
+    Triple m (Gadget.whileLoopPartialReturning init f inv none) (noReturn inv init) Q einv :=
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   whileLoopPartial_core (noReturn inv) Q (noReturn_le hdiv)
     (noReturn_step (inv := inv) (x := f ()) (post := fun _ => stepPost (noReturn inv) Q) step)
@@ -128,7 +128,7 @@ theorem Spec.whileLoopTotal
     {Q : β → Pred} (inv : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple m (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure Q b) einv) :
-    Triple m (whileLoopTotal init f inv measure) (inv init) Q einv :=
+    Triple m (Gadget.whileLoopTotal init f inv none measure) (inv init) Q einv :=
   whileLoopTotal_core inv Q measure step
 
 /-- A total-correctness `while` loop with `done_with`. -/
@@ -137,7 +137,7 @@ theorem Spec.whileLoopTotalAndDone
     (inv done : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple m (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure done b) einv) :
-    Triple m (whileLoopTotalAndDone init f inv done measure) (inv init)
+    Triple m (Gadget.whileLoopTotal init f inv (some done) measure) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   whileLoopTotal_core inv done measure step
 
@@ -150,7 +150,7 @@ theorem Spec.whileLoopTotalAndDoneReturning
       Triple m (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) (none, s)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple m (whileLoopTotalAndDoneReturning init f inv done measure) (noReturn inv init) Q einv :=
+    Triple m (Gadget.whileLoopTotalReturning init f inv (some done) measure) (noReturn inv init) Q einv :=
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   triple_onExit (whileLoopTotal_core (noReturn inv) _ (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
@@ -165,7 +165,7 @@ theorem Spec.whileLoopTotalReturning
     (step : ∀ s,
       Triple m (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q (none, s)) einv) :
-    Triple m (whileLoopTotalReturning init f inv measure) (noReturn inv init) Q einv :=
+    Triple m (Gadget.whileLoopTotalReturning init f inv none measure) (noReturn inv init) Q einv :=
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   whileLoopTotal_core (noReturn inv) Q (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
