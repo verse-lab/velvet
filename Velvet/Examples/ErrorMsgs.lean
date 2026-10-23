@@ -290,6 +290,53 @@ method okSignalsOption (x : Nat) returns (res : Nat) in Option
 do
   return x
 
+/- A failing clause is reported on the clause, also when it is an equation or a conjunction. -/
+/--
+@ +3:20...31
+error: `finish` failed
+-/
+#guard_msgs (positions := true, substring := true) in
+set_option velvet.verifyOnDefinition true in
+method badEqClause (n : Nat) returns (res : Nat)
+  ensures wrong_eq: res = n + 1
+do
+  return n
+
+/--
+@ +3:21...35
+error: `finish` failed
+-/
+#guard_msgs (positions := true, substring := true) in
+set_option velvet.verifyOnDefinition true in
+method badAndClause (n : Nat) returns (res : Nat)
+  ensures wrong_and: res > n ∧ True
+do
+  return n
+
+/--
+@ +3:16...33
+error: `finish` failed
+-/
+#guard_msgs (positions := true, substring := true) in
+set_option velvet.verifyOnDefinition true in
+method badAndBoth (n : Nat) returns (res : Nat)
+  ensures both: res > n ∧ res < n
+do
+  return n
+
+method badEqClauseProof (n : Nat) returns (res : Nat)
+  ensures wrong_eq: res = n + 1
+do
+  return n
+
+/--
+@ +0:20...31
+error: `finish` failed
+-/
+#guard_msgs (positions := true, substring := true) in
+prove_correct badEqClauseProof by
+  velvet_vcgen [badEqClauseProof] with finish
+
 /- Partial correctness loop in `Option` with `signals False` fails intrinsic verification.
    The while loop without a decreasing measure allows divergence (`divergence_post Option` is `True`),
    which contradicts the contract's promise that failure/divergence never happens (`signals False`). -/
