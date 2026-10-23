@@ -372,3 +372,13 @@ do
     i := i + 1
   return i
 
+/- `fixpoint_induction` needs a method defined by `partial_fixpoint`. -/
+method notRec (n : Nat) returns (res : Nat)
+  ensures res = n
+do
+  return n
+
+/-- error: fixpoint_induction: `notRec` is not defined by `partial_fixpoint` -/
+#guard_msgs in
+prove_correct notRec by
+  fixpoint_induction notRec

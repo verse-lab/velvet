@@ -109,20 +109,6 @@ theorem fibFor_correct : fibFor.spec_triple := by
   unfold fibFor.spec_triple
   velvet_vcgen [fibFor, fibAccSpec] with finish
 
-method rec spinRec returns (res : Nat) in Option
-  signals True
-  ensures res = 2
-do
-  spinRec
-
-prove_correct spinRec by
-  refine spinRec.fixpoint_induct (motive := spinRec.fixpoint_triple_motive) ?_ ?_
-  · apply admissible_triple
-    intro _
-    velvet_vcgen with finish
-  · intro p ih
-    velvet_vcgen [ih] with finish
-
 method rec spinRecStateM returns (res : Nat) in StateT Nat Option
   requires (s : Nat) => True
   signals True
@@ -131,14 +117,9 @@ do
   spinRecStateM
 
 prove_correct spinRecStateM by
-  refine spinRecStateM.fixpoint_induct (motive := spinRecStateM.fixpoint_triple_motive) ?_ ?_
-  · apply admissible_triple
-    intro _
-    velvet_vcgen with finish
-  · intro p ih
-    velvet_vcgen [ih] with finish
+  fixpoint_induction spinRecStateM
+  all_goals velvet_vcgen with finish
 
-/- Parameterized recursive method (1 argument) with automatically synthesized fixpoint_triple_motive -/
 method rec countdownRec (n : Nat) returns (res : Nat) in Option
   signals True
   ensures res = 0
@@ -149,34 +130,46 @@ do
     countdownRec (n - 1)
 
 prove_correct countdownRec by
-  intro n
-  refine countdownRec.fixpoint_induct (motive := countdownRec.fixpoint_triple_motive) ?_ ?_ n
-  · apply admissible_pi_triple
-    intro _
-    velvet_vcgen with finish
-  · intro p ih n
-    velvet_vcgen [ih] with finish
+  fixpoint_induction countdownRec
+  all_goals velvet_vcgen with finish
 
-/-! Recursive method using `partial_fixpoint` with ghost variable `given (g : Nat)` -/
-method rec spinWithGiven returns (res : Nat) in Option
-  given (g : Nat)
+/-! A statement about `countdownRec` other than its contract. -/
+theorem countdownRec_le :
+    ∀ n, ⦃ True ⦄ countdownRec n ⦃ fun res => ⌜res ≤ n⌝; fun _ => ⌜True⌝ ⦄ := by
+  fixpoint_induction countdownRec
+  all_goals velvet_vcgen with finish
+
+/-! `fixpoint_induction` has no rule for `∃`, so it leaves the admissibility of that part as goal
+`adm`, to prove directly. -/
+theorem countdownRec_exists :
+    ∃ k, ∀ n, ⦃ ⌜n < k⌝ ⦄ countdownRec n ⦃ fun res => ⌜res = 0⌝; fun _ => ⌜True⌝ ⦄ := by
+  fixpoint_induction countdownRec
+  case step =>
+    refine ⟨0, ?_⟩
+    velvet_vcgen with finish
+  case adm =>
+    -- `k = 0` works for every approximation, so the statement is `True` of each of them.
+    have h : ∀ p : Nat → Option Nat,
+        ∃ k, ∀ n, ⦃ ⌜n < k⌝ ⦄ p n ⦃ fun res => ⌜res = 0⌝; fun _ => ⌜True⌝ ⦄ :=
+      fun p => ⟨0, fun n => ⟨by simp⟩⟩
+    simp only [h]
+    exact admissible_const_true
+
+/-! `k` stays fixed in the recursive calls, so it is introduced; `n` stays quantified. -/
+method rec addTo (n : Nat) (k : Nat) returns (res : Nat) in Option
   signals True
-  ensures res = 2 ∧ g = g
+  ensures res = n + k
 do
-  spinWithGiven
+  if n = 0 then
+    return k
+  else
+    let r ← addTo (n - 1) k
+    return r + 1
 
-prove_correct spinWithGiven by
-  refine spinWithGiven.fixpoint_induct (motive := spinWithGiven.fixpoint_triple_motive) ?_ ?_
-  · apply admissible_pi
-    intro g
-    apply admissible_triple
-    intro _
-    velvet_vcgen with finish
-  · intro p ih g
-    have ih_g := ih g
-    velvet_vcgen [ih_g] with finish
 
-#check @spinWithGiven.spec
+prove_correct addTo by
+  fixpoint_induction addTo
+  all_goals velvet_vcgen with finish
 
 /-! Parameterized recursive method with program parameter `(n : Nat)` and ghost `given (g : Nat)` -/
 method rec countdownWithGiven (n : Nat) returns (res : Nat) in Option
@@ -190,16 +183,48 @@ do
     countdownWithGiven (n - 1)
 
 prove_correct countdownWithGiven by
-  refine countdownWithGiven.fixpoint_induct (motive := countdownWithGiven.fixpoint_triple_motive) ?_ ?_
-  · apply admissible_pi_apply (P := fun _ c => ∀ (g : Nat), ⦃ True ⦄ c ⦃ fun res => ⌜⟪ensures1 : res = 0 ∧ g = g⟫⌝; fun _ => ⌜⟪signals1 : True⟫⌝ ⦄)
-    intro n
-    apply admissible_pi
-    intro g
-    apply admissible_triple
-    intro _
-    velvet_vcgen with finish
-  · intro p ih n g
-    have ih_n_g := ih (n - 1) g
-    velvet_vcgen [ih_n_g] with finish
+  fixpoint_induction countdownWithGiven
+  all_goals velvet_vcgen with finish
 
 #check @countdownWithGiven.spec
+
+/-! McCarthy's 91 function: nested recursion, where the inner call's result is the outer call's
+argument. The induction hypothesis holds for every argument, so it applies at both calls. -/
+method rec f91 (n : Nat) returns (res : Nat) in Option
+  signals True
+  ensures res = if n > 100 then n - 10 else 91
+do
+  if n > 100 then
+    return n - 10
+  else
+    let r ← f91 (n + 11)
+    f91 r
+
+prove_correct f91 by
+  fixpoint_induction f91
+  all_goals velvet_vcgen with finish
+
+/-! Two triples proved together: each is the other's induction hypothesis at the recursive call. -/
+method rec parity (n : Nat) returns (res : Bool) in Option
+  signals True
+  ensures True
+do
+  if n = 0 then
+    return true
+  else
+    let r ← parity (n - 1)
+    return !r
+
+theorem parity_even_odd :
+    (∀ n, ⦃ ⌜n % 2 = 0⌝ ⦄ parity n ⦃ fun r => ⌜r = true⌝; fun _ => ⌜True⌝ ⦄) ∧
+    (∀ n, ⦃ ⌜n % 2 = 1⌝ ⦄ parity n ⦃ fun r => ⌜r = false⌝; fun _ => ⌜True⌝ ⦄) := by
+  fixpoint_induction parity
+  case step =>
+    -- Keeps the conjunction: clearing it hits the bug in `SplitAfterClear.lean`.
+    obtain ⟨ih_even, ih_odd⟩ := ‹_ ∧ _›
+    constructor
+    · clear ih_even
+      velvet_vcgen with finish
+    · clear ih_odd
+      velvet_vcgen with finish
+  all_goals velvet_vcgen with finish
