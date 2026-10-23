@@ -1,6 +1,10 @@
-import Velvet.Core.Named
-import Velvet.Core.Loop.Gadgets
-import Std.WP
+module
+
+public import Velvet.Core.Named
+public import Velvet.Core.Loop.Gadgets
+public import Std.WP
+
+@[expose] public section
 
 open Lean.Order
 
@@ -20,6 +24,14 @@ def FreerMonad.bind {e : Type u -> Type v} (x : FreerMonad e α) (f : α -> Free
 instance {e : Type u -> Type v} : Monad (FreerMonad e) where
   pure := FreerMonad.ret
   bind := FreerMonad.bind
+
+/-- Loops route to `iter`, as `NonDetT`'s route to `repeatCont`. -/
+instance instForInLoopFreerMonad {e : Type u -> Type v} : ForIn (FreerMonad e) Lean.Loop Unit where
+  forIn _ init f := .iter init (f ()) .ret
+
+instance instForInPartialLoopFreerMonad {e : Type u -> Type v} :
+    ForIn (FreerMonad e) Loop.PartialLoop Unit where
+  forIn _ init f := .iter init (f ()) .ret
 
 variable [Monad m]
 
@@ -58,3 +70,5 @@ theorem FreerMonad.interp_bind
   intro x; unhygienic induction x <;> simp [FreerMonad.bind, interp]
   { simp [k_ih] }
   simp [k_ih]
+
+end
