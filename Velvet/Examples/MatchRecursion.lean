@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.Internal.Do
+open Std.WP
 
 set_option velvet.semantics.termination "partial" in
 method rec lengthMatch (n : Nat) (l : List Nat)

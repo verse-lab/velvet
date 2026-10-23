@@ -2,7 +2,7 @@ module
 
 public meta import Velvet.Core.VCGen.Progress
 public meta import Lean.Elab.Command
-public meta import Lean.Server.InfoUtils
+public meta import Lean.Elab.InfoTree.Util
 public meta import Lean.Meta.CollectMVars
 public meta import Lean.Util.Sorry
 

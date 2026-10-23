@@ -17,7 +17,7 @@ You can combine automatic verification with interactive Lean proofs:
 
 ## 2. Quick Start
 
-The repository uses Lean **v4.34.0**, selected by `lean-toolchain`.
+The repository uses Lean **v4.35.0**, selected by `lean-toolchain`.
 
 `import Velvet` is enough for ordinary `method` declarations and `prove_correct`
 proofs.
@@ -232,6 +232,16 @@ for partial correctness:
   ```
 - Multiple signals stack nested `ExceptT` layers (e.g. `signals str : (e : String) => ...` and `signals nat : (e : Nat) => ...` infer `ExceptT String (ExceptT Nat Option) α`).
 
+Lean states Option failure as a postcondition over `Unit`, and an assertion `P` coerces
+to `fun _ => P`. So `signals False` works as written, and the generated specification
+shows it as `fun x => ⌜False⌝`. Two places need the `Unit` argument spelled out:
+
+- An Option failure clause that binds further arguments, such as the environment of
+  `OptionT (ReaderT Nat Option)`: `signals (_ : Unit) (env : Nat) => env = 0`.
+- A handwritten `Triple` about an Option-based program, whose failure condition is
+  written `(fun _ => False)` or `↑False`. A bare `False` fixes `Triple`'s failure type to
+  `Prop` before the program's WP instance is found, so no coercion applies.
+
 > 📁 **Examples**:
 > - Basic arithmetic: [`Sqrt.lean`](Velvet/Examples/Sqrt.lean)
 > - Binder types: [`BindersTest.lean`](Velvet/Examples/BindersTest.lean)
@@ -243,7 +253,7 @@ for partial correctness:
 
 ## 4. Total vs. Partial Correctness
 
-- **Total mode (default)**: `while` loops require a natural-number `decreasing` measure. For an inferred Option-based monad, the default failure postcondition is `False`, so a proved contract excludes Option failure/divergence under its precondition.
+- **Total mode (default)**: Velvet `while` loops require a natural-number `decreasing` measure. For an inferred Option-based monad, the default failure postcondition is `False`, so a proved contract excludes Option failure/divergence under its precondition.
 - **Partial mode**: `set_option velvet.semantics.termination "partial" in` allows `while` without a measure and changes the inferred Option failure postcondition to `True`. Normal returns must still satisfy `ensures`.
 
 `for` loops have no `decreasing` clause. For Option-based methods, explicitly
@@ -258,10 +268,17 @@ Use `prove_correct` to establish the contract; declaring the method alone does n
 
 ## 5. Loop Verification
 
-After `import Velvet`, `while` and single-collection `for` loops use Velvet's
-elaborators, including loops without inline clauses. In total mode, every
-`while` requires a `decreasing` clause. Lean's additional forms, such as parallel
-`for` and `while let`, retain their built-in behavior.
+After `import Velvet`, loops with Velvet clauses use Velvet's elaborators: a
+single-collection `for` with an `invariant` or `done_with` clause, and a `while` with an
+`invariant`, `decreasing` or `done_with` clause. In total mode, such a `while` requires a
+`decreasing` clause. A loop without any of these clauses is Lean's own loop. `velvet_vcgen`
+verifies Lean's own `for` with the invariant `True`; Lean's own `while` needs Lean's loop
+annotations, except in partial mode, where Velvet verifies it as a loop with invariant `True`. Lean's additional forms, such as parallel `for`
+and `while let`, retain their built-in behavior.
+
+Lean's own loop annotations, written `invariant exit => P`, stay available after
+`import Velvet` and are proved with Lean's `vcgen`; `exit` is `true` once the loop has
+left. Velvet's named clauses are proved with `velvet_vcgen`.
 
 ### `while` Loops
 

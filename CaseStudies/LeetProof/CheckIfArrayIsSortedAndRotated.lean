@@ -4,6 +4,7 @@ public import Velvet
 public meta import Velvet
 public import Mathlib.Data.Finset.Card
 public import Mathlib.Data.Finset.Range
+public import Mathlib.Data.Finset.Basic
 
 /-!
 ## Program description

@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.Internal.Do
+open Std.WP
 open Lean.Order
 open WPPartial
 
@@ -191,7 +191,7 @@ do
 
 prove_correct countdownWithGiven by
   refine countdownWithGiven.fixpoint_induct (motive := countdownWithGiven.fixpoint_triple_motive) ?_ ?_
-  · apply admissible_pi_apply (P := fun _ c => ∀ (g : Nat), ⦃ True ⦄ c ⦃ fun res => ⌜⟪ensures1 : res = 0 ∧ g = g⟫⌝; ⌜⟪signals1 : True⟫⌝ ⦄)
+  · apply admissible_pi_apply (P := fun _ c => ∀ (g : Nat), ⦃ True ⦄ c ⦃ fun res => ⌜⟪ensures1 : res = 0 ∧ g = g⟫⌝; fun _ => ⌜⟪signals1 : True⟫⌝ ⦄)
     intro n
     apply admissible_pi
     intro g

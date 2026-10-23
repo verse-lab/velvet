@@ -7,25 +7,25 @@ module
 
 prelude
 public import Lean.Elab.Tactic.Meta
-public import Lean.Elab.Tactic.Do.Internal.VCGen.Context
+public import Lean.Elab.Tactic.VCGen.Context
 public import Velvet.Core.VCGen.Solve
 public import Velvet.Core.VCGen.Util
 public import Velvet.Core.Named
 public import Lean.Meta.Sym.InstantiateMVarsS
 public import Lean.Meta.Sym.Grind
 
-open Lean Meta Elab Tactic Sym
+open Lean Meta Elab Tactic Sym Sym.Internal Lean.Order
 open Lean.Elab.Tactic.Do.SpecAttr
 
-open Lean.Elab.Tactic.Do.Internal
-open Lean.Elab.Tactic.Do.Internal.VCGen
+open Lean.Elab.Tactic.VCGen
+
+namespace VCGen
 
 /-!
 Worklist driver for `vcgen`. Wraps `solve` with a queue of pending goals
 and emits VCs (or invariant holes) for those `solve` cannot decompose further.
 -/
 
-namespace VCGen
 
 /--
 Try to elaborate the user's invariant alt for invariant number `n` inline,
@@ -130,21 +130,10 @@ public def emitVC (goal : Grind.Goal) : VCGenM Unit := do
   let mut goal := { goal with mvarId := ← elimTopPre goal.mvarId }
   goal ← processHypotheses goal
   if goal.inconsistent then return
-  -- `trivial`: when false, skip `cleanupVC` (which collapses And-chains via rfl);
-  -- naming and generated-control simplification still run.
-  let mvarId ←
-    if (← read).trivial then
-      let some mvarId ← cleanupVC goal.mvarId | return
-      pure mvarId
-    else
-      pure goal.mvarId
+  let some mvarId ← cleanupVC goal.mvarId | return
   let some emittedGoal ← processNamedGoal { goal with mvarId } | return
-  let mvarId ←
-    if (← read).trivial then
-      let some mvarId ← cleanupVC emittedGoal.mvarId | return
-      pure mvarId
-    else
-      pure emittedGoal.mvarId
+  -- Unwrapping a named goal can expose new trivial conjuncts, so clean up once more.
+  let some mvarId ← cleanupVC emittedGoal.mvarId | return
   mvarId.setKind .syntheticOpaque
   modify fun s => { s with vcs := s.vcs.push { emittedGoal with mvarId } }
 
@@ -199,10 +188,10 @@ Return the VCs and invariant goals.
 
 `stepLimit?`, when `some n`, seeds the fuel counter to `n`; when `none`, fuel is unlimited.
 -/
-public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.Do.Internal.VCGen.Context) (scope : VCGen.Scope)
+public partial def run (goal : Grind.Goal) (ctx : Lean.Elab.Tactic.VCGen.Context) (scope : Scope)
     (stepLimit? : Option Nat := none) (frameDB : FrameDB := {}) :
     Grind.GrindM Result := do
-  let initState : Lean.Elab.Tactic.Do.Internal.VCGen.State :=
+  let initState : Lean.Elab.Tactic.VCGen.State :=
     { fuel := match stepLimit? with | some n => .limited n | none => .unlimited, frameDB }
   -- VCGen temporarily violates the `SymM` folded-projections invariant: `reduceHead?`
   -- exposes kernel projections in intermediate terms and restores the invariant in its

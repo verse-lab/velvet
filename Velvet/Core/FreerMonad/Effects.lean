@@ -1,7 +1,7 @@
 import Velvet.Core.FreerMonad.Defs
 import Velvet.Core.Partial
 
-open Std.Internal.Do Lean.Order
+open Std.WP Lean.Order
 
 universe u v v₁ v₂ w z
 

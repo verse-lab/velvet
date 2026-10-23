@@ -3,7 +3,7 @@ module
 public import Velvet.Examples.StateT
 public meta import Velvet.Examples.StateT
 
-open Std.Internal.Do
+open Std.WP
 
 /-!
 # StateT examples — explicit VC discharge
@@ -27,16 +27,21 @@ theorem countState_explicit : countState.spec_triple := by
 
 theorem boundedIncrement_explicit (limit : Nat) :
     Triple (boundedIncrement limit) (fun s => s < limit)
-      (fun current s => current < limit ∧ s = current + 1) False := by
+      (fun current s => current < limit ∧ s = current + 1) (fun _ => False) := by
   velvet_vcgen [boundedIncrement]
   case within_limit => grind
   case vc2 => grind
 
 theorem countRange_explicit (n : Nat) :
-    Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) False := by
+    Triple (countRange n) (fun _ => True) (fun r s => r = n ∧ s = n) (fun _ => False) := by
   velvet_vcgen [countRange]
-  case count_done => grind
-  case count_tracks => grind
+  -- Facts lifted from the loop's precondition are plain propositions, not `⌜p⌝ s`.
+  case count_done h =>
+    guard_hyp h : ForIn.toList (List.range n) = []
+    grind
+  case count_tracks i rest h =>
+    guard_hyp h : ForIn.toList (List.range n) = i :: rest
+    grind
   case vc3 => grind
   case count_tracks => grind
   case count_done => grind
@@ -58,7 +63,7 @@ theorem countUnlessBlocked_explicit : countUnlessBlocked.spec_triple := by
 
 theorem countToReaderLimit_explicit :
     Triple countToReaderLimit (fun state limit => state ≤ limit)
-      (fun result state limit => result = limit ∧ state = limit) EPost.Nil.mk := by
+      (fun result state limit => result = limit ∧ state = limit) estack⟨⟩ := by
   velvet_vcgen [countToReaderLimit]
   case initial_bound => grind
   case reader_progress => grind
@@ -75,7 +80,7 @@ theorem countToReaderLimitMethod_explicit : countToReaderLimitMethod.spec_triple
 theorem addToReaderLimit_explicit :
     Triple addToReaderLimit (fun initial limit => initial ≤ limit)
       (fun initial final limit => initial ≤ limit ∧ final = initial + triangular limit)
-      EPost.Nil.mk := by
+      estack⟨⟩ := by
   velvet_vcgen [addToReaderLimit]
   all_goals try simp_all [triangular]
   all_goals try simp_all

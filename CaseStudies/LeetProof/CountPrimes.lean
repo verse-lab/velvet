@@ -5,6 +5,7 @@ public meta import Velvet
 public import Mathlib.Data.Finset.Card
 public import Mathlib.Data.Finset.Range
 public import Mathlib.Data.Nat.Prime.Basic
+public import Mathlib.Data.Finset.Basic
 
 /-!
 ## Program description

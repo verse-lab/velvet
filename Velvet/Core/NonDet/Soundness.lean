@@ -4,7 +4,7 @@ public import Velvet.Core.NonDet.Run
 public import Velvet.Core.NonDet.WP
 public import Velvet.Core.Partial
 
-open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order WPPartial
+open Std.WP Lean.Order WPPartial
 
 universe u v w z
 
@@ -69,7 +69,7 @@ omit [MonoBind m] [∀ P : Pred, PreservesSup (meet P)]
 private theorem wp_compBot_eq_div_pre {α : Type u}
     [WPPartial m Pred EPred div_post div_pre]
     (post : α → Pred) (epost : EPred) :
-    Std.Internal.Do.wp (CCPOBot.compBot (m := m) (α := α)) post epost = div_pre epost := by
+    Std.WP.wp (CCPOBot.compBot (m := m) (α := α)) post epost = div_pre epost := by
   rw [CCPOBotLawful.bot_eq]
   have hbotEq : (⊥ : m α) =
       CCPO.csup (α := m α) (c := fun _ => False) WPPartial.emptyChain := by
@@ -86,7 +86,7 @@ justified by either divergence-safe fixed-point induction or a decreasing
 measure. -/
 public theorem ExtractNonDet.extract_refines_wp {α : Type u}
     (s : DemonicT m α) (post : α → Pred) (epost : EPred) :
-    NonDetT.wp s post epost ⊑ Std.Internal.Do.wp s.run post epost := by
+    NonDetT.wp s post epost ⊑ Std.WP.wp s.run post epost := by
   induction s with
   | pure x =>
       simp only [NonDetT.wp, NonDetT.run_pure]

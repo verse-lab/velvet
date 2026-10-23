@@ -2,15 +2,14 @@ module
 
 public import Velvet.Core.Specs
 public import Velvet.Core.Partial
-public import Std.Internal.Do
-public import Std.Internal.Do.Gadget.ForIn
-public import Std.Internal.Do.Triple.SpecLemmas
+public import Std.WP
+public import Std.WP.Gadget.ForIn
+public import Std.WP.Triple.SpecLemmas
 public import Std.Internal.ForIn
 
 open Std.Internal
-open Std.Internal.Do
-open Std.Internal.Do.Assertion
-open Std.Internal.Do.CompleteLattice
+open Std.WP
+open Std.WP.Assertion
 open Lean.Order
 open WPPartial
 
@@ -19,7 +18,7 @@ universe u u₁ u₂ v w
 namespace Loop
 
 /-- Our own least-fixed-point loop: `partial_fixpoint` over the loop body. -/
-@[expose] public def forIn.loop {β : Type u} {m : Type u → Type v}
+@[expose, specialize] public def forIn.loop {β : Type u} {m : Type u → Type v}
     [Monad m] [∀ α, Lean.Order.CCPO (m α)] [Lean.Order.MonoBind m]
     (f : Unit → β → m (ForInStep β)) (b : β) : m β := do
     match ← f () b with
@@ -140,27 +139,27 @@ namespace Gadget
 set_option linter.unusedVariables false in
 /-- A pure `forIn` loop annotated with a state invariant (independent of the cursor variable).
 The invariant holds before entering the loop, is preserved at every step, and holds upon exit. -/
-@[inline] public def forInPureWithStateInv {ρ : Type w} [ForIn m ρ α]
+@[inline] public def forLoopWithInvariant {ρ : Type w} [ForIn m ρ α]
     (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
     (inv : β → Pred) : m β :=
   forIn xs init f
 
 set_option linter.unusedVariables false in
 /-- A pure `forIn'` loop annotated with a state invariant and membership proofs in the loop body. -/
-@[inline] public def forInPureWithStateInv' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+@[inline] public def forLoopMemWithInvariant {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
     (inv : β → Pred) : m β :=
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-@[inline] public def forInPureWithInvAndDone {ρ : Type w} [ForIn m ρ α]
+@[inline] public def forLoopWithInvariantAndDone {ρ : Type w} [ForIn m ρ α]
     (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
     (inv : List α → α → List α → β → Pred)
     (done : List α → β → Pred) : m β :=
   forIn xs init f
 
 set_option linter.unusedVariables false in
-@[inline] public def forInPureWithInvAndDone' {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+@[inline] public def forLoopMemWithInvariantAndDone {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
     (inv : List α → α → List α → β → Pred)
     (done : List α → β → Pred) : m β :=
@@ -307,7 +306,7 @@ public theorem Spec.forIn_list_inv_done
 
 set_option linter.unusedVariables false in
 @[spec]
-public theorem Spec.forInPure
+public theorem Spec.forLoopWithInvariantAndDone
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -337,16 +336,16 @@ public theorem Spec.forInPure
           | .done b' => done (ForIn.toList xs) b')
         epost) :
     Triple
-      (forInPureWithInvAndDone xs init f inv done)
+      (forLoopWithInvariantAndDone xs init f inv done)
       ((⌜ForIn.toList xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜ForIn.toList xs = cur :: rest⌝ ⇨ inv [] cur rest init))
       (fun b => binderNameHint b (done (ForIn.toList xs)) <| done (ForIn.toList xs) b)
       epost := by
-  unfold forInPureWithInvAndDone
+  unfold Gadget.forLoopWithInvariantAndDone
   rw [PureForIn.forIn_eq]
   exact Spec.forIn_list_inv_done (init := init) inv done step_mid step_last
 
 @[spec]
-public theorem Spec.forInPure'
+public theorem Spec.forLoopMemWithInvariantAndDone
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -376,11 +375,11 @@ public theorem Spec.forInPure'
           | .done b' => done (ForIn.toList xs) b')
         epost) :
     Triple
-      (forInPureWithInvAndDone' xs init f inv done)
+      (forLoopMemWithInvariantAndDone xs init f inv done)
       ((⌜ForIn.toList xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜ForIn.toList xs = cur :: rest⌝ ⇨ inv [] cur rest init))
       (fun b => binderNameHint b (done (ForIn.toList xs)) <| done (ForIn.toList xs) b)
       epost := by
-  unfold forInPureWithInvAndDone'
+  unfold Gadget.forLoopMemWithInvariantAndDone
   rw [PureForIn'.forIn'_eq]
   exact Spec.forIn'_list_inv_done (xs := ForIn.toList xs) (init := init) (f := fun a h b => f a ((LawfulMemForInId.mem_toList_iff).mp h) b) inv done step_mid step_last
 
@@ -447,7 +446,7 @@ public theorem Spec.forIn_list_state_inv
 set_option linter.unusedVariables false in
 /-- Specification lemma for pure `forIn` loops with state invariants (independent of loop cursor). -/
 @[spec]
-public theorem Spec.forInPure_state_inv
+public theorem Spec.forLoopWithInvariant
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -465,18 +464,18 @@ public theorem Spec.forInPure_state_inv
           | .done b' => inv b')
         epost) :
     Triple
-      (forInPureWithStateInv xs init f inv)
+      (forLoopWithInvariant xs init f inv)
       (inv init)
       (fun b => binderNameHint b inv <| inv b)
       epost := by
-  unfold forInPureWithStateInv
+  unfold Gadget.forLoopWithInvariant
   rw [PureForIn.forIn_eq]
   exact Spec.forIn_list_state_inv (init := init) inv step
 
 set_option linter.unusedVariables false in
 /-- Specification lemma for pure `forIn'` loops with state invariants and membership proofs. -/
 @[spec]
-public theorem Spec.forInPure'_state_inv
+public theorem Spec.forLoopMemWithInvariant
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -494,13 +493,55 @@ public theorem Spec.forInPure'_state_inv
           | .done b' => inv b')
         epost) :
     Triple
-      (forInPureWithStateInv' xs init f inv)
+      (forLoopMemWithInvariant xs init f inv)
       (inv init)
       (fun b => binderNameHint b inv <| inv b)
       epost := by
-  unfold forInPureWithStateInv'
+  unfold Gadget.forLoopMemWithInvariant
   rw [PureForIn'.forIn'_eq]
   exact Spec.forIn'_list_state_inv (init := init) inv step
+
+/-- Lean's own `for` loop, which carries no invariant, is verified with the invariant `⊤`. -/
+@[spec high]
+public theorem Spec.forInTop
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α] [PureForIn m ρ α]
+    {xs : ρ} {init : β} {f : α → β → m (ForInStep β)}
+    {epost : EPred}
+    (step : ∀ cur (_h : cur ∈ ForIn.toList xs) b,
+      Triple
+        (f cur b)
+        ⊤
+        (fun r => match r with
+          | .yield _ => ⊤
+          | .done _ => ⊤)
+        epost) :
+    Triple (forIn xs init f) ⊤ (fun _ => ⊤) epost :=
+  Spec.forLoopWithInvariant (xs := xs) (init := init) (f := f) (fun _ => ⊤) step
+
+/-- Lean's own `for h : x in xs` loop, which carries no invariant, is verified with the
+invariant `⊤`. -/
+@[spec high]
+public theorem Spec.forIn'Top
+    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
+    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
+    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+    {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    [ForIn Id ρ α] [LawfulMemForInId ρ α] [PureForIn' m ρ α]
+    {xs : ρ} {init : β} {f : (a : α) → a ∈ xs → β → m (ForInStep β)}
+    {epost : EPred}
+    (step : ∀ cur (h : cur ∈ ForIn.toList xs) b,
+      Triple
+        (f cur ((LawfulMemForInId.mem_toList_iff).mp h) b)
+        ⊤
+        (fun r => match r with
+          | .yield _ => ⊤
+          | .done _ => ⊤)
+        epost) :
+    Triple (forIn' xs init f) ⊤ (fun _ => ⊤) epost :=
+  Spec.forLoopMemWithInvariant (xs := xs) (init := init) (f := f) (fun _ => ⊤) step
 
 @[spec 1100]
 public theorem bot_partial
@@ -573,17 +614,17 @@ public theorem Spec.whileLoop_total
       (inv init)
       (fun b => binderNameHint b done <| done b)
       einv := by
-  let inv' : RepeatInvariant β β Pred := fun
-    | .inl b => inv b
-    | .inr b => done b
-  let loopMeasure := RepeatVariant.ofMeasure (Pred := Pred)
+  let inv' : WhileInvariant β Pred := WhileInvariant.mk fun
+    | false, b => inv b
+    | true, b => done b
+  let loopMeasure := Variant.ofMeasure (Pred := Pred)
     (fun b => (measure b).value)
   have step' : ∀ b (mb : loopMeasure.γ),
       Triple (f () b)
-        (loopMeasure.EvalsTo b mb ⊓ inv' (.inl b))
+        (loopMeasure.EvalsTo b mb ⊓ inv' false b)
         (fun r => match r with
-          | .yield b' => loopMeasure.EvalsBelow b' mb ⊓ inv' (.inl b')
-          | .done b' => inv' (.inr b'))
+          | .yield b' => loopMeasure.EvalsBelow b' mb ⊓ inv' false b'
+          | .done b' => inv' true b')
         einv := by
     intro b mb
     apply Triple.intro
@@ -591,8 +632,8 @@ public theorem Spec.whileLoop_total
     intro h
     subst mb
     have natRel (a b : Nat) : WellFoundedRelation.rel a b = (a < b) := rfl
-    simpa [Named.mk_eq, loopMeasure,
-      RepeatVariant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
+    simpa [Named.mk_eq, loopMeasure, inv', WhileInvariant.mk_apply,
+      Variant.evalsBelow_ofMeasure, natRel] using (step b).le_wp
   unfold whileLoopTotal
   exact Spec.forIn_loop (l := Lean.Loop.mk) (init := init) loopMeasure inv' einv step'
 

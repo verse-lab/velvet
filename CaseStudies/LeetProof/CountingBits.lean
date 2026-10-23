@@ -8,6 +8,7 @@ public import Mathlib.Data.Nat.Bits
 public import Mathlib.Data.Nat.Bitwise
 public import Mathlib.Data.Nat.Size
 public import Mathlib.Algebra.Group.Nat.Range
+public import Mathlib.Data.Finset.Basic
 
 /-!
 ## Program description

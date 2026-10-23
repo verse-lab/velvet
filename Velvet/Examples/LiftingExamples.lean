@@ -3,7 +3,7 @@ module
 public import Velvet
 public meta import Velvet
 
-open Std.Internal.Do
+open Std.WP
 open Lean.Order
 
 namespace Velvet.Examples.Lifting
@@ -153,9 +153,9 @@ public instance instMonadLiftOptionExceptTString {m : Type → Type} [Monad m] :
 
 @[spec]
 public theorem triple_monadLift_option_exceptTString
-    {α : Type} (x : Option α) (post : α → Prop) (epost : EPost.Cons (String → Prop) Prop) :
+    {α : Type} (x : Option α) (post : α → Prop) (epost : (String → Prop) × (Unit → Prop)) :
     Triple (MonadLift.monadLift x : ExceptT String Option α)
-      (wp x post (epost.head optionLiftError))
+      (wp x post (fun _ => epost.fst optionLiftError))
       post
       epost := by
   apply Triple.intro

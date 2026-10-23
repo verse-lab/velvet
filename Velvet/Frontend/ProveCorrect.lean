@@ -8,9 +8,9 @@ public meta import Velvet.Core.Specs
 public meta import Velvet.Frontend.VCReport
 public meta import Lean.Parser
 public meta import Lean.Elab.Command
-public import Std.Internal.Do
+public import Std.WP
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP
 
 /-- Prove a method contract with `prove_correct foo`, producing the registered theorem
 `foo.spec`. The theorem statement is elaborated from the stored contract syntax, and
@@ -34,7 +34,7 @@ elab_rules : command
         Lean.pushScope
         try
           activateScoped declName
-          activateScoped `Std.Internal.Do
+          activateScoped `Std.WP
           activateScoped `Lean.Order
           let proofId := mkIdentFrom specId `spec
           -- Anchor generated syntax to the method identifier. Otherwise it inherits

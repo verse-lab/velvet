@@ -19,9 +19,9 @@ public meta import Velvet.Core.VCGen
 public meta import Lean.Parser
 public meta import Lean.Elab.Do
 public meta import Lean.Elab.Command
-public import Std.Internal.Do
+public import Std.WP
 
-open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.Internal.Do Named
+open Lean Elab Command Term Meta Lean.Parser Lean.Macro Std.WP Named
 open Lean Meta Elab
 open Lean.Parser.Term
 open Lean.Elab.Do
@@ -84,25 +84,25 @@ private meta def mkFixpointMotiveCmd (ctx : MethodElabContext) (methodName : Nam
   let motiveStatement ←
     if varying.isEmpty then
       if ctx.givenBinders.isEmpty then
-        `(term| fun (p : $monadStack') => Std.Internal.Do.Triple p $pre ($post) ($sigs))
+        `(term| fun (p : $monadStack') => Std.WP.Triple p $pre ($post) ($sigs))
       else
         let givenBinders := ctx.givenBinders
         `(term|
           fun (p : $monadStack') => ∀ $givenBinders*,
-            Std.Internal.Do.Triple p $pre ($post) ($sigs))
+            Std.WP.Triple p $pre ($post) ($sigs))
     else
       let quantified := varying ++ ctx.givenBinders
       `(term|
         fun (p : ∀ $varying*, $monadStack') => ∀ $quantified*,
-          Std.Internal.Do.Triple (p $varyingIds*) $pre ($post) ($sigs))
+          Std.WP.Triple (p $varyingIds*) $pre ($post) ($sigs))
   if fixed.isEmpty then
     `(command|
-      open scoped Std.Internal.Do Lean.Order in
+      open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
       public abbrev $motiveId := $motiveStatement)
   else
     `(command|
-      open scoped Std.Internal.Do Lean.Order in
+      open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
       public abbrev $motiveId $fixed* := $motiveStatement)
 
@@ -205,20 +205,20 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
     let statement ←
       if allBinderStxs.isEmpty then
         `(term|
-          Std.Internal.Do.Triple
+          Std.WP.Triple
             (($(ctx.name) $ids* : $monadStack'))
             $pre
             ($post)
             ($sigs))
       else
         `(term|
-          ∀ $allBinderStxs*, Std.Internal.Do.Triple
+          ∀ $allBinderStxs*, Std.WP.Triple
             (($(ctx.name) $ids* : $monadStack'))
             $pre
             ($post)
             ($sigs))
     let specCmd ← `(command|
-      open scoped Std.Internal.Do Lean.Order in
+      open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
       public abbrev $specId := $statement)
     return (defCmd, specCmd, (pre, post, sigs, monadStack'), statement)

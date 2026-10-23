@@ -219,10 +219,11 @@ right✝ : ∀ (j : Nat), j + 1 ≤ i → -1 * n✝ + a✝[j]! + 1 ≤ 0
     [assign] a✝.size := 1
     [assign] a✝[i] := 0
 [grind] Diagnostics
-  [thm] E-Matching instances
-    [thm] local_0 ↦ 7
-    [thm] getElem!_neg ↦ 4
-    [thm] getElem!_pos ↦ 4
+  [ematch] E-matching Diagnostics
+    [thm] Theorem Instance Count
+      [thm] local_0 ↦ 7
+      [thm] getElem!_neg ↦ 4
+      [thm] getElem!_pos ↦ 4
 -/
 #guard_msgs (error) in
 method isGreaterWithCompoundInvariant (n : Int) (a : Array Int)

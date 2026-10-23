@@ -2,9 +2,9 @@ module
 
 public import Velvet.Core.NonDet.Defs
 public import Velvet.Core.Loop.Gadgets
-public import Std.Internal.Do
+public import Std.WP
 
-open Std.Internal.Do Std.Internal.Do.CompleteLattice Lean.Order Loop.Gadget WPPartial
+open Std.WP Lean.Order Loop.Gadget WPPartial
 
 universe u v w z
 
@@ -78,7 +78,7 @@ public noncomputable def wp [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     (x : NonDetT mode m α) (post : α → Pred) (epost : EPred) : Pred :=
   match x with
   | .pure ret => post ret
-  | .vis c f => Std.Internal.Do.wp c (fun b => wp (f b) post epost) epost
+  | .vis c f => Std.WP.wp c (fun b => wp (f b) post epost) epost
   | @NonDetT.pickCont _ _ _ _ p _ f =>
       mode.choice p (fun t => wp (f t) post epost) (div_pre epost)
   | .repeatCont (β := β) init f cont =>
@@ -116,8 +116,8 @@ public theorem wp_bind [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
   induction x generalizing post epost with
   | pure ret => rfl
   | vis c g ih =>
-      show Std.Internal.Do.wp c (fun b => wp (g b >>= f) post epost) epost =
-        Std.Internal.Do.wp c (fun b => wp (g b)
+      show Std.WP.wp c (fun b => wp (g b >>= f) post epost) epost =
+        Std.WP.wp c (fun b => wp (g b)
           (fun a => wp (f a) post epost) epost) epost
       congr 1
       funext b
@@ -256,14 +256,14 @@ public theorem wp_pickSuchThat [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] (τ : Type u) (p : τ → Prop)
     [wf : Findable p] (name : Lean.Name)
     (post : τ → Pred) (epost : EPred) :
-    Std.Internal.Do.wp (NonDetT.pickSuchThat (m := m) (mode := mode) τ p (wf := wf) name) post epost =
+    Std.WP.wp (NonDetT.pickSuchThat (m := m) (mode := mode) τ p (wf := wf) name) post epost =
       mode.choice p post (div_pre epost) := rfl
 
 @[simp]
 public theorem wp_pick (τ : Type u) [Inhabited τ] [WPMonad m Pred EPred]
     [∀ γ, CCPO (m γ)] [WPPartial m Pred EPred div_post div_pre]
     (post : τ → Pred) (epost : EPred) :
-    Std.Internal.Do.wp (NonDetT.pick (m := m) (mode := mode) τ) post epost =
+    Std.WP.wp (NonDetT.pick (m := m) (mode := mode) τ) post epost =
       match mode with
       | .demonic => ⨅ (a : τ), post a
       | .angelic => ⨆ (a : τ), post a := by
@@ -283,7 +283,7 @@ public theorem wp_pick (τ : Type u) [Inhabited τ] [WPMonad m Pred EPred]
 public theorem wp_assume' [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
     [WPPartial m Pred EPred div_post div_pre] (as : Prop)
     [Decidable as] (post : PUnit.{u+1} → Pred) (epost : EPred) :
-    Std.Internal.Do.wp (NonDetT.assume' (m := m) (mode := mode) as) post epost =
+    Std.WP.wp (NonDetT.assume' (m := m) (mode := mode) as) post epost =
       match mode with
       | .demonic => (⌜¬as⌝ ⇨ div_pre epost) ⊓ (⌜as⌝ ⇨ post .unit)
       | .angelic => ⌜as⌝ ⊓ post .unit := by
@@ -393,7 +393,7 @@ public theorem angelic_pickSuchThat_spec {m : Type u → Type v} {Pred EPred : T
       ((⌜(Named.mk name none (p w) : Prop)⌝ ⇨ post w) : Pred) post epost := by
   apply Triple.intro
   change (⌜(Named.mk name none (p w) : Prop)⌝ ⇨ post w) ⊑
-    Std.Internal.Do.wp (NonDetT.pickSuchThat (m := m) (mode := .angelic) τ p (wf := wf) name) post epost
+    Std.WP.wp (NonDetT.pickSuchThat (m := m) (mode := .angelic) τ p (wf := wf) name) post epost
   rw [wp_pickSuchThat, choice_angelic]
   have hpw : p w := h
   have hp : (⌜(Named.mk name none (p w) : Prop)⌝ : Pred) = ⊤ := by
