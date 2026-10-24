@@ -27,7 +27,8 @@ deriving DecidableEq
 instance : Channel Calc Op Nat IOErr := ⟨⟩
 
 def calcP : Protocol Op Nat IOErr where
-  allow _ _ := True
+  allowRead _ := True
+  allowWrite _ _ := True
   onRead _
     | .ok _ => True
     | .error e => e = .eof
@@ -35,7 +36,8 @@ def calcP : Protocol Op Nat IOErr where
     | .ok => True
     | .error _ => False
 
-@[simp, grind =] theorem calcP_allow (h) (o : Nat) : calcP.allow h o = True := rfl
+@[simp, grind =] theorem calcP_allowRead (h) : calcP.allowRead h = True := rfl
+@[simp, grind =] theorem calcP_allowWrite (h) (o : Nat) : calcP.allowWrite h o = True := rfl
 @[simp, grind =] theorem calcP_onRead_ok (h) (q : Op) : calcP.onRead h (.ok q) = True := rfl
 @[simp, grind =] theorem calcP_onRead_error (h) (e : IOErr) : calcP.onRead h (.error e) = (e = .eof) := rfl
 @[simp, grind =] theorem calcP_onWrite_ok (h) (o : Nat) : calcP.onWrite h o .ok = True := rfl
@@ -123,7 +125,8 @@ deriving DecidableEq
 instance : Channel KV KVReq KVResp IOErr := ⟨⟩
 
 def kvP : Protocol KVReq KVResp IOErr where
-  allow _ _ := True
+  allowRead _ := True
+  allowWrite _ _ := True
   onRead _
     | .ok _ => True
     | .error e => e = .eof
@@ -131,7 +134,8 @@ def kvP : Protocol KVReq KVResp IOErr where
     | .ok => True
     | .error _ => False
 
-@[simp, grind =] theorem kvP_allow (h) (o : KVResp) : kvP.allow h o = True := rfl
+@[simp, grind =] theorem kvP_allowRead (h) : kvP.allowRead h = True := rfl
+@[simp, grind =] theorem kvP_allowWrite (h) (o : KVResp) : kvP.allowWrite h o = True := rfl
 @[simp, grind =] theorem kvP_onRead_ok (h) (q : KVReq) : kvP.onRead h (.ok q) = True := rfl
 @[simp, grind =] theorem kvP_onRead_error (h) (e : IOErr) : kvP.onRead h (.error e) = (e = .eof) := rfl
 @[simp, grind =] theorem kvP_onWrite_ok (h) (o : KVResp) : kvP.onWrite h o .ok = True := rfl

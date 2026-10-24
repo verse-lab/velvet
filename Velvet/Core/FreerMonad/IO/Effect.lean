@@ -20,25 +20,25 @@ abbrev IOModel (E Err : Type) := ExceptT Err (StateT (Trace E) Option)
 section Effect
 variable {E Err : Type}
 
-noncomputable instance instWPIOEff [Policy E] {α : Type} :
+noncomputable instance instWPIOEff {α : Type} :
     WP (IOEff E Err α) α (Trace E → Prop) ((Err → Trace E → Prop) × (Unit → Prop)) where
   wpTrans x := ⟨fun post epost h => match x with
     | @IOEff.read _ _ _ In _ _ _ _ P _ ch =>
+        P.allowRead (h.traceOf ch) ∧
         (∀ i : In, P.onRead (h.traceOf ch) (.ok i) → post i (h.recordFor ch (.read (.ok i)))) ∧
         ∀ e, P.onRead (h.traceOf ch) (.error e) → epost.1 e (h.recordFor ch (.read (.error e)))
     | @IOEff.write _ _ _ _ _ _ _ _ P _ ch o =>
-        Policy.allow (h.recordFor ch (.write o .ok)) ∧
-        P.allow (h.traceOf ch) o ∧
+        P.allowWrite (h.traceOf ch) o ∧
         (P.onWrite (h.traceOf ch) o .ok → post () (h.recordFor ch (.write o .ok))) ∧
         ∀ e, P.onWrite (h.traceOf ch) o (.error e) → epost.1 e (h.recordFor ch (.write o (.error e)))
     | .snapshot => post (Ghost.mk h) h⟩
   wp_trans_monotone x post post' epost epost' he hp h := by
     cases x with
     | read ch =>
-      exact fun ⟨hk, hn⟩ => ⟨fun i hi => hp _ _ (hk i hi), fun e he' => he.1 e _ (hn e he')⟩
+      exact fun ⟨ha, hk, hn⟩ => ⟨ha, fun i hi => hp _ _ (hk i hi), fun e he' => he.1 e _ (hn e he')⟩
     | write ch o =>
-      exact fun ⟨hpol, hg, hk, hn⟩ =>
-        ⟨hpol, hg, fun hok => hp _ _ (hk hok), fun e he' => he.1 e _ (hn e he')⟩
+      exact fun ⟨hg, hk, hn⟩ =>
+        ⟨hg, fun hok => hp _ _ (hk hok), fun e he' => he.1 e _ (hn e he')⟩
     | snapshot => exact hp _ _
 
 instance instInterpIOEff : HasInterpreter (IOEff E Err) (IOModel E Err) where
@@ -51,13 +51,13 @@ instance instInterpIOEff : HasInterpreter (IOEff E Err) (IOModel E Err) where
           h.recordFor ch (.write o (Model.write (In := In) (P := P) h ch o)))
     | .snapshot => fun h => some (.ok (Ghost.mk h), h)
 
-instance instLawfulEffWPIOEff [Policy E] :
+instance instLawfulEffWPIOEff :
     LawfulEffWP (IOEff E Err) (IOModel E Err) (Trace E → Prop) ((Err → Trace E → Prop) × (Unit → Prop)) where
   ewp_le_wp_interp x post epost := by
     intro post epost h
     cases x with
     | @read c In Out _ _ _ P _ ch =>
-      intro ⟨hk, hn⟩
+      intro ⟨_, hk, hn⟩
       have hok := Model.read_ok (P := P) h ch
       show pushExcept post epost.1 (Model.read (Out := Out) (P := P) h ch).toExcept
         (h.recordFor ch (.read (Model.read (Out := Out) (P := P) h ch)))
@@ -66,7 +66,7 @@ instance instLawfulEffWPIOEff [Policy E] :
       | ok i => exact hk i hok
       | error e => exact hn e hok
     | @write c In Out _ _ _ P _ ch o =>
-      intro ⟨_, _, hk, hn⟩
+      intro ⟨_, hk, hn⟩
       have hok := Model.write_ok (P := P) h ch o
       show pushExcept post epost.1 (Model.write (In := In) (P := P) h ch o).toExcept
         (h.recordFor ch (.write o (Model.write (In := In) (P := P) h ch o)))
@@ -103,7 +103,7 @@ theorem IOModel.refines {E Err : Type} {es : Type → Type v} [HasInterpreter es
 
 namespace IOProg
 variable {E Err c In Out : Type} [Channel c In Out Err] [DecidableEq c] [Embeds c E] {P : Protocol In Out Err}
-  [Model P c E] [Policy E]
+  [Model P c E]
 
 def read (ch : c) : IOProg E Err In := .vis (.read ch) .ret
 
@@ -115,34 +115,33 @@ def snapshot : IOProg E Err (Ghost (Trace E)) := .vis .snapshot .ret
 @[spec]
 theorem read_spec (ch : c) {post : In → Trace E → Prop} {epost : (Err → Trace E → Prop) × (Unit → Prop)} :
     Triple (read (E := E) ch)
-      ((fun h => ∀ i, Named.mk `onRead none (P.onRead (h.traceOf ch) (.ok i)) →
-          ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.read (.ok i))) → post i h') ⊓
-        fun h => ∀ e, Named.mk `onRead none (P.onRead (h.traceOf ch) (.error e)) →
-          ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.read (.error e))) → epost.1 e h')
+      ((fun h => Named.mk `allowRead none (P.allowRead (h.traceOf ch))) ⊓
+        ((fun h => ∀ i, Named.mk `onRead none (P.onRead (h.traceOf ch) (.ok i)) →
+            ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.read (.ok i))) → post i h') ⊓
+          fun h => ∀ e, Named.mk `onRead none (P.onRead (h.traceOf ch) (.error e)) →
+            ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.read (.error e))) → epost.1 e h'))
       post epost := by
   apply Triple.intro
   intro h
   simp only [meet_apply, meet_prop_eq_and]
   intro hw
-  exact ⟨fun i hi => hw.1 i hi _ rfl, fun e he => hw.2 e he _ rfl⟩
+  exact ⟨hw.1, fun i hi => hw.2.1 i hi _ rfl, fun e he => hw.2.2 e he _ rfl⟩
 
 @[spec]
 theorem write_spec (ch : c) (o : Out) {post : Unit → Trace E → Prop}
     {epost : (Err → Trace E → Prop) × (Unit → Prop)} :
     Triple (write (E := E) ch o)
-      ((fun h => ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.write o .ok)) →
-          Named.mk `policy none (Policy.allow h')) ⊓
-        ((fun h => Named.mk `allow none (P.allow (h.traceOf ch) o)) ⊓
-          ((fun h => Named.mk `onWrite none (P.onWrite (h.traceOf ch) o .ok) →
-              ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.write o .ok)) → post () h') ⊓
-            fun h => ∀ e, Named.mk `onWrite none (P.onWrite (h.traceOf ch) o (.error e)) →
-              ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.write o (.error e))) → epost.1 e h')))
+      ((fun h => Named.mk `allowWrite none (P.allowWrite (h.traceOf ch) o)) ⊓
+        ((fun h => Named.mk `onWrite none (P.onWrite (h.traceOf ch) o .ok) →
+            ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.write o .ok)) → post () h') ⊓
+          fun h => ∀ e, Named.mk `onWrite none (P.onWrite (h.traceOf ch) o (.error e)) →
+            ∀ h', Named.mk `h_trace none (h' = h.recordFor ch (.write o (.error e))) → epost.1 e h'))
       post epost := by
   apply Triple.intro
   intro h
   simp only [meet_apply, meet_prop_eq_and]
   intro hw
-  exact ⟨hw.1 _ rfl, hw.2.1, fun hok => hw.2.2.1 hok _ rfl, fun e he => hw.2.2.2 e he _ rfl⟩
+  exact ⟨hw.1, fun hok => hw.2.1 hok _ rfl, fun e he => hw.2.2 e he _ rfl⟩
 
 @[spec]
 theorem snapshot_spec {post : Ghost (Trace E) → Trace E → Prop}

@@ -50,14 +50,16 @@ instance : Channel Socket Request Response IOErr := ⟨⟩
 instance : Channel Auth Cmd Reply IOErr := ⟨⟩
 
 def stdinP : Protocol String String IOErr where
-  allow _ _ := False
+  allowRead _ := True
+  allowWrite _ _ := False
   onRead _
     | .ok s => ¬ s.contains '\n'
     | .error e => e = .eof
   onWrite _ _ _ := True
 
 def stdoutP : Protocol String String IOErr where
-  allow _ _ := True
+  allowRead _ := True
+  allowWrite _ _ := True
   onRead _
     | .ok _ => False
     | .error e => e = .eof
@@ -66,7 +68,8 @@ def stdoutP : Protocol String String IOErr where
     | .error e => e = .eof
 
 def logP : Protocol Unit String IOErr where
-  allow _ o := o ≠ ""
+  allowRead _ := True
+  allowWrite _ o := o ≠ ""
   onRead _
     | .ok _ => False
     | .error e => e = .eof
@@ -78,7 +81,8 @@ def pending (h : List (IOEvent Request Response IOErr)) : Option Request :=
   h.foldl (fun _ e => match e with | .read (.ok q) => some q | _ => none) none
 
 def reqResp : Protocol Request Response IOErr where
-  allow h r := ∃ q, pending h = some q ∧ r.id = q.id
+  allowRead _ := True
+  allowWrite h r := ∃ q, pending h = some q ∧ r.id = q.id
   onRead h
     | .ok _ => pending h = none
     | .error e => e = .eof ∨ e = .reset
@@ -90,7 +94,8 @@ def loggedIn (h : List (IOEvent Cmd Reply IOErr)) : Bool :=
   h.foldl (fun b e => match e with | .read (.ok .login) => true | _ => b) false
 
 def authP : Protocol Cmd Reply IOErr where
-  allow h r := r = .ok → loggedIn h = true
+  allowRead _ := True
+  allowWrite h r := r = .ok → loggedIn h = true
   onRead _
     | .ok _ => True
     | .error e => e = .eof
@@ -98,16 +103,19 @@ def authP : Protocol Cmd Reply IOErr where
     | .ok => True
     | .error e => e = .eof
 
-@[simp, grind =] theorem stdinP_allow (h) (o : String) : stdinP.allow h o = False := rfl
+@[simp, grind =] theorem stdinP_allowRead (h) : stdinP.allowRead h = True := rfl
+@[simp, grind =] theorem stdinP_allowWrite (h) (o : String) : stdinP.allowWrite h o = False := rfl
 @[simp, grind =] theorem stdinP_onRead_ok (h) (s : String) : stdinP.onRead h (.ok s) = ¬ s.contains '\n' := rfl
 @[simp, grind =] theorem stdinP_onRead_error (h) (e : IOErr) : stdinP.onRead h (.error e) = (e = .eof) := rfl
 
-@[simp, grind =] theorem stdoutP_allow (h) (o : String) : stdoutP.allow h o = True := rfl
+@[simp, grind =] theorem stdoutP_allowRead (h) : stdoutP.allowRead h = True := rfl
+@[simp, grind =] theorem stdoutP_allowWrite (h) (o : String) : stdoutP.allowWrite h o = True := rfl
 @[simp, grind =] theorem stdoutP_onWrite_ok (h) (o : String) : stdoutP.onWrite h o .ok = True := rfl
 @[simp, grind =] theorem stdoutP_onWrite_error (h) (o : String) (e : IOErr) :
     stdoutP.onWrite h o (.error e) = (e = .eof) := rfl
 
-@[simp, grind =] theorem logP_allow (h) (o : String) : logP.allow h o = (o ≠ "") := rfl
+@[simp, grind =] theorem logP_allowRead (h) : logP.allowRead h = True := rfl
+@[simp, grind =] theorem logP_allowWrite (h) (o : String) : logP.allowWrite h o = (o ≠ "") := rfl
 @[simp, grind =] theorem logP_onWrite_ok (h) (o : String) : logP.onWrite h o .ok = True := rfl
 @[simp, grind =] theorem logP_onWrite_error (h) (o : String) (e : IOErr) :
     logP.onWrite h o (.error e) = (e = .full) := rfl
@@ -120,8 +128,9 @@ def authP : Protocol Cmd Reply IOErr where
     pending (h ++ [.write o r]) = none := by
   simp [pending, List.foldl_append]
 
-@[simp, grind =] theorem reqResp_allow (h) (r : Response) :
-    reqResp.allow h r = ∃ q, pending h = some q ∧ r.id = q.id := rfl
+@[simp, grind =] theorem reqResp_allowRead (h) : reqResp.allowRead h = True := rfl
+@[simp, grind =] theorem reqResp_allowWrite (h) (r : Response) :
+    reqResp.allowWrite h r = ∃ q, pending h = some q ∧ r.id = q.id := rfl
 @[simp, grind =] theorem reqResp_onRead_ok (h) (q : Request) : reqResp.onRead h (.ok q) = (pending h = none) := rfl
 @[simp, grind =] theorem reqResp_onRead_error (h) (e : IOErr) :
     reqResp.onRead h (.error e) = (e = .eof ∨ e = .reset) := rfl
@@ -139,7 +148,8 @@ def authP : Protocol Cmd Reply IOErr where
     loggedIn (h ++ [.write o r]) = loggedIn h := by
   simp [loggedIn, List.foldl_append]
 
-@[simp, grind =] theorem authP_allow (h) (r : Reply) : authP.allow h r = (r = .ok → loggedIn h = true) := rfl
+@[simp, grind =] theorem authP_allowRead (h) : authP.allowRead h = True := rfl
+@[simp, grind =] theorem authP_allowWrite (h) (r : Reply) : authP.allowWrite h r = (r = .ok → loggedIn h = true) := rfl
 @[simp, grind =] theorem authP_onRead_ok (h) (c : Cmd) : authP.onRead h (.ok c) = True := rfl
 @[simp, grind =] theorem authP_onRead_error (h) (e : IOErr) : authP.onRead h (.error e) = (e = .eof) := rfl
 @[simp, grind =] theorem authP_onWrite_ok (h) (o : Reply) : authP.onWrite h o .ok = True := rfl
@@ -188,16 +198,26 @@ instance : Embeds Auth Event where
     | _ => none
   proj_inj _ _ := rfl
 
-instance : Distinct Stdin Stdout Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Stdin Log Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Stdin Socket Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Stdin Auth Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Stdout Log Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Stdout Socket Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Stdout Auth Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Log Socket Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Log Auth Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
-instance : Distinct Socket Auth Event := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+instance : Distinguish Stdin Stdout Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdout Stdin Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdin Log Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Log Stdin Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdin Socket Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Socket Stdin Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdin Auth Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Auth Stdin Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdout Log Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Log Stdout Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdout Socket Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Socket Stdout Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdout Auth Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Auth Stdout Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Log Socket Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Socket Log Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Log Auth Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Auth Log Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Socket Auth Event := ⟨fun _ _ => rfl⟩
+instance : Distinguish Auth Socket Event := ⟨fun _ _ => rfl⟩
 
 instance : Model stdinP Stdin Event where
   read _ _ := .error .eof

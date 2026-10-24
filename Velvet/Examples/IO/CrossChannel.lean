@@ -2,7 +2,9 @@ import Velvet.Examples.IO.Setup
 
 open Std.WP Lean.Order IOProg
 
-namespace Velvet.Examples.IO.Policy
+/-! A rule spanning two channels, no output after stdin hits EOF, stated in the specs. -/
+
+namespace Velvet.Examples.IO.CrossChannel
 
 inductive Console where
   | stdin (e : IOEvent String String IOErr)
@@ -22,7 +24,8 @@ instance : Embeds Stdout Console where
     | _ => none
   proj_inj _ _ := rfl
 
-instance : Distinct Stdin Stdout Console := ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+instance : Distinguish Stdin Stdout Console := ⟨fun _ _ => rfl⟩
+instance : Distinguish Stdout Stdin Console := ⟨fun _ _ => rfl⟩
 
 @[simp, grind =]
 theorem inj_stdin (e : IOEvent String String IOErr) : (Embeds.inj Stdin.mk e : Console) = .stdin e := rfl
@@ -44,25 +47,15 @@ instance : Model stdoutP Stdout Console where
 
 def inputClosed (h : Trace Console) : Prop := Console.stdin (.read (.error .eof)) ∈ h.events
 
-def noOutputAfterClose (h : Trace Console) : Prop :=
-  match h.events.getLast? with
-  | some (.stdout (.write _ _)) => ¬ inputClosed h
-  | _ => True
-
-instance : Policy Console := ⟨noOutputAfterClose⟩
-
-@[simp, grind =]
-theorem allow_eq (h : Trace Console) : Policy.allow h = noOutputAfterClose h := rfl
-
-@[simp, grind =]
-theorem noOutputAfterClose_stdout (h : Trace Console) (o : String) (r : WriteOutcome IOErr) :
-    noOutputAfterClose (h.recordFor Stdout.mk (.write o r)) = ¬ inputClosed (h.recordFor Stdout.mk (.write o r)) := by
-  simp [noOutputAfterClose]
-
 @[simp, grind =]
 theorem inputClosed_recordFor_stdin_ok (h : Trace Console) (s : String) :
     inputClosed (h.recordFor Stdin.mk (.read (.ok s))) = inputClosed h := by
   simp [inputClosed]
+
+@[simp, grind =]
+theorem inputClosed_recordFor_stdin_eof (h : Trace Console) :
+    inputClosed (h.recordFor Stdin.mk (.read (.error .eof))) = True := by
+  simp [inputClosed, Trace.recordFor]
 
 @[simp, grind =]
 theorem inputClosed_recordFor_stdout (h : Trace Console) (e : IOEvent String String IOErr) :
@@ -74,9 +67,11 @@ abbrev Prog := IOProg Console IOErr
 method echo returns (line : String) in Prog
   given (h₀ : Trace Console)
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
-  signals (e : IOErr) (h : Trace Console) => e = .eof
+  signals (e : IOErr) (h : Trace Console) =>
+    e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk)
   signals False
   ensures (h : Trace Console) =>
+    ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok line)] ∧
       h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write line .ok]
 do
@@ -90,9 +85,11 @@ prove_correct echo by
 method greet returns (name : String) in Prog
   given (h₀ : Trace Console)
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
-  signals (e : IOErr) (h : Trace Console) => e = .eof
+  signals (e : IOErr) (h : Trace Console) =>
+    e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" .ok])
   signals False
   ensures (h : Trace Console) =>
+    ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok name)] ∧
       h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" .ok, .write s!"hello {name}" .ok]
 do
@@ -104,4 +101,4 @@ do
 prove_correct greet by
   velvet_vcgen [greet] with finish
 
-end Velvet.Examples.IO.Policy
+end Velvet.Examples.IO.CrossChannel

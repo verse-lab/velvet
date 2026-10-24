@@ -5,10 +5,9 @@ class Embeds (c : Type) {In Out Err : outParam Type} [Channel c In Out Err] (E :
   proj : E → Option (c × IOEvent In Out Err)
   proj_inj : ∀ ch e, proj (inj ch e) = some (ch, e)
 
-class Distinct (c c' : Type) {In Out Err In' Out' Err' : outParam Type}
+class Distinguish (c c' : Type) {In Out Err In' Out' Err' : outParam Type}
     [Channel c In Out Err] [Channel c' In' Out' Err'] (E : Type) [Embeds c E] [Embeds c' E] : Prop where
-  left : ∀ (ch' : c') e, Embeds.proj (c := c) (Embeds.inj ch' e : E) = none
-  right : ∀ (ch : c) e, Embeds.proj (c := c') (Embeds.inj ch e : E) = none
+  distinguish : ∀ (ch : c) e, Embeds.proj (c := c') (Embeds.inj ch e : E) = none
 
 instance instEmbedsProd {c In Out Err : Type} [Channel c In Out Err] : Embeds c (c × IOEvent In Out Err) where
   inj ch e := (ch, e)
@@ -33,22 +32,20 @@ section Sum
 variable {c c' In Out Err In' Out' Err' A B : Type} [Channel c In Out Err] [Channel c' In' Out' Err']
 
 instance [Embeds c A] [Embeds c' B] :
-    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumRight :=
-  ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumRight :=
+  ⟨fun _ _ => rfl⟩
 
 instance [Embeds c B] [Embeds c' A] :
-    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumLeft :=
-  ⟨fun _ _ => rfl, fun _ _ => rfl⟩
+    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumLeft :=
+  ⟨fun _ _ => rfl⟩
 
-instance [Embeds c A] [Embeds c' A] [Distinct c c' A] :
-    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumLeft :=
-  ⟨fun ch' e => by simp [Embeds.proj, Embeds.inj, Distinct.left],
-   fun ch e => by simp [Embeds.proj, Embeds.inj, Distinct.right]⟩
+instance [Embeds c A] [Embeds c' A] [Distinguish c c' A] :
+    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumLeft :=
+  ⟨fun ch e => by simp [Embeds.proj, Embeds.inj, Distinguish.distinguish]⟩
 
-instance [Embeds c B] [Embeds c' B] [Distinct c c' B] :
-    @Distinct c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumRight :=
-  ⟨fun ch' e => by simp [Embeds.proj, Embeds.inj, Distinct.left],
-   fun ch e => by simp [Embeds.proj, Embeds.inj, Distinct.right]⟩
+instance [Embeds c B] [Embeds c' B] [Distinguish c c' B] :
+    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumRight :=
+  ⟨fun ch e => by simp [Embeds.proj, Embeds.inj, Distinguish.distinguish]⟩
 
 end Sum
 
@@ -90,24 +87,11 @@ theorem traceOf_recordFor_ne (t : Trace E) {ch ch' : c} (hne : ch ≠ ch') (e : 
 variable {c' In' Out' Err' : Type} [Channel c' In' Out' Err'] [Embeds c' E]
 
 @[simp, grind =]
-theorem traceOf_recordFor_other [Distinct c c' E] (t : Trace E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
+theorem traceOf_recordFor_other [Distinguish c' c E] (t : Trace E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
     (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
-  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Distinct.left]
-
-@[simp, grind =]
-theorem traceOf_recordFor_other' [Distinct c' c E] (t : Trace E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
-    (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
-  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Distinct.right]
+  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Distinguish.distinguish]
 
 end Trace
-
-class Policy (E : Type) where
-  allow : Trace E → Prop
-
-instance (priority := low) Policy.default {E : Type} : Policy E := ⟨fun _ => True⟩
-
-@[simp, grind =]
-theorem Policy.allow_default {E : Type} (t : Trace E) : @Policy.allow E Policy.default t = True := rfl
 
 class Model {In Out Err : outParam Type} (P : outParam (Protocol In Out Err)) (c : Type)
     [Channel c In Out Err] (E : Type) [DecidableEq c] [Embeds c E] where
