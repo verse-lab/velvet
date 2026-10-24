@@ -1,14 +1,14 @@
-import Velvet.Examples.IO.Loops
+import Velvet.Examples.IO.Servers.Calc
 
 open Std.WP Lean.Order IOProg
 open scoped GhostSyntax
-open Velvet.Examples.IO Velvet.Examples.IO.Loops
+open Velvet.Examples.IO Velvet.Examples.IO.Servers.Calc
 
 /-! A server that stops on one request, `quit`. The `ensures` describes the history when it stops;
-`allowRead` and `allowWrite` are checked at every step of every run, including runs that never
+the protocol's `allow` is checked before every read and write of every run, including runs that never
 stop, so a server that answers nothing, or answers wrongly, fails at its first bad step. -/
 
-namespace Velvet.Examples.IO.Shutdown
+namespace Velvet.Examples.IO.Servers.Shutdown
 
 inductive Req where
   | op (o : Op)
@@ -18,7 +18,7 @@ structure Conn where
   fd : Nat
 deriving DecidableEq
 
-instance : Channel Conn Req Nat IOErr := ⟨⟩
+instance : StreamChannel Conn Req Nat IOErr := ⟨⟩
 
 /-- Whether the client has asked to stop. -/
 def quitted (h : List (IOEvent Req Nat IOErr)) : Bool :=
@@ -28,24 +28,27 @@ def quitted (h : List (IOEvent Req Nat IOErr)) : Bool :=
 def awaiting (h : List (IOEvent Req Nat IOErr)) : Option Op :=
   h.foldl (fun _ e => match e with | .read (.ok (.op o)) => some o | _ => none) none
 
-def connP : Protocol Req Nat IOErr where
-  allowRead h := quitted h = false
-  allowWrite h r := ∃ o, awaiting h = some o ∧ r = o.eval
-  onRead _
-    | .ok _ => True
-    | .error e => e = .eof
-  onWrite _ _
-    | .ok => True
-    | .error _ => False
+def connP : StreamProtocol Conn Req Nat IOErr where
+  allow _ h o := match o with
+    | .read => quitted h = false
+    | .write r => ∃ o, awaiting h = some o ∧ r = o.eval
+  onReply _ _ o r := match o, r with
+    | .read, .ok _ => True
+    | .read, .error e => e = .eof
+    | .write _, .ok _ => True
+    | .write _, .error _ => False
 
-@[simp, grind =] theorem connP_allowRead (h) : connP.allowRead h = (quitted h = false) := rfl
-@[simp, grind =] theorem connP_allowWrite (h) (r : Nat) :
-    connP.allowWrite h r = ∃ o, awaiting h = some o ∧ r = o.eval := rfl
-@[simp, grind =] theorem connP_onRead_ok (h) (q : Req) : connP.onRead h (.ok q) = True := rfl
-@[simp, grind =] theorem connP_onRead_error (h) (e : IOErr) : connP.onRead h (.error e) = (e = .eof) := rfl
-@[simp, grind =] theorem connP_onWrite_ok (h) (r : Nat) : connP.onWrite h r .ok = True := rfl
-@[simp, grind =] theorem connP_onWrite_error (h) (r : Nat) (e : IOErr) :
-    connP.onWrite h r (.error e) = False := rfl
+@[simp, grind =] theorem connP_allow_read (ch h) : connP.allow ch h .read = (quitted h = false) := rfl
+@[simp, grind =] theorem connP_allow_write (ch h) (r : Nat) :
+    connP.allow ch h (.write r) = ∃ o, awaiting h = some o ∧ r = o.eval := rfl
+
+@[simp, grind =] theorem connP_onReply_read_ok (ch h) (q : Req) : connP.onReply ch h .read (.ok q) = True := rfl
+@[simp, grind =] theorem connP_onReply_read_error (ch h) (e : IOErr) :
+    connP.onReply ch h .read (.error e) = (e = .eof) := rfl
+@[simp, grind =] theorem connP_onReply_write_ok (ch h) (o : Nat) (u : Unit) :
+    connP.onReply ch h (.write o) (.ok u) = True := rfl
+@[simp, grind =] theorem connP_onReply_write_error (ch h) (o : Nat) (e : IOErr) :
+    connP.onReply ch h (.write o) (.error e) = False := rfl
 
 @[simp, grind =] theorem quitted_quit (h) : quitted (h ++ [.read (.ok .quit)]) = true := by
   simp [quitted, List.foldl_append]
@@ -53,7 +56,7 @@ def connP : Protocol Req Nat IOErr where
   simp [quitted, List.foldl_append]
 @[simp, grind =] theorem quitted_error (h) (e : IOErr) : quitted (h ++ [.read (.error e)]) = quitted h := by
   simp [quitted, List.foldl_append]
-@[simp, grind =] theorem quitted_write (h) (r : Nat) (w : WriteOutcome IOErr) :
+@[simp, grind =] theorem quitted_write (h) (r : Nat) (w : Except IOErr Unit) :
     quitted (h ++ [.write r w]) = quitted h := by
   simp [quitted, List.foldl_append]
 
@@ -63,23 +66,35 @@ def connP : Protocol Req Nat IOErr where
   simp [awaiting, List.foldl_append]
 @[simp, grind =] theorem awaiting_error (h) (e : IOErr) : awaiting (h ++ [.read (.error e)]) = none := by
   simp [awaiting, List.foldl_append]
-@[simp, grind =] theorem awaiting_write (h) (r : Nat) (w : WriteOutcome IOErr) :
+@[simp, grind =] theorem awaiting_write (h) (r : Nat) (w : Except IOErr Unit) :
     awaiting (h ++ [.write r w]) = none := by
   simp [awaiting, List.foldl_append]
 
 abbrev ConnEv := Conn × IOEvent Req Nat IOErr
 
-instance : Model connP Conn ConnEv where
-  read _ _ := .error .eof
-  read_ok _ _ := rfl
-  write _ _ _ := .ok
-  write_ok _ _ _ := trivial
+/-- What each client sends. -/
+class ConnClients where
+  requests : Conn → List Req
+
+/-- A connection delivers its client's requests in order, then the end of input. -/
+def connModel [ConnClients] (c : Conn) (h : List (IOEvent Req Nat IOErr)) : StreamOp Req Nat α → Except IOErr α
+  | .read => nextInput (ConnClients.requests c) h
+  | .write _ => .ok ()
+
+instance [ConnClients] : Model Conn connP ConnEv where
+  call t c o := connModel c (t.traceOf c) o
+  call_ok t c o := by
+    cases o with
+    | read =>
+      simp only [connModel, nextInput]
+      split <;> first | trivial | rfl
+    | write _ => trivial
 
 /-- One request and its answer. -/
-@[simp, grind =] def served (o : Op) : List (IOEvent Req Nat IOErr) := [.read (.ok (.op o)), .write o.eval .ok]
+@[simp, grind =] def served (o : Op) : List (IOEvent Req Nat IOErr) := [.read (.ok (.op o)), .write o.eval (.ok ())]
 
 set_option velvet.semantics.termination "partial" in
-method serve (c : Conn) returns (r : Unit) in IOProg ConnEv IOErr
+method serve [ConnClients] (c : Conn) returns (r : Unit) in IOProg ConnEv IOErr
   given (h₀ : Trace ConnEv)
   requires (h : Trace ConnEv) => h = h₀ ∧ quitted (h.traceOf c) = false ∧ awaiting (h.traceOf c) = none
   signals (e : IOErr) (h : Trace ConnEv) =>
@@ -106,4 +121,4 @@ do
 prove_correct serve by
   velvet_vcgen [serve] with finish
 
-end Velvet.Examples.IO.Shutdown
+end Velvet.Examples.IO.Servers.Shutdown

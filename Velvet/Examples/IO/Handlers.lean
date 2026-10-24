@@ -2,14 +2,21 @@ import Velvet.Examples.IO.Setup
 
 open Std.WP Lean.Order IOProg
 
+/-! Each spec states the whole trace a handler leaves, on success and on every error, so a handler
+that also touches another channel does not verify. -/
+
 namespace Velvet.Examples.IO.Handlers
 
-method handleOne (s : Socket) returns (q : Request) in Prog
+method handleOne [Clients] (s : Socket) returns (q : Request) in Prog
   given (h₀ : Trace Event)
   requires (h : Trace Event) => h = h₀
-  signals (e : IOErr) (h : Trace Event) => e = .eof ∨ e = .reset
+  signals (e : IOErr) (h : Trace Event) =>
+    (e = .eof ∨ e = .reset) ∧
+      (h.events = h₀.events ++ [.sock s (.read (.error e))] ∨
+        ∃ q : Request, h.events = h₀.events ++ [.sock s (.read (.ok q)), .sock s (.write ⟨q.id⟩ (.error e))])
   signals False
-  ensures (h : Trace Event) => h.traceOf s = h₀.traceOf s ++ [.read (.ok q), .write ⟨q.id⟩ .ok]
+  ensures (h : Trace Event) =>
+    h.events = h₀.events ++ [.sock s (.read (.ok q)), .sock s (.write ⟨q.id⟩ (.ok ()))]
 do
   let q ← read s
   write s (Response.mk q.id)
@@ -18,13 +25,24 @@ do
 prove_correct handleOne by
   velvet_vcgen [handleOne] with finish
 
-method handleTwo (s : Socket) returns (qs : Request × Request) in Prog
+method handleTwo [Clients] (s : Socket) returns (qs : Request × Request) in Prog
   given (h₀ : Trace Event)
   requires (h : Trace Event) => h = h₀
-  signals (e : IOErr) (h : Trace Event) => e = .eof ∨ e = .reset
+  signals (e : IOErr) (h : Trace Event) =>
+    (e = .eof ∨ e = .reset) ∧
+      (h.events = h₀.events ++ [.sock s (.read (.error e))] ∨
+        (∃ q₁ : Request, h.events = h₀.events ++
+          [.sock s (.read (.ok q₁)), .sock s (.write ⟨q₁.id⟩ (.error e))]) ∨
+        (∃ q₁ : Request, h.events = h₀.events ++
+          [.sock s (.read (.ok q₁)), .sock s (.write ⟨q₁.id⟩ (.ok ())), .sock s (.read (.error e))]) ∨
+        ∃ q₁ q₂ : Request, h.events = h₀.events ++
+          [.sock s (.read (.ok q₁)), .sock s (.write ⟨q₁.id⟩ (.ok ())),
+            .sock s (.read (.ok q₂)), .sock s (.write ⟨q₂.id⟩ (.error e))])
   signals False
-  ensures (h : Trace Event) => h.traceOf s = h₀.traceOf s ++
-    [.read (.ok qs.1), .write ⟨qs.1.id⟩ .ok, .read (.ok qs.2), .write ⟨qs.2.id⟩ .ok]
+  ensures (h : Trace Event) =>
+    h.events = h₀.events ++
+      [.sock s (.read (.ok qs.1)), .sock s (.write ⟨qs.1.id⟩ (.ok ())),
+        .sock s (.read (.ok qs.2)), .sock s (.write ⟨qs.2.id⟩ (.ok ()))]
 do
   let q₁ ← read s
   write s (Response.mk q₁.id)
@@ -33,16 +51,23 @@ do
   return (q₁, q₂)
 
 prove_correct handleTwo by
-  velvet_vcgen [handleTwo] with finish
+  velvet_vcgen [handleTwo]
+  all_goals first | grind | (subst_vars; simp)
 
-method loggedReply (s : Socket) returns (q : Request) in Prog
+method loggedReply [Clients] (s : Socket) returns (q : Request) in Prog
   given (h₀ : Trace Event)
   requires (h : Trace Event) => h = h₀
-  signals (e : IOErr) (h : Trace Event) => e = .eof ∨ e = .reset ∨ e = .full
+  signals (e : IOErr) (h : Trace Event) =>
+    (h.events = h₀.events ++ [.sock s (.read (.error e))] ∧ (e = .eof ∨ e = .reset)) ∨
+      (∃ q : Request, h.events = h₀.events ++ [.sock s (.read (.ok q)), .log (.write "request" (.error e))] ∧
+        e = .full) ∨
+      (∃ q : Request, h.events = h₀.events ++
+        [.sock s (.read (.ok q)), .log (.write "request" (.ok ())), .sock s (.write ⟨q.id⟩ (.error e))] ∧
+        (e = .eof ∨ e = .reset))
   signals False
   ensures (h : Trace Event) =>
-    h.traceOf s = h₀.traceOf s ++ [.read (.ok q), .write ⟨q.id⟩ .ok] ∧
-      h.traceOf Log.mk = h₀.traceOf Log.mk ++ [.write "request" .ok]
+    h.events = h₀.events ++
+      [.sock s (.read (.ok q)), .log (.write "request" (.ok ())), .sock s (.write ⟨q.id⟩ (.ok ()))]
 do
   let q ← read s
   write Log.mk "request"
@@ -52,14 +77,17 @@ do
 prove_correct loggedReply by
   velvet_vcgen [loggedReply] with finish
 
-method echoLine returns (line : String) in Prog
+method echoLine [Clients] returns (line : String) in Prog
   given (h₀ : Trace Event)
   requires (h : Trace Event) => h = h₀
-  signals (e : IOErr) (h : Trace Event) => e = .eof
+  signals (e : IOErr) (h : Trace Event) =>
+    e = .eof ∧
+      (h.events = h₀.events ++ [.stdin (.read (.error e))] ∨
+        ∃ line : String, ¬ line.contains '\n' ∧
+          h.events = h₀.events ++ [.stdin (.read (.ok line)), .stdout (.write line (.error e))])
   signals False
   ensures (h : Trace Event) =>
-    h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok line)] ∧
-      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write line .ok]
+    ¬ line.contains '\n' ∧ h.events = h₀.events ++ [.stdin (.read (.ok line)), .stdout (.write line (.ok ()))]
 do
   let s ← read Stdin.mk
   write Stdout.mk s
@@ -74,13 +102,18 @@ prove_correct echoLine by
   | .fetch => if loggedIn? then .ok else .denied
 
 /- The login state is a parameter, not a ghost: the program branches on it, so it must be real. -/
-method handleCmd (a : Auth) (loggedIn? : Bool) returns (cmd : Cmd) in Prog
+method handleCmd [Clients] (a : Auth) (loggedIn? : Bool) returns (cmd : Cmd) in Prog
   given (h₀ : Trace Event)
   requires (h : Trace Event) => h = h₀ ∧ loggedIn? = loggedIn (h.traceOf a)
-  signals (e : IOErr) (h : Trace Event) => e = .eof
+  signals (e : IOErr) (h : Trace Event) =>
+    e = .eof ∧
+      (h.events = h₀.events ++ [.auth a (.read (.error e))] ∨
+        ∃ cmd : Cmd, h.events = h₀.events ++
+          [.auth a (.read (.ok cmd)), .auth a (.write (reply (loggedIn (h₀.traceOf a)) cmd) (.error e))])
   signals False
   ensures (h : Trace Event) =>
-    h.traceOf a = h₀.traceOf a ++ [.read (.ok cmd), .write (reply (loggedIn (h₀.traceOf a)) cmd) .ok]
+    h.events = h₀.events ++
+      [.auth a (.read (.ok cmd)), .auth a (.write (reply (loggedIn (h₀.traceOf a)) cmd) (.ok ()))]
 do
   let cmd ← read a
   match cmd with

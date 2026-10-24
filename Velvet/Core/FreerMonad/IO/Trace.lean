@@ -1,51 +1,58 @@
 import Velvet.Core.FreerMonad.IO.Channel
 
-class Embeds (c : Type) {In Out Err : outParam Type} [Channel c In Out Err] (E : Type) where
-  inj : c → IOEvent In Out Err → E
-  proj : E → Option (c × IOEvent In Out Err)
+/-- The event type `E` provides channel kind `c`: it holds `c`'s events, so a program over traces of
+`E` can use channels of kind `c`. -/
+class Provide (E c : Type) {op : outParam (Type → Type)} {Ev Err : outParam Type} [Channel c op Ev Err] where
+  inj : c → Ev → E
+  proj : E → Option (c × Ev)
   proj_inj : ∀ ch e, proj (inj ch e) = some (ch, e)
 
-class Distinguish (c c' : Type) {In Out Err In' Out' Err' : outParam Type}
-    [Channel c In Out Err] [Channel c' In' Out' Err'] (E : Type) [Embeds c E] [Embeds c' E] : Prop where
-  distinguish : ∀ (ch : c) e, Embeds.proj (c := c') (Embeds.inj ch e : E) = none
+/-- An event of channel kind `c`, held in `E`, is never taken for one of kind `c'`. -/
+class Distinguish (E c c' : Type) {op : outParam (Type → Type)} {Ev Err : outParam Type}
+    {op' : outParam (Type → Type)} {Ev' Err' : outParam Type}
+    [Channel c op Ev Err] [Channel c' op' Ev' Err'] [Provide E c] [Provide E c'] : Prop where
+  distinguish : ∀ (ch : c) e, Provide.proj (c := c') (Provide.inj ch e : E) = none
 
-instance instEmbedsProd {c In Out Err : Type} [Channel c In Out Err] : Embeds c (c × IOEvent In Out Err) where
+instance instProvideProd {c Ev Err : Type} {op : Type → Type} [Channel c op Ev Err] : Provide (c × Ev) c where
   inj ch e := (ch, e)
   proj x := some x
   proj_inj _ _ := rfl
 
-instance instEmbedsSumRight {c In Out Err A B : Type} [Channel c In Out Err] [Embeds c B] : Embeds c (A ⊕ B) where
-  inj ch e := .inr (Embeds.inj ch e)
+instance instProvideSumRight {c Ev Err A B : Type} {op : Type → Type} [Channel c op Ev Err] [Provide B c] :
+    Provide (A ⊕ B) c where
+  inj ch e := .inr (Provide.inj ch e)
   proj
-    | .inr x => Embeds.proj x
+    | .inr x => Provide.proj x
     | .inl _ => none
-  proj_inj _ _ := by simp [Embeds.proj_inj]
+  proj_inj _ _ := by simp [Provide.proj_inj]
 
-instance instEmbedsSumLeft {c In Out Err A B : Type} [Channel c In Out Err] [Embeds c A] : Embeds c (A ⊕ B) where
-  inj ch e := .inl (Embeds.inj ch e)
+instance instProvideSumLeft {c Ev Err A B : Type} {op : Type → Type} [Channel c op Ev Err] [Provide A c] :
+    Provide (A ⊕ B) c where
+  inj ch e := .inl (Provide.inj ch e)
   proj
-    | .inl x => Embeds.proj x
+    | .inl x => Provide.proj x
     | .inr _ => none
-  proj_inj _ _ := by simp [Embeds.proj_inj]
+  proj_inj _ _ := by simp [Provide.proj_inj]
 
 section Sum
-variable {c c' In Out Err In' Out' Err' A B : Type} [Channel c In Out Err] [Channel c' In' Out' Err']
+variable {c c' Ev Err Ev' Err' A B : Type} {op op' : Type → Type}
+  [Channel c op Ev Err] [Channel c' op' Ev' Err']
 
-instance [Embeds c A] [Embeds c' B] :
-    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumRight :=
+instance [Provide A c] [Provide B c'] :
+    @Distinguish (A ⊕ B) c c' op Ev Err op' Ev' Err' _ _ instProvideSumLeft instProvideSumRight :=
   ⟨fun _ _ => rfl⟩
 
-instance [Embeds c B] [Embeds c' A] :
-    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumLeft :=
+instance [Provide B c] [Provide A c'] :
+    @Distinguish (A ⊕ B) c c' op Ev Err op' Ev' Err' _ _ instProvideSumRight instProvideSumLeft :=
   ⟨fun _ _ => rfl⟩
 
-instance [Embeds c A] [Embeds c' A] [Distinguish c c' A] :
-    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumLeft instEmbedsSumLeft :=
-  ⟨fun ch e => by simp [Embeds.proj, Embeds.inj, Distinguish.distinguish]⟩
+instance [Provide A c] [Provide A c'] [Distinguish A c c'] :
+    @Distinguish (A ⊕ B) c c' op Ev Err op' Ev' Err' _ _ instProvideSumLeft instProvideSumLeft :=
+  ⟨fun ch e => by simp [Provide.proj, Provide.inj, Distinguish.distinguish]⟩
 
-instance [Embeds c B] [Embeds c' B] [Distinguish c c' B] :
-    @Distinguish c c' In Out Err In' Out' Err' _ _ (A ⊕ B) instEmbedsSumRight instEmbedsSumRight :=
-  ⟨fun ch e => by simp [Embeds.proj, Embeds.inj, Distinguish.distinguish]⟩
+instance [Provide B c] [Provide B c'] [Distinguish B c c'] :
+    @Distinguish (A ⊕ B) c c' op Ev Err op' Ev' Err' _ _ instProvideSumRight instProvideSumRight :=
+  ⟨fun ch e => by simp [Provide.proj, Provide.inj, Distinguish.distinguish]⟩
 
 end Sum
 
@@ -53,49 +60,47 @@ structure Trace (E : Type) where
   events : List E
 
 namespace Trace
-variable {E c In Out Err : Type} [Channel c In Out Err] [DecidableEq c] [Embeds c E]
+variable {E c Ev Err : Type} {op : Type → Type} [Channel c op Ev Err] [DecidableEq c] [Provide E c]
 
-def Embeds.on (ch : c) (x : E) : Option (IOEvent In Out Err) :=
-  (Embeds.proj x).bind fun (ch', e) => if ch' = ch then some e else none
+def Provide.on (ch : c) (x : E) : Option Ev :=
+  (Provide.proj x).bind fun (ch', e) => if ch' = ch then some e else none
 
-def traceOf (t : Trace E) (ch : c) : List (IOEvent In Out Err) := t.events.filterMap (Embeds.on ch)
+def traceOf (t : Trace E) (ch : c) : List Ev := t.events.filterMap (Provide.on ch)
 
-def recordFor (t : Trace E) (ch : c) (e : IOEvent In Out Err) : Trace E := ⟨t.events ++ [Embeds.inj ch e]⟩
+def recordFor (t : Trace E) (ch : c) (e : Ev) : Trace E := ⟨t.events ++ [Provide.inj ch e]⟩
 
 omit [DecidableEq c] in
 @[simp, grind =]
-theorem mem_recordFor (x : E) (t : Trace E) (ch : c) (e : IOEvent In Out Err) :
-    x ∈ (t.recordFor ch e).events ↔ x ∈ t.events ∨ x = Embeds.inj ch e := by
+theorem mem_recordFor (x : E) (t : Trace E) (ch : c) (e : Ev) :
+    x ∈ (t.recordFor ch e).events ↔ x ∈ t.events ∨ x = Provide.inj ch e := by
   simp [recordFor]
 
 omit [DecidableEq c] in
 @[simp, grind =]
-theorem getLast?_recordFor (t : Trace E) (ch : c) (e : IOEvent In Out Err) :
-    (t.recordFor ch e).events.getLast? = some (Embeds.inj ch e) := by
+theorem events_recordFor (t : Trace E) (ch : c) (e : Ev) :
+    (t.recordFor ch e).events = t.events ++ [Provide.inj ch e] := rfl
+
+omit [DecidableEq c] in
+@[simp, grind =]
+theorem getLast?_recordFor (t : Trace E) (ch : c) (e : Ev) :
+    (t.recordFor ch e).events.getLast? = some (Provide.inj ch e) := by
   simp [recordFor]
 
 @[simp, grind =]
-theorem traceOf_recordFor_self (t : Trace E) (ch : c) (e : IOEvent In Out Err) :
+theorem traceOf_recordFor_self (t : Trace E) (ch : c) (e : Ev) :
     (t.recordFor ch e).traceOf ch = t.traceOf ch ++ [e] := by
-  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Embeds.proj_inj]
+  simp [traceOf, recordFor, Provide.on, List.filterMap_append, Provide.proj_inj]
 
 @[simp, grind =]
-theorem traceOf_recordFor_ne (t : Trace E) {ch ch' : c} (hne : ch ≠ ch') (e : IOEvent In Out Err) :
+theorem traceOf_recordFor_ne (t : Trace E) {ch ch' : c} (hne : ch ≠ ch') (e : Ev) :
     (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
-  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Embeds.proj_inj, Ne.symm hne]
+  simp [traceOf, recordFor, Provide.on, List.filterMap_append, Provide.proj_inj, Ne.symm hne]
 
-variable {c' In' Out' Err' : Type} [Channel c' In' Out' Err'] [Embeds c' E]
+variable {c' Ev' Err' : Type} {op' : Type → Type} [Channel c' op' Ev' Err'] [Provide E c']
 
 @[simp, grind =]
-theorem traceOf_recordFor_other [Distinguish c' c E] (t : Trace E) (ch : c) (ch' : c') (e : IOEvent In' Out' Err') :
+theorem traceOf_recordFor_other [Distinguish E c' c] (t : Trace E) (ch : c) (ch' : c') (e : Ev') :
     (t.recordFor ch' e).traceOf ch = t.traceOf ch := by
-  simp [traceOf, recordFor, Embeds.on, List.filterMap_append, Distinguish.distinguish]
+  simp [traceOf, recordFor, Provide.on, List.filterMap_append, Distinguish.distinguish]
 
 end Trace
-
-class Model {In Out Err : outParam Type} (P : outParam (Protocol In Out Err)) (c : Type)
-    [Channel c In Out Err] (E : Type) [DecidableEq c] [Embeds c E] where
-  read : Trace E → c → ReadOutcome In Err
-  read_ok : ∀ t ch, P.onRead (t.traceOf ch) (read t ch)
-  write : Trace E → c → Out → WriteOutcome Err
-  write_ok : ∀ t ch o, P.onWrite (t.traceOf ch) o (write t ch o)

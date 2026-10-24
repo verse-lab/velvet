@@ -10,40 +10,36 @@ inductive Console where
   | stdin (e : IOEvent String String IOErr)
   | stdout (e : IOEvent String String IOErr)
 
-instance : Embeds Stdin Console where
+instance : Provide Console Stdin where
   inj _ e := .stdin e
   proj
     | .stdin e => some (⟨⟩, e)
     | _ => none
   proj_inj _ _ := rfl
 
-instance : Embeds Stdout Console where
+instance : Provide Console Stdout where
   inj _ e := .stdout e
   proj
     | .stdout e => some (⟨⟩, e)
     | _ => none
   proj_inj _ _ := rfl
 
-instance : Distinguish Stdin Stdout Console := ⟨fun _ _ => rfl⟩
-instance : Distinguish Stdout Stdin Console := ⟨fun _ _ => rfl⟩
+instance : Distinguish Console Stdin Stdout := ⟨fun _ _ => rfl⟩
+instance : Distinguish Console Stdout Stdin := ⟨fun _ _ => rfl⟩
 
 @[simp, grind =]
-theorem inj_stdin (e : IOEvent String String IOErr) : (Embeds.inj Stdin.mk e : Console) = .stdin e := rfl
+theorem inj_stdin (e : IOEvent String String IOErr) : (Provide.inj Stdin.mk e : Console) = .stdin e := rfl
 
 @[simp, grind =]
-theorem inj_stdout (e : IOEvent String String IOErr) : (Embeds.inj Stdout.mk e : Console) = .stdout e := rfl
+theorem inj_stdout (e : IOEvent String String IOErr) : (Provide.inj Stdout.mk e : Console) = .stdout e := rfl
 
-instance : Model stdinP Stdin Console where
-  read _ _ := .error .eof
-  read_ok _ _ := rfl
-  write _ _ _ := .ok
-  write_ok _ _ _ := trivial
+instance [Clients] : Model Stdin stdinP Console where
+  call t ch o := stdinModel (t.traceOf ch) o
+  call_ok _ ch o := stdinModel_ok ch _ o
 
-instance : Model stdoutP Stdout Console where
-  read _ _ := .error .eof
-  read_ok _ _ := rfl
-  write _ _ _ := .ok
-  write_ok _ _ _ := trivial
+instance : Model Stdout stdoutP Console where
+  call _ _ o := stdoutModel o
+  call_ok _ ch o := stdoutModel_ok ch _ o
 
 def inputClosed (h : Trace Console) : Prop := Console.stdin (.read (.error .eof)) ∈ h.events
 
@@ -64,7 +60,7 @@ theorem inputClosed_recordFor_stdout (h : Trace Console) (e : IOEvent String Str
 
 abbrev Prog := IOProg Console IOErr
 
-method echo returns (line : String) in Prog
+method echo [Clients] returns (line : String) in Prog
   given (h₀ : Trace Console)
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) =>
@@ -73,7 +69,7 @@ method echo returns (line : String) in Prog
   ensures (h : Trace Console) =>
     ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok line)] ∧
-      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write line .ok]
+      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write line (.ok ())]
 do
   let s ← read Stdin.mk
   write Stdout.mk s
@@ -82,16 +78,16 @@ do
 prove_correct echo by
   velvet_vcgen [echo] with finish
 
-method greet returns (name : String) in Prog
+method greet [Clients] returns (name : String) in Prog
   given (h₀ : Trace Console)
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) =>
-    e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" .ok])
+    e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" (.ok ())])
   signals False
   ensures (h : Trace Console) =>
     ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok name)] ∧
-      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" .ok, .write s!"hello {name}" .ok]
+      h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" (.ok ()), .write s!"hello {name}" (.ok ())]
 do
   write Stdout.mk "name?"
   let s ← read Stdin.mk
