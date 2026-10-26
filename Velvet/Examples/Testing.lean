@@ -266,6 +266,41 @@ run_elab do
     | .fail => throwError "increment failed for x = {x}, initial state = {s}"
   IO.println s!"PBT: out of {numTests} tests, {discarded} discarded, {passed} passed"
 
+-- Several `ensures` clauses are combined into one decision.
+method divMod (n d : Nat) returns (res : Nat × Nat)
+  requires d_pos: d > 0
+  ensures sum_ok: res.1 * d + res.2 = n
+  ensures rem_lt: res.2 < d
+do
+  return (n / d, n % d)
+
+#derive_tester_for divMod
+#guard divMod.check 7 2 == .pass
+#guard divMod.check 7 0 == .discard
+
+-- Several `requires` clauses too.
+method divBounded (n d : Nat) returns (q : Nat)
+  requires d_pos: d > 0
+  requires small: n < 100
+  ensures q_le: q * d ≤ n
+do
+  return n / d
+
+#derive_tester_for divBounded
+#guard divBounded.check 7 2 == .pass
+#guard divBounded.check 200 2 == .discard
+
+-- A body that breaks one of several `ensures` fails.
+method divModWrong (n d : Nat) returns (res : Nat × Nat)
+  requires d_pos: d > 0
+  ensures sum_ok: res.1 * d + res.2 = n
+  ensures rem_lt: res.2 < d
+do
+  return (n / d, n % d + d)
+
+#derive_tester_for divModWrong
+#guard divModWrong.check 7 2 == .fail
+
 -- Derive from imported metadata, without placing declarations in the caller's namespace.
 #derive_tester_for Velvet.Examples.StateT.incrementBy
 #guard Velvet.Examples.StateT.incrementBy.check 5 20 20 == .pass
