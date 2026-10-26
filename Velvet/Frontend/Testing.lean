@@ -10,6 +10,73 @@ public meta import Velvet.Core.DecidableHeuristics
 public meta import Lean.Elab.Command
 public meta import Lean.Elab.Tactic
 
+/-!
+# Contract testers
+
+`#derive_tester_for M` builds `M.check`, which tests `M` against its contract
+`Triple (M args) pre post signals` at one input by running it.
+
+## Example
+
+Take a program
+
+    checked (bad : Bool) : ExceptT String (StateT Nat Option) Nat := do
+      set 42
+      if bad then throw "bad"
+      return 42
+
+with precondition `s < 100`, postcondition `result = s`, and the signals `e = "bad" ∧ s = 42` for
+`throw e` and `False` for `Option` failing. Its WP instance gives the assertion types
+
+    Pred  = Nat → Prop                             -- over the state
+    EPred = (String → Nat → Prop) × (Unit → Prop)  -- `throw e` with the state; `Option` failing
+
+## Deciding the clauses
+
+`checked.preDecidable`, `checked.postDecidable` and `checked.signalsDecidable` decide each clause
+at any values of its inputs, following the shape of its type (`PointwiseDecidable`):
+
+    checked.preDecidable : Bool → (s : Nat) → Decidable ⌜⟪requires1 : s < 100⟫⌝
+    checked.postDecidable : Bool → (result s : Nat) → Decidable ⌜⟪ensures1 : result = s⟫⌝
+    checked.signalsDecidable : Bool →
+      ((e : String) → (s : Nat) → Decidable ⌜⟪signals1 : e = "bad" ∧ s = 42⟫⌝) ×
+        (Unit → Decidable ⌜⟪signals2 : False⟫⌝)
+
+`prove_*_decidable_for M` derives one by instance search on the clause, or takes a proof;
+`#derive_tester_for` derives the ones not given.
+
+## Deciding the WP
+
+`decideWP` (from `DecidableWP`) combines the decisions of `post` and `signals` into a decision
+of `wp (checked bad) post signals`. Each layer of the monad has an instance, and here `ExceptT`,
+then `StateT`, then `Option` unfold it to
+
+    fun s => match (checked bad).run.run s with
+      | some (.ok a, s')    => checked.postDecidable bad a s'
+      | some (.error e, s') => (checked.signalsDecidable bad).1 e s'
+      | none                => (checked.signalsDecidable bad).2 ()
+
+so it runs `checked bad` from `s` and decides the clause for how it ended.
+
+## The tester
+
+`checked.check` takes the method's arguments, then the inputs of `Pred` (here the state `s`):
+
+    def checked.check : Bool → Nat → TestVerdict :=
+    fun bad s =>
+      check ⌜⟪requires1 : s < 100⟫⌝ (checked.preDecidable bad s) fun unit =>
+        decide
+          (Std.WP.wp (checked bad) (fun result s => ⌜⟪ensures1 : result = s⟫⌝)
+            (fun e s => ⌜⟪signals1 : e = "bad" ∧ s = 42⟫⌝, fun x => ⌜⟪signals2 : False⟫⌝) s)
+
+The `Decidable` passed to `decide` is not printed: it is `decideWP (checked bad) post signals
+(checked.postDecidable bad) (checked.signalsDecidable bad) s`. `check` decides the precondition:
+if it does not hold, the verdict is `.discard` and `checked` never runs. Otherwise `decide` reads
+the `Bool` out of the `Decidable` that `decideWP` builds: `.pass` or `.fail`. For example,
+`checked.check true 0` runs `checked true` from `0`, which throws `"bad"` in state `42`, and
+decides `signals1` at `"bad"` and `42`.
+-/
+
 open Lean Meta Elab Command Term
 open Velvet.Testing
 
@@ -29,6 +96,10 @@ private meta def withContract (name : Ident)
       | throwError "expected a method Triple, got {body}"
     k args program wpInst pre post signals
 
+/-- The `i`-th component of the pair `p`, taken directly when `p` is a pair literal. -/
+private meta def pairComponent (p : Expr) (i : Nat) : Expr :=
+  if p.isAppOfArity ``Prod.mk 4 then p.getArg! (i + 2) else mkProj ``Prod i p
+
 /-- Expand only the decision structure, preserving the propositions and their binder names. -/
 private meta partial def decisionType (p : Expr) : TermElabM Expr := do
   let type ← whnf (← inferType p)
@@ -37,12 +108,12 @@ private meta partial def decisionType (p : Expr) : TermElabM Expr := do
   match type with
   | .forallE name domain _ bi =>
     withLocalDecl name bi domain fun arg => do
-      mkForallFVars #[arg] (← decisionType (mkApp p arg))
+      mkForallFVars #[arg] (← decisionType (mkApp p arg).headBeta)
   | _ =>
     -- Exception postcondition stacks `EStack⟨…⟩` are products ending in `EStackEnd`.
     if type.isAppOf ``Prod then
-      return ← mkAppM ``Prod #[← decisionType (mkProj ``Prod 0 p),
-        ← decisionType (mkProj ``Prod 1 p)]
+      return ← mkAppM ``Prod #[← decisionType (pairComponent p 0),
+        ← decisionType (pairComponent p 1)]
     -- `EStackEnd` reduces to `Unit`, i.e. `PUnit`.
     if type.isConstOf ``PUnit then return mkConst ``Unit
     throwError "unsupported assertion type for pointwise decisions: {type}"
@@ -80,13 +151,14 @@ public meta def elabChecker : TermElab := fun stx _ => do
     let contractWP ← mkAppOptM ``Std.WP.WP.wp #[none, none, none, none, none, none,
       some wpInst, some program, some post, some signals]
     let expected ← mkAppM ``PointwiseDecidable #[contractWP]
+    -- `decideWP` decides the WP of the instance that instance search finds; check that it is
+    -- the one the contract is stated with.
     unless ← isDefEq (← inferType wpDec) expected do
       throwErrorAt name "DecidableWP does not match this method's WP interpretation"
-    -- The elaborated assertion type is selected by the WP instance for the monad stack.
-    -- Follow its entire telescope, including state/environment arguments absent in source clauses.
+    -- The inputs of `Pred` become arguments of `M.check` (see the module docstring).
     forallTelescopeReducing (← inferType pre) fun context leaf => do
       unless leaf.isProp do throwError "tester assertions must end in Prop"
-      let pre := mkAppN pre context
+      let pre := (mkAppN pre context).headBeta
       let preDec := mkAppN preDec context
       let wpDec := mkAppN wpDec context
       let decType ← whnf (← inferType wpDec)

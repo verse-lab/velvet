@@ -2,6 +2,7 @@ module
 
 public import Velvet.Core.NonDet.Run
 public import Velvet.Core.NonDet.WP
+public import Velvet.Core.Loop.Specs
 public import Velvet.Core.Partial
 
 open Std.WP Lean.Order WPPartial
@@ -166,7 +167,10 @@ public theorem ExtractNonDet.extract_refines_wp {α : Type u}
           exact PartialOrder.rel_trans (hdone b) (cont_ih b post)
         · exact WPMonad.bind_le_wp_bind _ _ post epost
 
-/-- Demonic Hoare triples are preserved by deterministic execution. -/
+/-- Demonic Hoare triples are preserved by deterministic execution. This covers both partial and
+total correctness: in `DemonicT Option`, a triple proved with `signals False` gives a run that is
+never `none`, so it terminates and every choice finds a value; with `signals True`, the run may be
+`none`. -/
 public theorem ExtractNonDet.extract_refines {α : Type u}
     {pre : Pred} {s : DemonicT m α} {post : α → Pred} {epost : EPred} :
     Triple s pre post epost → Triple s.run pre post epost := by

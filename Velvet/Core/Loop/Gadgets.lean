@@ -26,9 +26,6 @@ namespace Loop
       | ForInStep.yield b => forIn.loop f b
   partial_fixpoint
 
-/-- Dedicated collection marker for partial `while` loops. Using a distinct
-collection type lets `ForIn` dispatch to fixed-point execution without
-replacing the ordinary `ForIn m Lean.Loop Unit` instance. -/
 public structure PartialLoop where
   mk ::
 
@@ -37,64 +34,110 @@ public instance instForInPartialLoopOfCCPO {m : Type u → Type v}
     ForIn m PartialLoop Unit where
   forIn _ init f := forIn.loop f init
 
+/-!
+## Gadgets
+
+A Velvet loop becomes a gadget: Lean's `forIn'` or `forIn` over the loop body, with the loop's
+clauses as extra arguments that do not change what runs. The loop state holds the mutable
+variables the body assigns; when the body can `return`, it starts with the return slot
+`Option γ`.
+
+| Loop | Gadget |
+|---|---|
+| `for` | `forLoopWithInvariant` |
+| `for`, with a `return` | `forLoopWithInvariantReturning` |
+| `for … done_with` | `forLoopWithInvariantAndDone` |
+| `for … done_with`, with a `return` | `forLoopWithInvariantAndDoneReturning` |
+| `while` (partial correctness) | `whileLoopPartial` |
+| `while`, with a `return` | `whileLoopPartialReturning` |
+| `while … decreasing` | `whileLoopTotal` |
+| `while … decreasing`, with a `return` | `whileLoopTotalReturning` |
+
+A `while` loop's `done_with` is the `done?` argument, `none` without it.
+-/
+
 namespace Gadget
 
 set_option linter.unusedVariables false in
-/-- A pure `forIn` loop annotated with a state invariant (independent of the cursor variable).
-The invariant holds before entering the loop and is preserved at every step. -/
-@[expose, inline] public def forLoopWithInvariant {ρ : Type w} [ForIn m ρ α]
-    (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
-    (inv : β → Pred) : m β :=
-  forIn xs init f
+/-- A `for` loop whose invariants mention the mutable variables. The body takes the membership
+proof `h_mem : x ∈ xs`, which `for h : x in xs` names `h`.
 
-set_option linter.unusedVariables false in
-/-- A pure `forIn'` loop annotated with a state invariant and membership proofs in the loop body. -/
-@[expose, inline] public def forLoopMemWithInvariant {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    for x in xs
+      invariant s_ok: s ≥ 0
+    do
+      s := s + x
+
+becomes
+
+    forLoopWithInvariant xs s
+      (fun x h_mem s => … pure (ForInStep.yield (s + x)))
+      (fun s => ⌜⟪s_ok : s ≥ 0⟫⌝) -/
+@[expose, inline] public def forLoopWithInvariant {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
     (inv : β → Pred) : m β :=
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-/-- A `for` loop with a state invariant whose body can `return`; the state starts with the return
-slot. -/
+/-- `forLoopWithInvariant` for a body that can `return`.
+
+    for x in xs
+      invariant s_ok: s ≥ 0
+    do
+      if x = 0 then return 0
+      s := s + x
+
+becomes
+
+    forLoopWithInvariantReturning xs (none, s)
+      (fun x h_mem (r?, s) =>
+        if x = 0 then pure (ForInStep.done (some 0, s)) else pure (ForInStep.yield (none, s + x)))
+      (fun s => ⌜⟪s_ok : s ≥ 0⟫⌝) -/
 @[expose, inline] public def forLoopWithInvariantReturning {γ τ : Type u} {m : Type u → Type v}
-    {ρ : Type w} [ForIn m ρ α]
-    (xs : ρ) (init : Option γ × τ) (f : α → Option γ × τ → m (ForInStep (Option γ × τ)))
-    (inv : τ → Pred) : m (Option γ × τ) :=
-  forIn xs init f
-
-set_option linter.unusedVariables false in
-@[expose, inline] public def forLoopMemWithInvariantReturning {γ τ : Type u} {m : Type u → Type v}
     {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : Option γ × τ) (f : (a : α) → a ∈ xs → Option γ × τ → m (ForInStep (Option γ × τ)))
     (inv : τ → Pred) : m (Option γ × τ) :=
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-@[expose, inline] public def forLoopWithInvariantAndDone {ρ : Type w} [ForIn m ρ α]
-    (xs : ρ) (init : β) (f : α → β → m (ForInStep β))
-    (inv : List α → α → List α → β → Pred)
-    (done : List α → β → Pred) : m β :=
-  forIn xs init f
+/-- A `for` loop with `done_with`. Its invariants can also mention the elements already visited
+(`__pref`), the current one and the rest (`__rest`); `done` holds when the loop exits.
 
-set_option linter.unusedVariables false in
-@[expose, inline] public def forLoopMemWithInvariantAndDone {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
+    for x in xs
+      invariant s_ok: s = __pref.length
+      done_with fin: s = xs.length
+    do
+      s := s + 1
+
+becomes
+
+    forLoopWithInvariantAndDone xs s
+      (fun x h_mem s => … pure (ForInStep.yield (s + 1)))
+      (fun __pref x __rest s => ⌜⟪s_ok : s = __pref.length⟫⌝)
+      (fun __pref s => ⌜⟪fin : s = xs.length⟫⌝) -/
+@[expose, inline] public def forLoopWithInvariantAndDone {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : β) (f : (a : α) → a ∈ xs → β → m (ForInStep β))
     (inv : List α → α → List α → β → Pred)
     (done : List α → β → Pred) : m β :=
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-/-- A `for` loop with `done_with` whose body can `return`; the state starts with the return slot. -/
-@[expose, inline] public def forLoopWithInvariantAndDoneReturning {γ τ : Type u} {m : Type u → Type v}
-    {ρ : Type w} [ForIn m ρ α]
-    (xs : ρ) (init : Option γ × τ) (f : α → Option γ × τ → m (ForInStep (Option γ × τ)))
-    (inv : List α → α → List α → τ → Pred)
-    (done : List α → τ → Pred) : m (Option γ × τ) :=
-  forIn xs init f
+/-- `forLoopWithInvariantAndDone` for a body that can `return`.
 
-set_option linter.unusedVariables false in
-@[expose, inline] public def forLoopMemWithInvariantAndDoneReturning {γ τ : Type u} {m : Type u → Type v}
+    for x in xs
+      invariant s_ok: s = __pref.length
+      done_with fin: s = xs.length
+    do
+      if x = 0 then return 0
+      s := s + 1
+
+becomes
+
+    forLoopWithInvariantAndDoneReturning xs (none, s)
+      (fun x h_mem (r?, s) =>
+        if x = 0 then pure (ForInStep.done (some 0, s)) else pure (ForInStep.yield (none, s + 1)))
+      (fun __pref x __rest s => ⌜⟪s_ok : s = __pref.length⟫⌝)
+      (fun __pref s => ⌜⟪fin : s = xs.length⟫⌝) -/
+@[expose, inline] public def forLoopWithInvariantAndDoneReturning {γ τ : Type u} {m : Type u → Type v}
     {ρ : Type w} {d : Membership α ρ} [ForIn' m ρ α d]
     (xs : ρ) (init : Option γ × τ) (f : (a : α) → a ∈ xs → Option γ × τ → m (ForInStep (Option γ × τ)))
     (inv : List α → α → List α → τ → Pred)
@@ -102,101 +145,95 @@ set_option linter.unusedVariables false in
   forIn' xs init f
 
 set_option linter.unusedVariables false in
-@[expose, inline] public def whileLoopPartial {β : Type u} {m : Type u → Type v}
+/-- A `while` loop in partial correctness. The body exits with `ForInStep.done` once the condition
+fails, and `done?` is the `done_with` clause, with the invariants.
+
+    while i < n
+      invariant bound: i ≤ n
+    do
+      i := i + 1
+
+becomes
+
+    whileLoopPartial i
+      (fun () i => if h_loop : i < n then pure (ForInStep.yield (i + 1)) else pure (ForInStep.done i))
+      (fun i => ⌜⟪bound : i ≤ n⟫⌝) none -/
+@[expose, inline] public def whileLoopPartial {β : Type u} {Pred : Type u₁} {m : Type u → Type v}
     [ForIn m PartialLoop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
-    (inv : β → Pred) : m β :=
+    (inv : β → Pred) (done? : Option (β → Pred)) : m β :=
   forIn PartialLoop.mk init f
 
 set_option linter.unusedVariables false in
-/-- A partial-correctness `while` loop whose body can `return`; the state starts with the return
-slot. -/
-@[expose, inline] public def whileLoopPartialReturning {γ τ : Type u} {m : Type u → Type v}
+/-- `whileLoopPartial` for a body that can `return`.
+
+    while i < n
+      invariant bound: i ≤ n
+      done_with fin: i = n
+    do
+      if i = 5 then return 5
+      i := i + 1
+
+becomes
+
+    whileLoopPartialReturning (none, i)
+      (fun () (r?, i) =>
+        if h_loop : i < n then
+          if i = 5 then pure (ForInStep.done (some 5, i)) else pure (ForInStep.yield (none, i + 1))
+        else pure (ForInStep.done (none, i)))
+      (fun i => ⌜⟪bound : i ≤ n⟫⌝) (some fun i => ⌜⟪bound : i ≤ n⟫⌝ ⊓ ⌜⟪fin : i = n⟫⌝) -/
+@[expose, inline] public def whileLoopPartialReturning {γ τ : Type u} {Pred : Type u₁} {m : Type u → Type v}
     [ForIn m PartialLoop Unit]
     (init : Option γ × τ) (f : Unit → Option γ × τ → m (ForInStep (Option γ × τ)))
-    (inv : τ → Pred) : m (Option γ × τ) :=
+    (inv : τ → Pred) (done? : Option (τ → Pred)) : m (Option γ × τ) :=
   forIn PartialLoop.mk init f
 
 set_option linter.unusedVariables false in
-@[expose, inline] public def whileLoopPartialAndDone {β : Type u} {m : Type u → Type v}
-    [ForIn m PartialLoop Unit]
+/-- A `while` loop with a `decreasing` measure, in total correctness.
+
+    while i < n
+      invariant bound: i ≤ n
+      decreasing n - i
+      done_with fin: i = n
+    do
+      i := i + 1
+
+becomes
+
+    whileLoopTotal i
+      (fun () i => if h_loop : i < n then pure (ForInStep.yield (i + 1)) else pure (ForInStep.done i))
+      (fun i => ⌜⟪bound : i ≤ n⟫⌝) (some fun i => ⌜⟪bound : i ≤ n⟫⌝ ⊓ ⌜⟪fin : i = n⟫⌝)
+      (fun i => ⟪termination : n - i⟫) -/
+@[expose, inline] public def whileLoopTotal {β : Type u} {Pred : Type u₁} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
-    (inv : β → Pred) (done : β → Pred) : m β :=
-  forIn PartialLoop.mk init f
-
-set_option linter.unusedVariables false in
-/-- A partial-correctness `while` loop with `done_with` whose body can `return`; the state starts
-with the return slot. -/
-@[expose, inline] public def whileLoopPartialAndDoneReturning {γ τ : Type u} {m : Type u → Type v}
-    [ForIn m PartialLoop Unit]
-    (init : Option γ × τ) (f : Unit → Option γ × τ → m (ForInStep (Option γ × τ)))
-    (inv : τ → Pred) (done : τ → Pred) : m (Option γ × τ) :=
-  forIn PartialLoop.mk init f
-
-set_option linter.unusedVariables false in
-@[expose, inline] public def whileLoopTotal {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
-    (init : β) (f : Unit → β → m (ForInStep β))
-    (inv : β → Pred) (measure : β → Named.Measure) : m β :=
+    (inv : β → Pred) (done? : Option (β → Pred)) (measure : β → Named.Measure) : m β :=
   forIn Lean.Loop.mk init f
 
 set_option linter.unusedVariables false in
-/-- A total-correctness `while` loop whose body can `return`; the state starts with the return
-slot. -/
-@[expose, inline] public def whileLoopTotalReturning {γ τ : Type u} {m : Type u → Type v}
+/-- `whileLoopTotal` for a body that can `return`.
+
+    while i < n
+      invariant bound: i ≤ n
+      decreasing n - i
+    do
+      if i = 5 then return 5
+      i := i + 1
+
+becomes
+
+    whileLoopTotalReturning (none, i)
+      (fun () (r?, i) =>
+        if h_loop : i < n then
+          if i = 5 then pure (ForInStep.done (some 5, i)) else pure (ForInStep.yield (none, i + 1))
+        else pure (ForInStep.done (none, i)))
+      (fun i => ⌜⟪bound : i ≤ n⟫⌝) none (fun i => ⟪termination : n - i⟫) -/
+@[expose, inline] public def whileLoopTotalReturning {γ τ : Type u} {Pred : Type u₁} {m : Type u → Type v}
     [ForIn m Lean.Loop Unit]
     (init : Option γ × τ) (f : Unit → Option γ × τ → m (ForInStep (Option γ × τ)))
-    (inv : τ → Pred) (measure : τ → Named.Measure) : m (Option γ × τ) :=
-  forIn Lean.Loop.mk init f
-
-set_option linter.unusedVariables false in
-@[expose, inline] public def whileLoopTotalAndDone {β : Type u} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
-    (init : β) (f : Unit → β → m (ForInStep β))
-    (inv : β → Pred) (done : β → Pred) (measure : β → Named.Measure) : m β :=
-  forIn Lean.Loop.mk init f
-
-set_option linter.unusedVariables false in
-/-- A total-correctness `while` loop with `done_with` whose body can `return`; the state starts
-with the return slot. -/
-@[expose, inline] public def whileLoopTotalAndDoneReturning {γ τ : Type u} {m : Type u → Type v}
-    [ForIn m Lean.Loop Unit]
-    (init : Option γ × τ) (f : Unit → Option γ × τ → m (ForInStep (Option γ × τ)))
-    (inv : τ → Pred) (done : τ → Pred)
+    (inv : τ → Pred) (done? : Option (τ → Pred))
     (measure : τ → Named.Measure) : m (Option γ × τ) :=
   forIn Lean.Loop.mk init f
 
 end Gadget
-
-section StepPost
-variable {β : Type u} {Pred : Type u₁} [Assertion Pred]
-
-/-- The postcondition of one loop iteration: continuing (`.yield`) establishes `next`, and leaving
-the loop (`.done`, from `break`, `return` or a `while` condition turning false) establishes
-`exit`. -/
-@[expose, reducible] public def stepPost (next exit : β → Pred) : ForInStep β → Pred
-  | .yield b' => next b'
-  | .done b' => exit b'
-
-/-- `stepPost` for a loop with a termination measure: continuing from `b` re-establishes `inv`
-and decreases `measure`. -/
-@[expose, reducible] public noncomputable def stepPostDecreasing (inv : β → Pred)
-    (measure : β → Named.Measure) (exit : β → Pred) (b : β) : ForInStep β → Pred :=
-  stepPost (fun b' => match measure b, measure b' with
-    | ⟨name, stx, current⟩, ⟨_, _, next⟩ => ⌜Named.mk name stx (next < current)⌝ ⊓ inv b') exit
-
-/-- `inv` on the mutable variables of a state that has not returned. A loop only continues from
-such states, since a `return` leaves it. -/
-@[expose, reducible] public noncomputable def noReturn {γ τ : Type u} (inv : τ → Pred) :
-    Option γ × τ → Pred
-  | (none, s) => inv s
-  | (some _, _) => ⊥
-
-/-- Where leaving a loop whose body can `return` leads: a `return` (the slot holds a value) to the
-code after the loop, which returns it, and any other exit to `done`. -/
-@[expose, reducible] public def onExit {γ τ : Type u} (Q : Option γ × τ → Pred) (done : τ → Pred) :
-    Option γ × τ → Pred
-  | (some r, s) => Q (some r, s)
-  | (none, s) => done s
-
-end StepPost
 
 end Loop

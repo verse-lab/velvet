@@ -5,14 +5,49 @@ public import Velvet.Core.Loop.Gadgets
 /-!
 # Loop specifications
 
-The specifications `velvet_vcgen` applies to Velvet's loop gadgets and to Lean's own loops.
+The specifications `velvet_vcgen` applies to Velvet's loop gadgets (`Gadgets.lean`) and to Lean's
+own `for` loops.
 
 A loop's `.done` exits (`break`, `return`, and a `while` condition turning false) either go
 straight to the code after the loop, or, with `done_with`, establish the `done_with` condition,
 which the code after the loop then starts from. A `return` always goes straight to the code after
 the loop, which returns the value.
--/
 
+## How the specs are written
+
+- A spec without `done_with` ends in a postcondition `Q` that `vcgen` fills in with what the code
+  after the loop needs, as for `Spec.pure`. Its exits go to `Q`, so the code after the loop is
+  verified once per exit.
+- Each kind of loop has one core rule over `forIn` (`whileLoopPartial_core`,
+  `whileLoopTotal_core`, `Spec.forIn'_list_state_inv`, `Spec.forIn'_list_inv_done`). Each `@[spec]`
+  theorem instantiates one for its gadget: it picks where exits go (`Q`, `done`, or `onExit Q
+  done`) and, for a body that can `return`, the invariant `noReturn inv`.
+- What one iteration establishes is written with the reducible definitions below (`stepPost`,
+  `stepPostDecreasing`, `noReturn`, `onExit`), not with inline `match`es: each inline `match`
+  compiles to its own matcher, and `vcgen` cannot unify the matchers of different theorems. Sym
+  unfolds reducible definitions when it loads a spec, and `vcgen` reduces the `match` once the
+  body's `ForInStep` is known, so the VCs state `inv i'` or `Q i` directly.
+- Each `@[spec]` theorem's docstring names its gadget, whose docstring shows the loop it comes
+  from.
+- Facts about the cursor are wrapped in `Named.mk` (`h_mem`, `h_prefix`, `h_last`, `h_empty`,
+  `h_nonempty`), so they become hypotheses with those names.
+
+## Naming variables with `binderNameHint`
+
+`binderNameHint v binder e` is `e`. When `vcgen` introduces the variable `v`, it names it after
+`binder`'s first lambda, or after the names of the pattern its `match` uses, as long as that name
+is one the user wrote (not `__pref` or a macro-generated name). Without a hint, the variable
+appears in the VCs as `b✝`. Every premise that introduces a variable the user sees gets one:
+
+- the loop state, after the invariant: `binderNameHint b inv <| inv b` names `b` after
+  `fun i => …`, or a tuple state after `fun (i, s) => …`;
+- the current element, after the body: `binderNameHint cur f` names it after `fun x h_mem s => …`;
+- the state at an exit: `binderNameHint s done (done s)`;
+- the visited and remaining elements, which have no lambda in the user's code: the binder is
+  written for the purpose, as in `fun rest : List α => (rest, `rest)`. The name also appears in
+  the body: terms are shared up to binder names, which would merge the hints for `pref` and
+  `rest`, and a body like `f rest` would be eta-reduced away from its binder.
+-/
 open Std.Internal
 open Std.WP
 open Std.WP.Assertion
@@ -124,6 +159,37 @@ public theorem forInLoop_total
       intro hlt
       exact (ih b' hlt).le_wp
 
+
+/-! ## What one iteration establishes -/
+
+section StepPost
+variable {β : Type u} {Pred : Type u₁} [Assertion Pred]
+
+/-- `stepPost inv Q (.yield i')` is `inv i'`, and `stepPost inv Q (.done i)` is `Q i`. -/
+@[expose, reducible] public def stepPost (next exit : β → Pred) : ForInStep β → Pred
+  | .yield b' => next b'
+  | .done b' => exit b'
+
+/-- `stepPost` that also decreases the measure: `.yield i'` gives
+`⌜⟪termination : n - i' < n - i⟫⌝ ⊓ inv i'`. -/
+@[expose, reducible] public noncomputable def stepPostDecreasing (inv : β → Pred)
+    (measure : β → Named.Measure) (exit : β → Pred) (b : β) : ForInStep β → Pred :=
+  stepPost (fun b' => match measure b, measure b' with
+    | ⟨name, stx, current⟩, ⟨_, _, next⟩ => ⌜Named.mk name stx (next < current)⌝ ⊓ inv b') exit
+
+/-- `noReturn inv (none, s)` is `inv s`, and `noReturn inv (some r, s)` is `⊥`. -/
+@[expose, reducible] public noncomputable def noReturn {γ τ : Type u} (inv : τ → Pred) :
+    Option γ × τ → Pred
+  | (none, s) => inv s
+  | (some _, _) => ⊥
+
+/-- `onExit Q done (some r, s)` is `Q (some r, s)`, and `onExit Q done (none, s)` is `done s`. -/
+@[expose, reducible] public def onExit {γ τ : Type u} (Q : Option γ × τ → Pred) (done : τ → Pred) :
+    Option γ × τ → Pred
+  | (some r, s) => Q (some r, s)
+  | (none, s) => done s
+
+end StepPost
 
 /-! ## Postconditions -/
 
@@ -248,7 +314,7 @@ public theorem whileLoopTotal_core
       Variant.evalsBelow_ofMeasure, natRel] using (step₀ b).le_wp
   exact Spec.forIn_loop (l := Lean.Loop.mk) (init := init) loopMeasure inv' einv step'
 
-/-- A partial-correctness `while` loop without `done_with`: every exit goes straight to the code
+/-- The spec for `Gadget.whileLoopPartial` without `done_with`: every exit goes straight to the code
 after the loop. -/
 @[spec 1200]
 public theorem Spec.whileLoopPartial
@@ -260,10 +326,10 @@ public theorem Spec.whileLoopPartial
     (inv : β → Pred)
     (hdiv : ∀ b, inv b ⊑ div_pre einv)
     (step : ∀ b, Triple (f () b) (binderNameHint b inv <| inv b) (stepPost inv Q) einv) :
-    Triple (whileLoopPartial init f inv) (inv init) Q einv :=
+    Triple (Gadget.whileLoopPartial init f inv none) (inv init) Q einv :=
   whileLoopPartial_core inv Q hdiv step
 
-/-- A partial-correctness `while` loop with `done_with`: every exit establishes `done`, which the
+/-- The spec for `Gadget.whileLoopPartial` with `done_with`: every exit establishes `done`, which the
 code after the loop starts from. -/
 @[spec 1200]
 public theorem Spec.whileLoopPartialAndDone
@@ -275,13 +341,12 @@ public theorem Spec.whileLoopPartialAndDone
     (inv done : β → Pred)
     (hdiv : ∀ b, inv b ⊑ div_pre einv)
     (step : ∀ b, Triple (f () b) (binderNameHint b inv <| inv b) (stepPost inv done) einv) :
-    Triple (whileLoopPartialAndDone init f inv done) (inv init)
+    Triple (Gadget.whileLoopPartial init f inv (some done)) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   whileLoopPartial_core inv done hdiv step
 
-/-- A partial-correctness `while` loop with `done_with` whose body can `return`: a `return` goes
-straight to the code after the loop, and every other exit establishes `done`. The loop only
-continues from states that have not returned, so its step is over the mutable variables `s`. -/
+/-- The spec for `Gadget.whileLoopPartialReturning` with `done_with`: a `return` goes straight to the
+code after the loop, and every other exit establishes `done`. -/
 @[spec 1200]
 public theorem Spec.whileLoopPartialAndDoneReturning
     {m : Type u → Type v} {Pred EPred : Type u} {div_post : EPred} {div_pre : EPred → Pred}
@@ -295,13 +360,13 @@ public theorem Spec.whileLoopPartialAndDoneReturning
     (step : ∀ s, Triple (f () (none, s)) (binderNameHint s inv <| inv s)
       (stepPost (noReturn inv) (onExit Q done)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple (whileLoopPartialAndDoneReturning init f inv done) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopPartialReturning init f inv (some done)) (noReturn inv init) Q einv :=
   triple_onExit (whileLoopPartial_core (noReturn inv) _ (noReturn_le hdiv)
     (noReturn_step (inv := inv) (x := f ()) (post := fun _ => stepPost (noReturn inv) (onExit Q done))
       step)) hD
 
-/-- A partial-correctness `while` loop without `done_with` whose body can `return`: every exit goes
-straight to the code after the loop. -/
+/-- The spec for `Gadget.whileLoopPartialReturning` without `done_with`: every exit goes straight to
+the code after the loop. -/
 @[spec 1200]
 public theorem Spec.whileLoopPartialReturning
     {m : Type u → Type v} {Pred EPred : Type u} {div_post : EPred} {div_pre : EPred → Pred}
@@ -314,11 +379,11 @@ public theorem Spec.whileLoopPartialReturning
     (hdiv : ∀ s, inv s ⊑ div_pre einv)
     (step : ∀ s, Triple (f () (none, s)) (binderNameHint s inv <| inv s)
       (stepPost (noReturn inv) Q) einv) :
-    Triple (whileLoopPartialReturning init f inv) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopPartialReturning init f inv none) (noReturn inv init) Q einv :=
   whileLoopPartial_core (noReturn inv) Q (noReturn_le hdiv)
     (noReturn_step (inv := inv) (x := f ()) (post := fun _ => stepPost (noReturn inv) Q) step)
 
-/-- A total-correctness `while` loop without `done_with`: every exit goes straight to the code
+/-- The spec for `Gadget.whileLoopTotal` without `done_with`: every exit goes straight to the code
 after the loop. -/
 @[spec 1200]
 public theorem Spec.whileLoopTotal
@@ -330,10 +395,10 @@ public theorem Spec.whileLoopTotal
     (inv : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure Q b) einv) :
-    Triple (whileLoopTotal init f inv measure) (inv init) Q einv :=
+    Triple (Gadget.whileLoopTotal init f inv none measure) (inv init) Q einv :=
   whileLoopTotal_core inv Q measure step
 
-/-- A total-correctness `while` loop with `done_with`: every exit establishes `done`, which the
+/-- The spec for `Gadget.whileLoopTotal` with `done_with`: every exit establishes `done`, which the
 code after the loop starts from. -/
 @[spec 1200]
 public theorem Spec.whileLoopTotalAndDone
@@ -345,13 +410,12 @@ public theorem Spec.whileLoopTotalAndDone
     (inv done : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure done b) einv) :
-    Triple (whileLoopTotalAndDone init f inv done measure) (inv init)
+    Triple (Gadget.whileLoopTotal init f inv (some done) measure) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   whileLoopTotal_core inv done measure step
 
-/-- A total-correctness `while` loop with `done_with` whose body can `return`: a `return` goes
-straight to the code after the loop, and every other exit establishes `done`. The loop only
-continues from states that have not returned, so its step is over the mutable variables `s`. -/
+/-- The spec for `Gadget.whileLoopTotalReturning` with `done_with`: a `return` goes straight to the
+code after the loop, and every other exit establishes `done`. -/
 @[spec 1200]
 public theorem Spec.whileLoopTotalAndDoneReturning
     {m : Type u → Type v} {Pred EPred : Type u}
@@ -365,13 +429,13 @@ public theorem Spec.whileLoopTotalAndDoneReturning
       Triple (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) (none, s)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple (whileLoopTotalAndDoneReturning init f inv done measure) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopTotalReturning init f inv (some done) measure) (noReturn inv init) Q einv :=
   triple_onExit (whileLoopTotal_core (noReturn inv) _ (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
       (post := fun b => stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) b) step)) hD
 
-/-- A total-correctness `while` loop without `done_with` whose body can `return`: every exit goes
-straight to the code after the loop. -/
+/-- The spec for `Gadget.whileLoopTotalReturning` without `done_with`: every exit goes straight to
+the code after the loop. -/
 @[spec 1200]
 public theorem Spec.whileLoopTotalReturning
     {m : Type u → Type v} {Pred EPred : Type u}
@@ -384,18 +448,12 @@ public theorem Spec.whileLoopTotalReturning
     (step : ∀ s,
       Triple (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q (none, s)) einv) :
-    Triple (whileLoopTotalReturning init f inv measure) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopTotalReturning init f inv none measure) (noReturn inv init) Q einv :=
   whileLoopTotal_core (noReturn inv) Q (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
       (post := fun b => stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q b) step)
 
-/-! ## `for` loops with a state invariant
-
-The `for` specs name the facts about the cursor with `Named.mk` (`h_mem`, `h_prefix`, `h_last`,
-`h_empty`, `h_nonempty`), so the VCs state them under those names. The list variables are named
-by `binderNameHint`s whose binder is the name, as in `fun rest : List α => (rest, `rest)`. The name
-also appears in the body: shared terms ignore binder names, which would merge the hints for `pref`
-and `rest`, and a body like `f rest` would be eta-reduced away from a binder. -/
+/-! ## `for` loops with a state invariant -/
 
 /-- A `for` loop over a list whose invariant only mentions the loop state: every exit goes
 straight to `exit`, and so does running out of elements, from `inv`. -/
@@ -428,47 +486,10 @@ public theorem Spec.forIn'_list_state_inv
   | cons => exact h
 
 set_option linter.unusedVariables false in
-public theorem Spec.forIn_list_state_inv
-    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
-    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
-    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
-    (inv exit : β → Pred)
-    {epost : EPred}
-    (step : ∀ cur (h : cur ∈ xs) b,
-      Triple (f cur b) (binderNameHint cur f <| binderNameHint b inv <| inv b)
-        (stepPost inv exit) epost)
-    (hEnd : ∀ b, inv b ⊑ exit b) :
-    Triple (forIn xs init f) (inv init) exit epost := by
-  simp only [← forIn'_eq_forIn]
-  exact Spec.forIn'_list_state_inv inv exit step hEnd
-
-set_option linter.unusedVariables false in
-/-- A `for` loop with a state invariant: every exit goes straight to the code after the loop, and
-so does running out of elements, from the invariant. -/
+/-- The spec for `Gadget.forLoopWithInvariant`: every exit goes straight to the code after the loop,
+and so does running out of elements, from the invariant. -/
 @[spec]
 public theorem Spec.forLoopWithInvariant
-    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
-    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
-    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α]
-    [PureForIn m ρ α]
-    {xs : ρ} {init : β} {f : α → β → m (ForInStep β)} {Q : β → Pred}
-    (inv : β → Pred)
-    {epost : EPred}
-    (step : ∀ cur (h : Named.mk `h_mem none (cur ∈ ForIn.toList xs)) b,
-      Triple (f cur b) (binderNameHint cur f <| binderNameHint b inv <| inv b)
-        (stepPost inv Q) epost)
-    (hEnd : ∀ b, binderNameHint b inv (inv b) ⊑ Q b) :
-    Triple (forLoopWithInvariant xs init f inv) (inv init) Q epost := by
-  unfold Gadget.forLoopWithInvariant
-  rw [PureForIn.forIn_eq]
-  exact Spec.forIn_list_state_inv (init := init) inv Q step hEnd
-
-set_option linter.unusedVariables false in
-/-- `Spec.forLoopWithInvariant` with membership proofs in the loop body. -/
-@[spec]
-public theorem Spec.forLoopMemWithInvariant
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -482,42 +503,15 @@ public theorem Spec.forLoopMemWithInvariant
         (binderNameHint cur f <| binderNameHint b inv <| inv b)
         (stepPost inv Q) epost)
     (hEnd : ∀ b, binderNameHint b inv (inv b) ⊑ Q b) :
-    Triple (forLoopMemWithInvariant xs init f inv) (inv init) Q epost := by
-  unfold Gadget.forLoopMemWithInvariant
+    Triple (forLoopWithInvariant xs init f inv) (inv init) Q epost := by
+  unfold Gadget.forLoopWithInvariant
   rw [PureForIn'.forIn'_eq]
   exact Spec.forIn'_list_state_inv (init := init) inv Q step hEnd
 
-set_option linter.unusedVariables false in
-/-- A `for` loop with a state invariant whose body can `return`: every exit goes straight to the
-code after the loop, and so does running out of elements, from the invariant. -/
+/-- The spec for `Gadget.forLoopWithInvariantReturning`: every exit goes straight to the code after
+the loop, and so does running out of elements, from the invariant. -/
 @[spec]
 public theorem Spec.forLoopWithInvariantReturning
-    {α : Type u₁} {γ τ : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
-    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
-    [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
-    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α]
-    [PureForIn m ρ α]
-    {xs : ρ} {init : Option γ × τ} {f : α → Option γ × τ → m (ForInStep (Option γ × τ))}
-    {Q : Option γ × τ → Pred}
-    (inv : τ → Pred)
-    {epost : EPred}
-    (step : ∀ cur (h : Named.mk `h_mem none (cur ∈ ForIn.toList xs)) s,
-      Triple (f cur (none, s))
-        (binderNameHint cur f <| binderNameHint s inv <| inv s)
-        (stepPost (noReturn inv) Q) epost)
-    (hEnd : ∀ s, binderNameHint s inv (inv s) ⊑ Q (none, s)) :
-    Triple (forLoopWithInvariantReturning xs init f inv) (noReturn inv init) Q epost := by
-  have h := Spec.forLoopWithInvariant (xs := xs) (init := init) (f := f) (noReturn inv)
-    (fun cur hc => noReturn_step (inv := inv) (x := f cur)
-      (post := fun _ => stepPost (noReturn inv) Q) (step cur hc))
-    (noReturn_le_fun hEnd)
-  unfold Gadget.forLoopWithInvariant at h
-  unfold Gadget.forLoopWithInvariantReturning
-  exact h
-
-/-- `Spec.forLoopWithInvariantReturning` with membership proofs in the loop body. -/
-@[spec]
-public theorem Spec.forLoopMemWithInvariantReturning
     {α : Type u₁} {γ τ : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
@@ -532,13 +526,13 @@ public theorem Spec.forLoopMemWithInvariantReturning
         (binderNameHint cur f <| binderNameHint s inv <| inv s)
         (stepPost (noReturn inv) Q) epost)
     (hEnd : ∀ s, binderNameHint s inv (inv s) ⊑ Q (none, s)) :
-    Triple (forLoopMemWithInvariantReturning xs init f inv) (noReturn inv init) Q epost := by
-  have h := Spec.forLoopMemWithInvariant (xs := xs) (init := init) (f := f) (noReturn inv)
+    Triple (forLoopWithInvariantReturning xs init f inv) (noReturn inv init) Q epost := by
+  have h := Spec.forLoopWithInvariant (xs := xs) (init := init) (f := f) (noReturn inv)
     (fun cur hc => noReturn_step (inv := inv) (x := fun b => f cur ((LawfulMemForInId.mem_toList_iff).mp hc) b)
       (post := fun _ => stepPost (noReturn inv) Q) (step cur hc))
     (noReturn_le_fun hEnd)
-  unfold Gadget.forLoopMemWithInvariant at h
-  unfold Gadget.forLoopMemWithInvariantReturning
+  unfold Gadget.forLoopWithInvariant at h
+  unfold Gadget.forLoopWithInvariantReturning
   exact h
 
 /-- Lean's own `for` loop, which carries no invariant: every exit, and finishing the last element,
@@ -699,82 +693,10 @@ public theorem Spec.forIn'_list_inv_done
   apply Triple.intro
   exact PartialOrder.rel_trans (Spec.forIn_init_le xs init inv done) (by cases xs <;> exact h.le_wp)
 
-set_option linter.unusedVariables false in
-public theorem Spec.forIn_list_inv_done
-    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
-    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
-    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
-    [Assertion EPred] [WPMonad m Pred EPred]
-    {xs : List α} {init : β} {f : α → β → m (ForInStep β)}
-    (inv : List α → α → List α → β → Pred)
-    (done : List α → β → Pred)
-    {epost : EPred}
-    (step_mid : ∀ pref cur next rest (h : xs = pref ++ cur :: next :: rest) b,
-      Triple
-        (f cur b)
-        (binderNameHint pref inv <| binderNameHint cur f <| binderNameHint b (inv pref cur (next :: rest)) <|
-          inv pref cur (next :: rest) b)
-        (stepPost (inv (pref ++ [cur]) next rest) (done xs))
-        epost)
-    (step_last : ∀ pref cur (h : xs = pref ++ [cur]) b,
-      Triple
-        (f cur b)
-        (binderNameHint pref inv <| binderNameHint cur f <| binderNameHint b (inv pref cur []) <|
-          inv pref cur [] b)
-        (stepPost (done xs) (done xs))
-        epost) :
-    Triple
-      (forIn xs init f)
-      ((⌜xs = []⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, ⌜xs = cur :: rest⌝ ⇨ inv [] cur rest init))
-      (fun b => binderNameHint b (done xs) <| done xs b)
-      epost := by
-  simp only [← forIn'_eq_forIn]
-  exact Spec.forIn'_list_inv_done inv done (fun pref cur next rest h b => step_mid pref cur next rest h b) (fun pref cur h b => step_last pref cur h b)
-
-set_option linter.unusedVariables false in
-/-- A `for` loop with `done_with`: every exit establishes `done`, which the code after the loop
-starts from. -/
+/-- The spec for `Gadget.forLoopWithInvariantAndDone`: every exit establishes `done`, which the code
+after the loop starts from. -/
 @[spec]
 public theorem Spec.forLoopWithInvariantAndDone
-    {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
-    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
-    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
-    [Assertion EPred] [WPMonad m Pred EPred]
-    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α]
-    [PureForIn m ρ α]
-    {xs : ρ} {init : β} {f : α → β → m (ForInStep β)}
-    (inv : List α → α → List α → β → Pred)
-    (done : List α → β → Pred)
-    {epost : EPred}
-    (step_mid : ∀ pref cur next rest (h : Named.mk `h_prefix none (ForIn.toList xs = pref ++ cur :: next :: rest)) b,
-      Triple
-        (f cur b)
-        (binderNameHint pref (fun pref : List α => (pref, `pref)) <| binderNameHint cur f <|
-          binderNameHint next (fun next : α => (next, `next)) <| binderNameHint rest (fun rest : List α => (rest, `rest)) <|
-          binderNameHint b (inv pref cur (next :: rest)) <|
-          inv pref cur (next :: rest) b)
-        (stepPost (inv (pref ++ [cur]) next rest) (done (ForIn.toList xs)))
-        epost)
-    (step_last : ∀ pref cur (h : Named.mk `h_prefix none (ForIn.toList xs = pref ++ [cur])) b,
-      Triple
-        (f cur b)
-        (binderNameHint pref (fun pref : List α => (pref, `pref)) <| binderNameHint cur f <| binderNameHint b (inv pref cur []) <|
-          inv pref cur [] b)
-        (stepPost (done (ForIn.toList xs)) (done (ForIn.toList xs)))
-        epost) :
-    Triple
-      (forLoopWithInvariantAndDone xs init f inv done)
-      ((⌜Named.mk `h_empty none (ForIn.toList xs = [])⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, binderNameHint cur f <| binderNameHint rest (fun rest : List α => (rest, `rest)) <|
-          ⌜Named.mk `h_nonempty none (ForIn.toList xs = cur :: rest)⌝ ⇨ inv [] cur rest init))
-      (fun b => binderNameHint b (done (ForIn.toList xs)) <| done (ForIn.toList xs) b)
-      epost := by
-  unfold Gadget.forLoopWithInvariantAndDone
-  rw [PureForIn.forIn_eq]
-  exact Spec.forIn_list_inv_done (init := init) inv done step_mid step_last
-
-/-- `Spec.forLoopWithInvariantAndDone` with membership proofs in the loop body. -/
-@[spec]
-public theorem Spec.forLoopMemWithInvariantAndDone
     {α : Type u₁} {β : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -802,72 +724,19 @@ public theorem Spec.forLoopMemWithInvariantAndDone
         (stepPost (done (ForIn.toList xs)) (done (ForIn.toList xs)))
         epost) :
     Triple
-      (forLoopMemWithInvariantAndDone xs init f inv done)
+      (forLoopWithInvariantAndDone xs init f inv done)
       ((⌜Named.mk `h_empty none (ForIn.toList xs = [])⌝ ⇨ done [] init) ⊓ (⨅ cur, ⨅ rest, binderNameHint cur f <| binderNameHint rest (fun rest : List α => (rest, `rest)) <|
           ⌜Named.mk `h_nonempty none (ForIn.toList xs = cur :: rest)⌝ ⇨ inv [] cur rest init))
       (fun b => binderNameHint b (done (ForIn.toList xs)) <| done (ForIn.toList xs) b)
       epost := by
-  unfold Gadget.forLoopMemWithInvariantAndDone
+  unfold Gadget.forLoopWithInvariantAndDone
   rw [PureForIn'.forIn'_eq]
   exact Spec.forIn'_list_inv_done (xs := ForIn.toList xs) (init := init) (f := fun a h b => f a ((LawfulMemForInId.mem_toList_iff).mp h) b) inv done step_mid step_last
 
-set_option linter.unusedVariables false in
-/-- A `for` loop with `done_with` whose body can `return`: a `return` goes straight to the code
+/-- The spec for `Gadget.forLoopWithInvariantAndDoneReturning`: a `return` goes straight to the code
 after the loop, and every other exit establishes `done`. -/
 @[spec]
 public theorem Spec.forLoopWithInvariantAndDoneReturning
-    {α : Type u₁} {γ τ : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
-    {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
-    [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
-    [Assertion EPred] [WPMonad m Pred EPred]
-    {ρ : Type w} [ForIn m ρ α] [ForIn Id ρ α]
-    [PureForIn m ρ α]
-    {xs : ρ} {init : Option γ × τ} {f : α → Option γ × τ → m (ForInStep (Option γ × τ))}
-    {Q : Option γ × τ → Pred}
-    (inv : List α → α → List α → τ → Pred)
-    (done : List α → τ → Pred)
-    {epost : EPred}
-    (step_mid : ∀ pref cur next rest (h : Named.mk `h_prefix none (ForIn.toList xs = pref ++ cur :: next :: rest)) s,
-      Triple
-        (f cur (none, s))
-        (binderNameHint pref (fun pref : List α => (pref, `pref)) <| binderNameHint cur f <|
-          binderNameHint next (fun next : α => (next, `next)) <| binderNameHint rest (fun rest : List α => (rest, `rest)) <|
-          binderNameHint s (inv pref cur (next :: rest)) <|
-          inv pref cur (next :: rest) s)
-        (stepPost (noReturn (inv (pref ++ [cur]) next rest)) (onExit Q (done (ForIn.toList xs))))
-        epost)
-    (step_last : ∀ pref cur (h : Named.mk `h_prefix none (ForIn.toList xs = pref ++ [cur])) s,
-      Triple
-        (f cur (none, s))
-        (binderNameHint pref (fun pref : List α => (pref, `pref)) <| binderNameHint cur f <| binderNameHint s (inv pref cur []) <|
-          inv pref cur [] s)
-        (stepPost (onExit Q (done (ForIn.toList xs))) (onExit Q (done (ForIn.toList xs))))
-        epost)
-    (hD : ∀ s, binderNameHint s (done (ForIn.toList xs)) (done (ForIn.toList xs) s) ⊑ Q (none, s)) :
-    Triple
-      (forLoopWithInvariantAndDoneReturning xs init f inv done)
-      ((⌜Named.mk `h_empty none (ForIn.toList xs = [])⌝ ⇨ onExit Q (done []) init) ⊓
-        (⨅ cur, ⨅ rest, binderNameHint cur f <| binderNameHint rest (fun rest : List α => (rest, `rest)) <|
-          ⌜Named.mk `h_nonempty none (ForIn.toList xs = cur :: rest)⌝ ⇨ noReturn (inv [] cur rest) init))
-      Q epost := by
-  have h := Spec.forLoopWithInvariantAndDone (xs := xs) (init := init) (f := f)
-    (fun pref cur rest => noReturn (inv pref cur rest)) (fun l => onExit Q (done l))
-    (fun pref cur next rest hh => noReturn_step (inv := inv pref cur (next :: rest))
-      (x := f cur)
-      (post := fun _ => stepPost (noReturn (inv (pref ++ [cur]) next rest))
-        (onExit Q (done (ForIn.toList xs))))
-      (step_mid pref cur next rest hh))
-    (fun pref cur hh => noReturn_step (inv := inv pref cur [])
-      (x := f cur)
-      (post := fun _ => stepPost (onExit Q (done (ForIn.toList xs))) (onExit Q (done (ForIn.toList xs))))
-      (step_last pref cur hh))
-  unfold Gadget.forLoopWithInvariantAndDone at h
-  unfold Gadget.forLoopWithInvariantAndDoneReturning
-  exact triple_onExit (done := done (ForIn.toList xs)) h hD
-
-/-- `Spec.forLoopWithInvariantAndDoneReturning` with membership proofs in the loop body. -/
-@[spec]
-public theorem Spec.forLoopMemWithInvariantAndDoneReturning
     {α : Type u₁} {γ τ : Type (max u₁ u₂)} {m : Type (max u₁ u₂) → Type v}
     {Pred : Type (max u₁ u₂)} {EPred : Type (max u₁ u₂)}
     [Monad m] [Assertion Pred] [∀ P : Pred, Lean.Order.PreservesSup (Lean.Order.meet P)]
@@ -897,12 +766,12 @@ public theorem Spec.forLoopMemWithInvariantAndDoneReturning
         epost)
     (hD : ∀ s, binderNameHint s (done (ForIn.toList xs)) (done (ForIn.toList xs) s) ⊑ Q (none, s)) :
     Triple
-      (forLoopMemWithInvariantAndDoneReturning xs init f inv done)
+      (forLoopWithInvariantAndDoneReturning xs init f inv done)
       ((⌜Named.mk `h_empty none (ForIn.toList xs = [])⌝ ⇨ onExit Q (done []) init) ⊓
         (⨅ cur, ⨅ rest, binderNameHint cur f <| binderNameHint rest (fun rest : List α => (rest, `rest)) <|
           ⌜Named.mk `h_nonempty none (ForIn.toList xs = cur :: rest)⌝ ⇨ noReturn (inv [] cur rest) init))
       Q epost := by
-  have h := Spec.forLoopMemWithInvariantAndDone (xs := xs) (init := init) (f := f)
+  have h := Spec.forLoopWithInvariantAndDone (xs := xs) (init := init) (f := f)
     (fun pref cur rest => noReturn (inv pref cur rest)) (fun l => onExit Q (done l))
     (fun pref cur next rest hh => noReturn_step (inv := inv pref cur (next :: rest))
       (x := fun b => f cur ((LawfulMemForInId.mem_toList_iff).mp (by simp [Named.mk_eq] at hh; simp [hh])) b)
@@ -913,8 +782,8 @@ public theorem Spec.forLoopMemWithInvariantAndDoneReturning
       (x := fun b => f cur ((LawfulMemForInId.mem_toList_iff).mp (by simp [Named.mk_eq] at hh; simp [hh])) b)
       (post := fun _ => stepPost (onExit Q (done (ForIn.toList xs))) (onExit Q (done (ForIn.toList xs))))
       (step_last pref cur hh))
-  unfold Gadget.forLoopMemWithInvariantAndDone at h
-  unfold Gadget.forLoopMemWithInvariantAndDoneReturning
+  unfold Gadget.forLoopWithInvariantAndDone at h
+  unfold Gadget.forLoopWithInvariantAndDoneReturning
   exact triple_onExit (done := done (ForIn.toList xs)) h hD
 
 /-! ## Lemmas for range loops -/
