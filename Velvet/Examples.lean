@@ -16,6 +16,7 @@ public import Velvet.Examples.MatchRecursion
 public import Velvet.Examples.RunLengthEncoding
 public import Velvet.Examples.InsertionSort
 public import Velvet.Examples.Recursion
+public import Velvet.Examples.Entailments
 public import Velvet.Examples.AutomaticExceptionInference
 public import Velvet.Examples.ErrorMsgs
 public import Velvet.Examples.StateT
