@@ -126,15 +126,12 @@ public meta def classifyForLoopInvariants (cursorId : Name) (invs : Array Term) 
     return .pureState
 
 
-/-- The pattern that names the loop's mutable variables in the state tuple, whose layout is
-`[return?, mutVars…, unit?]`; the early-return slot becomes a wildcard. -/
-private meta def mkStatePat (loopMutVars : Array MutVar) (returnsEarly : Bool) : DoElabM Term := do
-  let hole ← `(_)
-  let mut binders : Array Term := #[]
-  if returnsEarly then binders := binders.push hole
-  -- Velvet's `for` syntax, declared above, shadows Lean's in this file; fold instead.
-  binders := binders ++ loopMutVars.map (fun mv => ⟨mv.ident.raw⟩)
-  if returnsEarly && loopMutVars.isEmpty then binders := binders.push hole
+/-- The pattern that names the loop's mutable variables. When the body can `return`, the state
+tuple is `(return slot, mutable variables)`, and annotations range over the mutable variables
+only: the loop only continues from states that have not returned. -/
+private meta def mkStatePat (loopMutVars : Array MutVar) : DoElabM Term := do
+  -- Velvet's `for` syntax, declared above, shadows Lean's in this file; map instead.
+  let binders : Array Term := loopMutVars.map (fun mv => ⟨mv.ident.raw⟩)
   match binders with
     | #[]  => `(_)
     | #[b] => pure b
@@ -150,11 +147,13 @@ meta structure LoopApp where
   body : Expr
   /-- The type of the state tuple. -/
   σ : Expr
-  /-- The pattern naming the loop's mutable variables in the state tuple. -/
+  /-- The pattern naming the loop's mutable variables, over which annotations range. -/
   statePat : Term
   /-- The erased variables among the loop's mutable variables; annotations bind their `.out`
   projections over the state tuple. -/
   erasedMutVars : Array MutVar := #[]
+  /-- Whether the body can `return`, so that the state tuple starts with the return slot. -/
+  returnsEarly : Bool := false
 
 /-- Bind the `.out` projection of each erased variable over `e`, so that an annotation names erased
 variables at their underlying type. The `+zeta` substitutes the binding away at elaboration, so
@@ -163,7 +162,7 @@ private meta def LoopApp.wrapErasedProjs (g : LoopApp) (e : Term) : DoElabM Term
   g.erasedMutVars.foldlM (init := e) fun e mv =>
     `(let +zeta $(mv.ident):ident := Erased.out $(⟨mv.ident.raw⟩); $e)
 
-/-- Abstract `e` over the loop's state tuple, so that `e` may name the loop's mutable variables. -/
+/-- Abstract `e` over the loop's mutable variables, so that `e` may name them. -/
 private meta def LoopApp.mkStateFun (g : LoopApp) (e : Term) : DoElabM Term := do
   `(fun $(g.statePat) => $(← g.wrapErasedProjs e))
 
@@ -249,8 +248,8 @@ private meta def elabLoop (dec : DoElemCont) (body : TSyntax ``Lean.Parser.Term.
     elabDoSeq body { dec with k := continueCont, kind := .duplicable }
 
   let forIn ← mkLoop
-    { init := preS, body, σ, statePat := ← mkStatePat loopMutVars info.returnsEarly,
-      erasedMutVars := loopMutVars.filter (·.erased) }
+    { init := preS, body, σ, statePat := ← mkStatePat loopMutVars,
+      erasedMutVars := loopMutVars.filter (·.erased), returnsEarly := info.returnsEarly }
 
   let γ := (← read).doBlockResultType
   let rest ←
@@ -323,8 +322,11 @@ public meta def elabDoForVelvet : DoElab := fun stx dec => do
     let loopArgs := #[← Term.exprToSyntax xs, ← Term.exprToSyntax g.init, ← Term.exprToSyntax g.body]
     match ← classifyForLoopInvariants x.getId invs ns stateInvLam done hDone with
     | .pureState =>
-      let gadget := if h?.isSome then ``Loop.Gadget.forLoopMemWithInvariant
-        else ``Loop.Gadget.forLoopWithInvariant
+      let gadget := match h?.isSome, g.returnsEarly with
+        | true, true => ``Loop.Gadget.forLoopMemWithInvariantReturning
+        | true, false => ``Loop.Gadget.forLoopMemWithInvariant
+        | false, true => ``Loop.Gadget.forLoopWithInvariantReturning
+        | false, false => ``Loop.Gadget.forLoopWithInvariant
       g.mkCall gadget (loopArgs.push stateInvLam)
     | .invAndDone doneTerm doneName =>
       let done' ← liftMacroM <| mkAssertionList #[doneTerm] #[doneName]
@@ -332,8 +334,11 @@ public meta def elabDoForVelvet : DoElab := fun stx dec => do
       let rest := mkIdent `__rest
       let invLam ← `(fun $pref:ident $x:ident $rest:ident => $(← g.mkStateFun invs'))
       let doneLam ← `(fun $pref:ident => $(← g.mkStateFun done'))
-      let gadget := if h?.isSome then ``Loop.Gadget.forLoopMemWithInvariantAndDone
-        else ``Loop.Gadget.forLoopWithInvariantAndDone
+      let gadget := match h?.isSome, g.returnsEarly with
+        | true, true => ``Loop.Gadget.forLoopMemWithInvariantAndDoneReturning
+        | true, false => ``Loop.Gadget.forLoopMemWithInvariantAndDone
+        | false, true => ``Loop.Gadget.forLoopWithInvariantAndDoneReturning
+        | false, false => ``Loop.Gadget.forLoopWithInvariantAndDone
       g.mkCall gadget (loopArgs ++ #[invLam, doneLam])
 
 @[doElem_control_info doWhileVelvet]
@@ -375,23 +380,32 @@ public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
   elabLoop dec loopBody binders (fun _ => pure ()) fun g => do
     let invNames := makeNameArrayFromIdents ns "invariant"
     let invs' ← liftMacroM <| mkAssertionList invs invNames
-    let defaultDoneWith ← withRef cond do `(¬ $cond)
-    let doneWith := d.getD defaultDoneWith
-    let doneName := h_done.join.map (fun (id : Ident) => id.getId) |>.getD `h_done_with
-    let exitedInvs ← liftMacroM <| mkAssertionList (invs.push doneWith) (invNames.push doneName)
     let invLam ← g.mkStateFun invs'
-    let doneLam ← g.mkStateFun exitedInvs
-    let loopArgs := #[← Term.exprToSyntax g.init, ← Term.exprToSyntax g.body, invLam, doneLam]
+    let mut loopArgs := #[← Term.exprToSyntax g.init, ← Term.exprToSyntax g.body, invLam]
+    -- Without `done_with`, every exit goes straight to the code after the loop. With it, every exit
+    -- other than a `return` establishes the invariants and the `done_with` condition.
+    if let some doneWith := d then
+      let doneName := h_done.join.map (fun (id : Ident) => id.getId) |>.getD `h_done_with
+      let exitedInvs ← liftMacroM <| mkAssertionList (invs.push doneWith) (invNames.push doneName)
+      loopArgs := loopArgs.push (← g.mkStateFun exitedInvs)
+    let gadget := match m.isSome, d.isSome, g.returnsEarly with
+      | false, false, false => ``Loop.Gadget.whileLoopPartial
+      | false, false, true => ``Loop.Gadget.whileLoopPartialReturning
+      | false, true, false => ``Loop.Gadget.whileLoopPartialAndDone
+      | false, true, true => ``Loop.Gadget.whileLoopPartialAndDoneReturning
+      | true, false, false => ``Loop.Gadget.whileLoopTotal
+      | true, false, true => ``Loop.Gadget.whileLoopTotalReturning
+      | true, true, false => ``Loop.Gadget.whileLoopTotalAndDone
+      | true, true, true => ``Loop.Gadget.whileLoopTotalAndDoneReturning
     match m with
     | none =>
-      if isPartial == true then
-        g.mkCall ``Loop.Gadget.whileLoopPartial loopArgs
-      else
+      if isPartial == false then
         throwError "`while` requires a `decreasing` clause in total correctness; add `decreasing <measure>` or use partial correctness"
+      g.mkCall gadget loopArgs
     | some m =>
       let measureName := hm.join.map (fun (id : Ident) => id.getId) |>.getD `termination
       let measureNameStr := Lean.Syntax.mkStrLit measureName.toString
       let measureNameTerm : TSyntax `term ← `(Lean.Name.mkSimple $measureNameStr)
       let measureStx ← liftMacroM <| Named.sourceRefTerm m.raw
       let measureTerm ← `(Named.Measure.mk $measureNameTerm $measureStx $m)
-      g.mkCall ``Loop.Gadget.whileLoopTotal (loopArgs.push (← g.mkStateFun measureTerm))
+      g.mkCall gadget (loopArgs.push (← g.mkStateFun measureTerm))

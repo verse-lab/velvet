@@ -1,5 +1,5 @@
 - How does Dafny handle partial + total correctness code together? How do they interop? Clarify this for Velvet?
-- Early exits from loops: `break` is forced to prove `¬cond`, and facts at a `return` don't reach `ensures` (repro: Velvet/Examples/LoopEarlyExit.lean).
-- Once early exits work, give LoopControl.lean's examples real postconditions instead of `True`.
+- Report upstream: Lean's `vcgen` loses what holds at a `return` inside a loop, and the workarounds leave lattice terms in the VCs (repro: Velvet/Examples/LoopVCGenUpstreamIssue.lean).
+- Without `done_with`, the code after a loop is verified once per exit; consider sharing it between exits.
 - Report upstream: `splitProdBinder` builds unshared terms and panics under `sym.debug` (repro: Velvet/Examples/SplitProdBinder.lean).
 - Allow `decreasing` measures of any well-founded type, not just `Nat`.

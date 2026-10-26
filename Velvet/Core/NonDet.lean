@@ -6,3 +6,4 @@ public import Velvet.Core.NonDet.Macros
 public import Velvet.Core.NonDet.Run
 public import Velvet.Core.NonDet.WP
 public import Velvet.Core.NonDet.Soundness
+public import Velvet.Core.NonDet.Loop

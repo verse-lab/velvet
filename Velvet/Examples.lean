@@ -10,6 +10,8 @@ public import Velvet.Examples.IsSorted
 public import Velvet.Examples.IsNonPrime
 public import Velvet.Examples.Sqrt
 public import Velvet.Examples.LoopControl
+public import Velvet.Examples.LoopControlVCs
+public import Velvet.Examples.LoopVCGenUpstreamIssue
 public import Velvet.Examples.MatchRecursion
 public import Velvet.Examples.RunLengthEncoding
 public import Velvet.Examples.InsertionSort
@@ -27,4 +29,3 @@ public import Velvet.Examples.SimplestSort
 public import Velvet.Examples.NonDet
 public import Velvet.Examples.Testing
 public import Velvet.Examples.SplitProdBinder
-public import Velvet.Examples.LoopEarlyExit

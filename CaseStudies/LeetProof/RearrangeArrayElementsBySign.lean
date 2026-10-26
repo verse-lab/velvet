@@ -545,9 +545,9 @@ prove_correct rearrangeArray by
   case rearranged =>
     rename_i nums
     rw [collectGo.eq_def (i := i)] at continuation
-    simp only [h_done_with, ↓reduceIte] at continuation
+    simp only [collecting, ↓reduceIte] at continuation
     rw [interleaveGo.eq_def (i := j)] at continuation_1
-    simp only [h_done_with_1, ↓reduceIte] at continuation_1
+    simp only [interleaving, ↓reduceIte] at continuation_1
     have h_rearrange : res = rearrange nums := by
       unfold rearrange
       rw [← continuation]
@@ -556,17 +556,17 @@ prove_correct rearrangeArray by
     rw [h_rearrange]
     exact rearrange_correct nums valid
   case continuation =>
+    rw [collectGo.eq_def (i := i)] at continuation
+    simp only [collecting, pos_elem, ↓reduceIte] at continuation
+    exact continuation
+  case continuation =>
+    rw [collectGo.eq_def (i := i)] at continuation
+    simp only [collecting, pos_elem, ↓reduceIte] at continuation
+    exact continuation
+  case continuation =>
     rw [interleaveGo.eq_def (i := j)] at continuation_1
     simp only [interleaving, ↓reduceIte] at continuation_1
     exact continuation_1
-  case continuation =>
-    rw [collectGo.eq_def (i := i)] at continuation
-    simp only [collecting, pos_elem, ↓reduceIte] at continuation
-    exact continuation
-  case continuation =>
-    rw [collectGo.eq_def (i := i)] at continuation
-    simp only [collecting, pos_elem, ↓reduceIte] at continuation
-    exact continuation
 
 
 end Proof

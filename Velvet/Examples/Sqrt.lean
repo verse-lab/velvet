@@ -64,7 +64,7 @@ prove_correct sqrt_total by
     by_cases hlt : j < i
     · omega
     · have hsq : i * i ≤ j * j := sq_le_sq (by omega)
-      have := h_done_with
+      have := loop_cond
       omega
   case by_x => rename_i x; have hb : i ≤ x := le_of_mul_self_le loop_cond; omega
 
@@ -101,7 +101,7 @@ prove_correct cbrt by
     by_cases hlt : j < i
     · omega
     · have hcb : i * i * i ≤ j * j * j := cube_le_cube (by omega)
-      have := h_done_with
+      have := loop_cond
       omega
   case by_x => rename_i x; have hb : i ≤ x := le_of_mul_self_cube_le loop_cond; omega
 

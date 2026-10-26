@@ -1,5 +1,9 @@
-import Velvet.Core.FreerMonad.Defs
-import Velvet.Core.Partial
+module
+
+public import Velvet.Core.FreerMonad.Defs
+public import Velvet.Core.Partial
+
+@[expose] public section
 
 open Std.WP Lean.Order
 
@@ -68,3 +72,5 @@ instance instLawfulEffWPSum [Monad m] [Assertion Pred] [Assertion EPred]
     match c with
     | .inl c => LawfulEffWP.ewp_le_wp_interp (m := m) c post epost
     | .inr c => LawfulEffWP.ewp_le_wp_interp (m := m) c post epost
+
+end

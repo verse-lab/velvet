@@ -438,11 +438,11 @@ prove_correct dijkstra by
     simp at bounded
     omega
   · exact initial _ _ _ source_valid
-  · exact state.finished wellformed nonnegative (by omega)
   · exact skip_decreases elements
   · exact state.skip elements visited
   · exact settle_decreases state elements (by simpa using visited) elements_1
   · exact state.settle wellformed nonnegative elements maximum
       (by simpa using visited) elements_1
+  · exact state.finished wellformed nonnegative (by omega)
 
 end VelvetLib.DataStructure.Graph

@@ -764,7 +764,7 @@ prove_correct checkInclusion by
       | false =>
         have hnlt : ¬ right < s2.size := by
           intro h
-          exact h_done_with_2 ⟨h, rfl⟩
+          exact sliding ⟨h, rfl⟩
         have hr : right = s2.size := by omega
         have hpl : p ≤ left := by omega
         exact False.elim (slide_not_found rfl p hpl hperm)

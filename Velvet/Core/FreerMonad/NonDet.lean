@@ -1,5 +1,9 @@
-import Velvet.Core.FreerMonad.WP
-import Velvet.Core.NonDet.Soundness
+module
+
+public import Velvet.Core.FreerMonad.WP
+public import Velvet.Core.NonDet.Soundness
+
+@[expose] public section
 
 open Std.WP Lean.Order Loop.Gadget WPPartial
 
@@ -198,4 +202,19 @@ theorem NonDetT.wp_toFreer {α : Type u} (x : NonDetT mode m α)
       simp only [f_ih, cont_ih]
       rfl
 
+omit [CCPOBot m] in
+/-- A triple about `x` is a triple about `x.toFreer`. -/
+theorem NonDetT.triple_iff_toFreer {α : Type u} {x : NonDetT mode m α} {pre : Pred}
+    {post : α → Pred} {epost : EPred} :
+    Triple x pre post epost ↔ FreerMonad.Triple m x.toFreer pre post epost := by
+  letI := FreerMonad.wpMonadInst (m := m) (e := NonDetEff mode m)
+    (div_post := div_post) (div_pre := div_pre)
+  constructor <;> intro h <;> refine ⟨?_⟩ <;> have h := h.le_wp
+  · change pre ⊑ FreerMonad.wp (m := m) x.toFreer post epost
+    rwa [NonDetT.wp_toFreer]
+  · change pre ⊑ FreerMonad.wp (m := m) x.toFreer post epost at h
+    rwa [NonDetT.wp_toFreer] at h
+
 end Bridge
+
+end

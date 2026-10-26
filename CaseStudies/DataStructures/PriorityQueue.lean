@@ -473,10 +473,10 @@ prove_correct build by
   velvet_vcgen [build] <;> try grind only
   · grind only [heapFrom_leaves]
   · exact .rfl
-  · grind only [Inv.mk, IsMaxHeap]
-  · grind only [SameElements]
   · grind only [Array.Perm.size_eq]
   · grind only [Array.Perm.trans]
+  · grind only [Inv.mk, IsMaxHeap]
+  · grind only [SameElements]
 
 prove_correct peek by
   velvet_vcgen [peek] <;>

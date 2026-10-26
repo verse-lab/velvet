@@ -1,9 +1,14 @@
-import Velvet.Core.FreerMonad.Defs
-import Velvet.Core.FreerMonad.Effects
-import Velvet.Core.Specs
-import Velvet.Core.Partial
-import Std.WP.Gadget.ForIn
-import Std.WP.Triple.SpecLemmas
+module
+
+public import Velvet.Core.FreerMonad.Defs
+public import Velvet.Core.FreerMonad.Effects
+public import Velvet.Core.Specs
+public import Velvet.Core.Partial
+public import Std.WP.Gadget.ForIn
+public import Velvet.Core.Loop.Specs
+public import Std.WP.Triple.SpecLemmas
+
+@[expose] public section
 
 open Lean.Order
 
@@ -257,4 +262,14 @@ theorem soundness [WPMonad m Pred EPred] [HasInterpreter e m]
             exact PartialOrder.rel_trans (hdone b) (cont_ih b)
           · exact WPMonad.bind_le_wp_bind _ _ post epost
 
+variable (m) in
+/-- A triple for `x` under `wpMonadInst (m := m)`. -/
+abbrev Triple {e : Type u → Type v'} [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
+    [∀ α, WP (e α) α Pred EPred] [WPPartial m Pred EPred div_post div_pre] {α : Type u}
+    (x : FreerMonad e α) (pre : Pred) (post : α → Pred) (epost : EPred) : Prop :=
+  letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
+  Std.WP.Triple x pre post epost
+
 end FreerMonad
+
+end
