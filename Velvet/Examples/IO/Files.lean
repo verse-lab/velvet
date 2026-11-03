@@ -191,14 +191,13 @@ method readFile [FsWorld] (fs : Fs) (p : String) returns (r : Option String) in 
   requires (h : Trace Ev) => h = h₀ ∧ ∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)
   signals (e : FsErr) (h : Trace Ev) => False
   signals False
-  ensures (h : Trace Ev) =>
-    r = FsWorld.contents p ∧
-      (∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)) ∧
-      match r with
-      | none => h.events = h₀.events ++ [.inl (fs, .checked p (.ok false))]
-      | some s => ∃ f : File, f ∉ opened (h₀.traceOf fs) ∧ h.events = h₀.events ++
-          [.inl (fs, .checked p (.ok true)), .inl (fs, .opened p (.ok f)),
-            .inr (f, .read (.ok s)), .inr (f, .closed (.ok ()))]
+  ensures (h : Trace Ev) => r = FsWorld.contents p
+  ensures (h : Trace Ev) => ∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)
+  ensures (h : Trace Ev) => r = none → h.events = h₀.events ++ [.inl (fs, .checked p (.ok false))]
+  ensures (h : Trace Ev) => ∀ s, r = some s → ∃ f : File, f ∉ opened (h₀.traceOf fs) ∧
+    h.events = h₀.events ++
+      [.inl (fs, .checked p (.ok true)), .inl (fs, .opened p (.ok f)),
+        .inr (f, .read (.ok s)), .inr (f, .closed (.ok ()))]
 do
   let ok ← call fs (.check p)
   if ok then
@@ -211,6 +210,6 @@ do
 
 prove_correct readFile by
   velvet_vcgen [readFile]
-  all_goals first | grind | (refine ⟨?_, ?_, f, ?_, ?_⟩ <;> first | grind | (subst_vars; simp))
+  all_goals grind (ematch := 10)
 
 end Velvet.Examples.IO.Files

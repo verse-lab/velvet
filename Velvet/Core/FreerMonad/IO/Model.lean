@@ -7,6 +7,9 @@ class Model {op : outParam (Type → Type)} {Ev Err : outParam Type} (c : Type) 
   call : ∀ {α : Type}, Trace E → c → op α → Except Err α
   call_ok : ∀ {α : Type} t ch (o : op α), P.onReply ch (t.traceOf ch) o (call t ch o)
 
-/-- The monad IO programs are interpreted into: the trace is the state, a reply may be an error, and
-`none` is divergence. -/
-abbrev IOModel (E Err : Type) := ExceptT Err (StateT (Trace E) Option)
+/-- The monad IO programs over `m` are interpreted into: the trace is the state, a reply may be an
+error, and everything else is `m`. -/
+abbrev IOModelT (E Err : Type) (m : Type → Type) := ExceptT Err (StateT (Trace E) m)
+
+/-- `IOModelT` over `Option`, where `none` is divergence. -/
+abbrev IOModel (E Err : Type) := IOModelT E Err Option
