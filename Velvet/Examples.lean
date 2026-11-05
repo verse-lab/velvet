@@ -31,3 +31,4 @@ public import Velvet.Examples.NonDet
 public import Velvet.Examples.NonDetLoopVCs
 public import Velvet.Examples.Testing
 public import Velvet.Examples.SplitProdBinder
+public import Velvet.Examples.SplitAfterClear

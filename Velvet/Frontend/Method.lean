@@ -27,86 +27,6 @@ open Lean Meta Elab
 open Lean.Parser.Term
 open Lean.Elab.Do
 
-/-- `partial_fixpoint` hoists every parameter that is passed unchanged in all recursive calls out
-of the fixpoint, so `<name>.fixpoint_induct` binds those *before* its `motive` and the motive only
-ranges over the remaining, varying parameters. Recover that split by reading it back off the
-generated induction principle, whose conclusion is `motive fun <varying> => <name> <args>`.
-
-Returns one flag per method binder (`true` = fixed), or `none` if the shape is not recognised, in
-which case the caller falls back to abstracting over every binder. -/
-private meta def fixedParamMask (methodName : Name) (numParams : Nat) :
-    MetaM (Option (Array Bool)) := do
-  let inductName := methodName ++ `fixpoint_induct
-  -- `fixpoint_induct` is a reserved name realized on demand; force it before looking it up.
-  try
-    let _ ← realizeGlobalConstNoOverload (mkIdent inductName)
-  catch _ =>
-    return none
-  let env ← getEnv
-  let some inductInfo := env.find? inductName | return none
-  let some methodInfo := env.find? methodName | return none
-  -- The method's own binders are the trailing parameters; section variables come first.
-  let totalArgs ← forallTelescopeReducing methodInfo.type fun ys _ => pure ys.size
-  if totalArgs < numParams then return none
-  let leading := totalArgs - numParams
-  forallTelescope inductInfo.type fun _ concl => do
-    let .app _motive applied := concl | return none
-    lambdaTelescope applied fun varying body => do
-      unless body.getAppFn.isConstOf methodName do return none
-      let args := body.getAppArgs
-      if args.size < leading || args.size > totalArgs then return none
-      let mut mask := #[]
-      for a in args.extract leading args.size do
-        mask := mask.push !(varying.any (· == a))
-      -- Binders eta-contracted away in the conclusion are trailing varying ones.
-      for _ in [mask.size : numParams] do
-        mask := mask.push false
-      return some mask
-
-/-- Build the `<name>.fixpoint_triple_motive` command for a `method rec`.
-
-The motive has to match what `<name>.fixpoint_induct` expects, and `partial_fixpoint` only
-abstracts the parameters that actually vary across recursive calls. So the fixed ones become
-parameters of the motive abbrev (they are bound by `fixpoint_induct` before the motive), and only
-the varying ones are abstracted into `p`. Must run after the `def` has been elaborated, since the
-split is read back off the generated `fixpoint_induct`. -/
-private meta def mkFixpointMotiveCmd (ctx : MethodElabContext) (methodName : Name)
-    (parts : TSyntax `term × TSyntax `term × TSyntax `term × TSyntax `term) :
-    CommandElabM (TSyntax `command) := do
-  let (pre, post, sigs, monadStack') := parts
-  let motiveId := mkIdentFrom ctx.name (ctx.name.getId ++ `fixpoint_triple_motive)
-  let exploded ← ctx.binders.flatMapM fun b => explodeBinder b.raw
-  let mask? ← liftTermElabM <| fixedParamMask methodName exploded.size
-  -- Without a recognised split, fall back to abstracting every binder (the pre-existing shape).
-  let mask := mask?.getD (Array.replicate exploded.size false)
-  let fixed := exploded.zip mask |>.filterMap fun (b, f) => if f then some b else none
-  let varying := exploded.zip mask |>.filterMap fun (b, f) => if f then none else some b
-  let varyingIds := varying.flatMap (fun b => contractBinderIdents b.raw)
-  let motiveStatement ←
-    if varying.isEmpty then
-      if ctx.givenBinders.isEmpty then
-        `(term| fun (p : $monadStack') => Std.WP.Triple p $pre ($post) ($sigs))
-      else
-        let givenBinders := ctx.givenBinders
-        `(term|
-          fun (p : $monadStack') => ∀ $givenBinders*,
-            Std.WP.Triple p $pre ($post) ($sigs))
-    else
-      let quantified := varying ++ ctx.givenBinders
-      `(term|
-        fun (p : ∀ $varying*, $monadStack') => ∀ $quantified*,
-          Std.WP.Triple (p $varyingIds*) $pre ($post) ($sigs))
-  if fixed.isEmpty then
-    `(command|
-      open scoped Std.WP Lean.Order in
-      set_option linter.unusedVariables false in
-      public abbrev $motiveId := $motiveStatement)
-  else
-    `(command|
-      open scoped Std.WP Lean.Order in
-      set_option linter.unusedVariables false in
-      public abbrev $motiveId $fixed* := $motiveStatement)
-
 set_option linter.unusedVariables false in
 /-- Generate the `def`/`spec` command syntax for a parsed `method`, elaborate them, and register
 the spec statement. All the method-generation logic lives here; the `elab_rules` only builds the
@@ -115,7 +35,7 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
   match ctx.termination with
   | .totalCorrectness => checkWhileTermination ctx.body.raw
   | .partialCorrectness => pure ()
-  let (defCmd, specCmd, motiveParts, statement) ← Command.runTermElabM fun _vs => do
+  let (defCmd, specCmd, statement) ← Command.runTermElabM fun _vs => do
     let ids := ctx.binders.flatMap (fun b => contractBinderIdents b.raw)
     let binderStxs := ctx.binders
     let allBinderStxs := binderStxs ++ ctx.givenBinders
@@ -222,12 +142,10 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
       public abbrev $specId := $statement)
-    return (defCmd, specCmd, (pre, post, sigs, monadStack'), statement)
+    return (defCmd, specCmd, statement)
   elabCommand defCmd
   elabCommand specCmd
   let methodName ← liftCoreM <| realizeGlobalConstNoOverload ctx.name
-  if ctx.isRec then
-    elabCommand (← mkFixpointMotiveCmd ctx methodName motiveParts)
   modifyEnv (methodSpecExt.addEntry · { name := methodName, statement := statement })
   let verifyOnDefinition := (← getOptions).getBool `velvet.verifyOnDefinition false
   if verifyOnDefinition then
