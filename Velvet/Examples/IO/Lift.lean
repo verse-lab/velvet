@@ -1,7 +1,7 @@
-import Velvet.Examples.IO.Generic
+import Velvet.Examples.IO.Basic
 
 open Std.WP Lean.Order IOProg
-open Velvet.Examples.IO Velvet.Examples.IO.Generic
+open Velvet.Examples.IO Velvet.Examples.IO.Basic
 
 /-! IO over a base monad: a handler that also counts the requests it serves, in a `StateT Nat`
 underneath the IO. Its specs take the counter as well as the trace. -/
@@ -29,9 +29,7 @@ section Run
 local instance : Clients where
   stdin := []
   stdin_ok := by simp
-  logCapacity := 0
   requests _ := [⟨7⟩, ⟨8⟩]
-  commands _ := []
 
 def runCounted (n : Nat) : String :=
   match ((countedReply ⟨1⟩).interp (m := IOModelT SockEvent IOErr (StateT Nat Option))).run.run ⟨[]⟩ |>.run n with
