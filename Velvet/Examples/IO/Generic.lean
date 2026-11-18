@@ -22,7 +22,7 @@ method reply [Clients] (s : Socket) returns (q : Request) in IOProg SockEvent IO
     (e = .eof ∨ e = .reset) ∧
       (h.events = h₀.events ++ [(s, .read (.error e))] ∨
         ∃ q : Request, h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.error e))])
-  signals True
+  signals False
   ensures (h : Trace SockEvent) => h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.ok ()))]
 do
   let q ← read s
@@ -54,7 +54,7 @@ method replyAndLog [Clients] (s : Socket) returns (q : Request) in IOProg Stdout
         (∃ q : Request, h.events = h₀.events ++ [.inr (s, .read (.ok q)), .inr (s, .write ⟨q.id⟩ (.error e))]) ∨
         ∃ q : Request, h.events = h₀.events ++
           [.inr (s, .read (.ok q)), .inr (s, .write ⟨q.id⟩ (.ok ())), .inl (⟨⟩, .write "replied" (.error e))])
-  signals True
+  signals False
   ensures (h : Trace StdoutSockEvent) =>
     h.events = h₀.events ++
       [.inr (s, .read (.ok q)), .inr (s, .write ⟨q.id⟩ (.ok ())), .inl (⟨⟩, .write "replied" (.ok ()))]

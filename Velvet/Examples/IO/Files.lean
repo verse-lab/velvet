@@ -190,7 +190,7 @@ method readFile [FsWorld] (fs : Fs) (p : String) returns (r : Option String) in 
   given (h₀ : Trace Ev)
   requires (h : Trace Ev) => h = h₀ ∧ ∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)
   signals (e : FsErr) (h : Trace Ev) => False
-  signals True
+  signals False
   ensures (h : Trace Ev) => r = FsWorld.contents p
   ensures (h : Trace Ev) => ∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)
   ensures (h : Trace Ev) => r = none → h.events = h₀.events ++ [.inl (fs, .checked p (.ok false))]

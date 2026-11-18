@@ -65,7 +65,7 @@ method echo [Clients] returns (line : String) in Prog
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) =>
     e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk)
-  signals True
+  signals False
   ensures (h : Trace Console) =>
     ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok line)] ∧
@@ -83,7 +83,7 @@ method greet [Clients] returns (name : String) in Prog
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) =>
     e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" (.ok ())])
-  signals True
+  signals False
   ensures (h : Trace Console) =>
     ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok name)] ∧

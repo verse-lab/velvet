@@ -115,7 +115,7 @@ method serveN [CalcClients] (c : Calc) (n : Nat) returns (r : Unit) in IOProg Ca
   signals (e : IOErr) (h : Trace CalcEv) =>
     e = .eof ∧ ∃ qs : List Op, qs.length < n ∧
       h.traceOf c = h₀.traceOf c ++ qs.flatMap exchange ++ [.read (.error .eof)]
-  signals True
+  signals False
   ensures (h : Trace CalcEv) =>
     ∃ qs : List Op, qs.length = n ∧ h.traceOf c = h₀.traceOf c ++ qs.flatMap exchange
 do

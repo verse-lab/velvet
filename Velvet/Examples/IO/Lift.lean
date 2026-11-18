@@ -12,7 +12,7 @@ method countedReply [Clients] (s : Socket) returns (q : Request) in IOProgT Sock
   given (h₀ : Trace SockEvent) (n₀ : Nat)
   requires (h : Trace SockEvent) (n : Nat) => h = h₀ ∧ n = n₀
   signals (e : IOErr) (h : Trace SockEvent) (n : Nat) => True
-  signals True
+  signals False
   ensures (h : Trace SockEvent) (n : Nat) =>
     n = n₀ + 1 ∧ h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.ok ()))]
 do

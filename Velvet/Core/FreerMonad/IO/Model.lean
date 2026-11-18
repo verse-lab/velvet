@@ -25,7 +25,7 @@ instance instModelOfPure {P : Protocol c op Ev Err} [PureModel c P E] : Model c 
   call_ok t ch o := ModelBase.yields_pure (PureModel.call_ok t ch o)
 
 /-- Any implementation, its replies checked against `P`: one `P` does not allow stops the run. -/
-@[instance_reducible] def Model.monitored (P : Protocol c op Ev Err)
+@[instance_reducible] def Model.monitored [CanStop m] (P : Protocol c op Ev Err)
     [∀ (α : Type) (ch : c) (h : List Ev) (o : op α) (r : Except Err α), Decidable (P.onReply ch h o r)]
     (impl : ∀ {α : Type}, Trace E → c → op α → m (Except Err α))
     (free : ∀ {α : Type} t ch (o : op α), yields (impl t ch o) fun _ => True := by intros; simp) :
@@ -39,5 +39,5 @@ end
 error, and everything else is `m`. -/
 abbrev IOModelT (E Err : Type) (m : Type → Type) := ExceptT Err (StateT (Trace E) m)
 
-/-- `IOModelT` over `Option`, where `none` is divergence or a model stopping the run. -/
+/-- `IOModelT` over `Option`, where `none` is divergence. -/
 abbrev IOModel (E Err : Type) := IOModelT E Err Option

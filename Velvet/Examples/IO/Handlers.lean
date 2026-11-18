@@ -14,7 +14,7 @@ method handleOne [Clients] (s : Socket) returns (q : Request) in Prog
     (e = .eof ∨ e = .reset) ∧
       (h.events = h₀.events ++ [.sock s (.read (.error e))] ∨
         ∃ q : Request, h.events = h₀.events ++ [.sock s (.read (.ok q)), .sock s (.write ⟨q.id⟩ (.error e))])
-  signals True
+  signals False
   ensures (h : Trace Event) =>
     h.events = h₀.events ++ [.sock s (.read (.ok q)), .sock s (.write ⟨q.id⟩ (.ok ()))]
 do
@@ -38,7 +38,7 @@ method handleTwo [Clients] (s : Socket) returns (qs : Request × Request) in Pro
         ∃ q₁ q₂ : Request, h.events = h₀.events ++
           [.sock s (.read (.ok q₁)), .sock s (.write ⟨q₁.id⟩ (.ok ())),
             .sock s (.read (.ok q₂)), .sock s (.write ⟨q₂.id⟩ (.error e))])
-  signals True
+  signals False
   ensures (h : Trace Event) =>
     h.events = h₀.events ++
       [.sock s (.read (.ok qs.1)), .sock s (.write ⟨qs.1.id⟩ (.ok ())),
@@ -64,7 +64,7 @@ method loggedReply [Clients] (s : Socket) returns (q : Request) in Prog
       (∃ q : Request, h.events = h₀.events ++
         [.sock s (.read (.ok q)), .log (.write "request" (.ok ())), .sock s (.write ⟨q.id⟩ (.error e))] ∧
         (e = .eof ∨ e = .reset))
-  signals True
+  signals False
   ensures (h : Trace Event) =>
     h.events = h₀.events ++
       [.sock s (.read (.ok q)), .log (.write "request" (.ok ())), .sock s (.write ⟨q.id⟩ (.ok ()))]
@@ -85,7 +85,7 @@ method echoLine [Clients] returns (line : String) in Prog
       (h.events = h₀.events ++ [.stdin (.read (.error e))] ∨
         ∃ line : String, ¬ line.contains '\n' ∧
           h.events = h₀.events ++ [.stdin (.read (.ok line)), .stdout (.write line (.error e))])
-  signals True
+  signals False
   ensures (h : Trace Event) =>
     ¬ line.contains '\n' ∧ h.events = h₀.events ++ [.stdin (.read (.ok line)), .stdout (.write line (.ok ()))]
 do
@@ -110,7 +110,7 @@ method handleCmd [Clients] (a : Auth) (loggedIn? : Bool) returns (cmd : Cmd) in 
       (h.events = h₀.events ++ [.auth a (.read (.error e))] ∨
         ∃ cmd : Cmd, h.events = h₀.events ++
           [.auth a (.read (.ok cmd)), .auth a (.write (reply (loggedIn (h₀.traceOf a)) cmd) (.error e))])
-  signals True
+  signals False
   ensures (h : Trace Event) =>
     h.events = h₀.events ++
       [.auth a (.read (.ok cmd)), .auth a (.write (reply (loggedIn (h₀.traceOf a)) cmd) (.ok ()))]
