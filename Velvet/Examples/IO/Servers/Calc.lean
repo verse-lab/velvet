@@ -70,7 +70,7 @@ def calcModel [CalcClients] (c : Calc) (h : List (IOEvent Op Nat IOErr)) : Strea
   | .read => nextInput (CalcClients.ops c) h
   | .write _ => .ok ()
 
-instance [CalcClients] : Model Calc calcP CalcEv where
+instance [CalcClients] : PureModel Calc calcP CalcEv where
   call t c o := calcModel c (t.traceOf c) o
   call_ok t c o := by
     cases o with
@@ -115,7 +115,7 @@ method serveN [CalcClients] (c : Calc) (n : Nat) returns (r : Unit) in IOProg Ca
   signals (e : IOErr) (h : Trace CalcEv) =>
     e = .eof ∧ ∃ qs : List Op, qs.length < n ∧
       h.traceOf c = h₀.traceOf c ++ qs.flatMap exchange ++ [.read (.error .eof)]
-  signals False
+  signals True
   ensures (h : Trace CalcEv) =>
     ∃ qs : List Op, qs.length = n ∧ h.traceOf c = h₀.traceOf c ++ qs.flatMap exchange
 do

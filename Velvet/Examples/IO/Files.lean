@@ -146,7 +146,7 @@ theorem nextFile_fresh (h : List FsEv) (p : String) : nextFile h p ∉ opened h 
   simp only [nextFile] at this
   omega
 
-instance [FsWorld] : Model Fs fsP Ev where
+instance [FsWorld] : PureModel Fs fsP Ev where
   call t ch o := match o with
     | .check p => .ok (FsWorld.contents p).isSome
     | .open p => if (FsWorld.contents p).isSome then .ok (nextFile (t.traceOf ch) p) else .error .notFound
@@ -163,7 +163,7 @@ instance [FsWorld] : Model Fs fsP Ev where
       · rename_i hc
         exact ⟨rfl, by cases h : FsWorld.contents p <;> simp_all⟩
 
-instance [FsWorld] : Model File fileP Ev where
+instance [FsWorld] : PureModel File fileP Ev where
   call t f o := match o with
     | .read =>
       match FsWorld.contents f.path with
@@ -190,7 +190,7 @@ method readFile [FsWorld] (fs : Fs) (p : String) returns (r : Option String) in 
   given (h₀ : Trace Ev)
   requires (h : Trace Ev) => h = h₀ ∧ ∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)
   signals (e : FsErr) (h : Trace Ev) => False
-  signals False
+  signals True
   ensures (h : Trace Ev) => r = FsWorld.contents p
   ensures (h : Trace Ev) => ∀ f : File, h.traceOf f ≠ [] → f ∈ opened (h.traceOf fs)
   ensures (h : Trace Ev) => r = none → h.events = h₀.events ++ [.inl (fs, .checked p (.ok false))]

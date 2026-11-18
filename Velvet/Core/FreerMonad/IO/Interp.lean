@@ -6,16 +6,16 @@ open Std.WP Lean.Order WPPartial
 lifted action run in `m`, and the soundness of the WP against that interpretation. -/
 
 section Interp
-variable {E Err : Type} {m : Type → Type} [Monad m]
+variable {E Err : Type} {m : Type → Type} [Monad m] [ModelBase m]
 
 instance instInterpIOEff : HasInterpreter (IOEff E Err m) (IOModelT E Err m) where
   interp
-    | @IOEff.call _ _ _ c _ _ _ _ _ _ P _ ch o => fun h =>
-        pure (Model.call (P := P) h ch o, h.recordFor ch (Channel.log c o (Model.call (P := P) h ch o)))
+    | @IOEff.call _ _ _ _ _ c _ _ _ _ _ _ P _ ch o => fun h =>
+        Model.call (P := P) h ch o >>= fun r => pure (r, h.recordFor ch (Channel.log c o r))
     | .snapshot => fun h => pure (.ok (Ghost.mk h), h)
     | .lift x => MonadLift.monadLift (MonadLift.monadLift x : StateT (Trace E) m _)
 
-variable {Pred EPred : Type} [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+variable {Pred EPred : Type} [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [WPModelBase m Pred EPred]
 
 instance instLawfulEffWPIOEff :
     LawfulEffWP (IOEff E Err m) (IOModelT E Err m) (Trace E → Pred) ((Err → Trace E → Pred) × EPred) where
@@ -23,11 +23,10 @@ instance instLawfulEffWPIOEff :
     intro post epost h
     cases x with
     | @call c op Ev α _ _ _ P _ ch o =>
-      have hok := Model.call_ok (P := P) h ch o
+      refine PartialOrder.rel_trans ?_ (WPMonad.bind_le_wp_bind (m := m) (Model.call (P := P) h ch o) _ _ _)
+      refine WPModelBase.wp_of_yields (Model.call_ok (P := P) h ch o) fun r hok => ?_
       refine PartialOrder.rel_trans ?_ (WPMonad.pure_le_wp_pure (m := m) _ _ _)
-      show _ ⊑ pushExcept post epost.1 (Model.call (P := P) h ch o)
-        (h.recordFor ch (Channel.log c o (Model.call (P := P) h ch o)))
-      generalize Model.call (P := P) h ch o = r at hok ⊢
+      show _ ⊑ pushExcept post epost.1 r (h.recordFor ch (Channel.log c o r))
       cases r with
       | ok v =>
         exact PartialOrder.rel_trans (meet_le_right _ _) (PartialOrder.rel_trans (meet_le_left _ _)
@@ -45,7 +44,8 @@ instance instLawfulEffWPIOEff :
 end Interp
 
 theorem IOModelT.refines {E Err : Type} {m : Type → Type} {Pred EPred : Type} [Monad m]
-    [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)] [MonoBind m]
+    [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [ModelBase m] [WPModelBase m Pred EPred]
+    [∀ γ, CCPO (m γ)] [MonoBind m]
     {div_post : (Err → Trace E → Pred) × EPred} {div_pre : (Err → Trace E → Pred) × EPred → Trace E → Pred}
     [WPPartial (IOModelT E Err m) (Trace E → Pred) ((Err → Trace E → Pred) × EPred) div_post div_pre]
     {α : Type} {x : IOProgT E Err m α} {pre : Trace E → Pred} {post : α → Trace E → Pred}

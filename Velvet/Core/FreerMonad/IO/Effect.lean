@@ -5,13 +5,13 @@ import Velvet.Core.Ghost
 open Std.WP Lean.Order WPPartial
 
 /-- IO requests over a base monad `m`, whose actions are lifted in with `lift`. -/
-inductive IOEff (E Err : Type) (m : Type → Type) : Type → Type 1 where
+inductive IOEff (E Err : Type) (m : Type → Type) [Monad m] [ModelBase m] : Type → Type 1 where
   | call {c : Type} {op : Type → Type} {Ev α : Type} [Channel c op Ev Err] [DecidableEq c] [Provide E c]
-      {P : Protocol c op Ev Err} [Model c P E] (ch : c) (o : op α) : IOEff E Err m α
+      {P : Protocol c op Ev Err} [Model c P E m] (ch : c) (o : op α) : IOEff E Err m α
   | snapshot : IOEff E Err m (Ghost (Trace E))
   | lift {α : Type} (x : m α) : IOEff E Err m α
 
-abbrev IOProgT (E Err : Type) (m : Type → Type) := FreerMonad (IOEff E Err m)
+abbrev IOProgT (E Err : Type) (m : Type → Type) [Monad m] [ModelBase m] := FreerMonad (IOEff E Err m)
 
 abbrev IOProg (E Err : Type) := IOProgT E Err Option
 
@@ -26,25 +26,27 @@ theorem ofProp_himp_le {α : Type} [CompleteLattice α] {p : Prop} (hp : p) (b :
 
 section Effect
 variable {E Err : Type} {m : Type → Type} {Pred EPred : Type}
-  [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred]
+  [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [ModelBase m] [WPModelBase m Pred EPred]
 
 noncomputable instance instWPIOEff {α : Type} :
     WP (IOEff E Err m α) α (Trace E → Pred) ((Err → Trace E → Pred) × EPred) where
   wpTrans x := ⟨fun post epost h => match x with
-    | @IOEff.call _ _ _ c _ _ _ _ _ _ P _ ch o =>
-        ⌜P.allow ch (h.traceOf ch) o⌝ ⊓
+    | @IOEff.call _ _ _ _ _ c _ _ _ _ _ _ P _ ch o =>
+        (⌜P.allow ch (h.traceOf ch) o⌝ ⊓
           ((⨅ v, ⌜P.onReply ch (h.traceOf ch) o (.ok v)⌝ ⇨
               post v (h.recordFor ch (Channel.log c o (.ok v)))) ⊓
             ⨅ e, ⌜P.onReply ch (h.traceOf ch) o (.error e)⌝ ⇨
-              epost.1 e (h.recordFor ch (Channel.log c o (.error e))))
+              epost.1 e (h.recordFor ch (Channel.log c o (.error e))))) ⊓
+          WPModelBase.stopPre (m := m) epost.2
     | .snapshot => post (Ghost.mk h) h
     | .lift x => wp x (fun a => post a h) epost.2⟩
   wp_trans_monotone x post post' epost epost' he hp h := by
     cases x with
     | call ch o =>
-      exact meet_mono PartialOrder.rel_refl (meet_mono
+      exact meet_mono (meet_mono PartialOrder.rel_refl (meet_mono
         (le_iInf _ _ fun v => PartialOrder.rel_trans (iInf_le _ v) (himp_mono_right' (hp _ _)))
-        (le_iInf _ _ fun e => PartialOrder.rel_trans (iInf_le _ e) (himp_mono_right' (he.1 _ _))))
+        (le_iInf _ _ fun e => PartialOrder.rel_trans (iInf_le _ e) (himp_mono_right' (he.1 _ _)))))
+        (WPModelBase.stopPre_mono he.2)
     | snapshot => exact hp _ _
     | lift x => exact WP.wp_trans_monotone x _ _ _ _ he.2 (fun a => hp a h)
 
@@ -62,7 +64,8 @@ namespace IOProg
 
 section Specs
 variable {E Err : Type} {m : Type → Type} {Pred EPred : Type}
-  [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
+  [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [ModelBase m] [WPModelBase m Pred EPred]
+  [∀ γ, CCPO (m γ)]
   {div_post : (Err → Trace E → Pred) × EPred} {div_pre : (Err → Trace E → Pred) × EPred → Trace E → Pred}
   [WPPartial (IOModelT E Err m) (Trace E → Pred) ((Err → Trace E → Pred) × EPred) div_post div_pre]
 
@@ -72,7 +75,7 @@ theorem iInf_eq_himp_le (x : Trace E) (f : Trace E → Pred) : (⨅ h', ⌜h' = 
 
 section Call
 variable {c Ev α : Type} {op : Type → Type} [Channel c op Ev Err] [DecidableEq c] [Provide E c]
-  {P : Protocol c op Ev Err} [Model c P E]
+  {P : Protocol c op Ev Err} [Model c P E m]
 
 def call (ch : c) (o : op α) : IOProgT E Err m α := .vis (.call ch o) .ret
 
@@ -80,15 +83,17 @@ def call (ch : c) (o : op α) : IOProgT E Err m α := .vis (.call ch o) .ret
 theorem call_spec (ch : c) (o : op α) {post : α → Trace E → Pred}
     {epost : (Err → Trace E → Pred) × EPred} :
     Triple (call (E := E) (m := m) ch o)
-      (fun h => ⌜Named.mk `allow none (P.allow ch (h.traceOf ch) o)⌝ ⊓
+      (fun h => (⌜Named.mk `allow none (P.allow ch (h.traceOf ch) o)⌝ ⊓
         ((⨅ v, ⌜Named.mk `onReply none (P.onReply ch (h.traceOf ch) o (.ok v))⌝ ⇨
             ⨅ h', ⌜Named.mk `h_trace none (h' = h.recordFor ch (Channel.log c o (.ok v)))⌝ ⇨ post v h') ⊓
           ⨅ e, ⌜Named.mk `onReply none (P.onReply ch (h.traceOf ch) o (.error e))⌝ ⇨
-            ⨅ h', ⌜Named.mk `h_trace none (h' = h.recordFor ch (Channel.log c o (.error e)))⌝ ⇨ epost.1 e h'))
+            ⨅ h', ⌜Named.mk `h_trace none (h' = h.recordFor ch (Channel.log c o (.error e)))⌝ ⇨ epost.1 e h')) ⊓
+        WPModelBase.stopPre (m := m) epost.2)
       post epost :=
-  Triple.intro fun _ => meet_mono PartialOrder.rel_refl (meet_mono
+  Triple.intro fun _ => meet_mono (meet_mono PartialOrder.rel_refl (meet_mono
     (le_iInf _ _ fun v => PartialOrder.rel_trans (iInf_le _ v) (himp_mono_right' (iInf_eq_himp_le _ _)))
-    (le_iInf _ _ fun e => PartialOrder.rel_trans (iInf_le _ e) (himp_mono_right' (iInf_eq_himp_le _ _))))
+    (le_iInf _ _ fun e => PartialOrder.rel_trans (iInf_le _ e) (himp_mono_right' (iInf_eq_himp_le _ _)))))
+    PartialOrder.rel_refl
 
 end Call
 
@@ -112,12 +117,13 @@ theorem lift_spec {α : Type} (x : m α) {post : α → Trace E → Pred}
 
 end Specs
 
-instance {E Err : Type} {m : Type → Type} : MonadLift m (IOProgT E Err m) where
+instance {E Err : Type} {m : Type → Type} [Monad m] [ModelBase m] : MonadLift m (IOProgT E Err m) where
   monadLift := lift
 
 section Lift
 variable {E Err : Type} {m : Type → Type} {Pred EPred : Type}
-  [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [∀ γ, CCPO (m γ)]
+  [Monad m] [Assertion Pred] [Assertion EPred] [WPMonad m Pred EPred] [ModelBase m] [WPModelBase m Pred EPred]
+  [∀ γ, CCPO (m γ)]
   {div_post : (Err → Trace E → Pred) × EPred} {div_pre : (Err → Trace E → Pred) × EPred → Trace E → Pred}
   [WPPartial (IOModelT E Err m) (Trace E → Pred) ((Err → Trace E → Pred) × EPred) div_post div_pre]
 

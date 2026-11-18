@@ -76,23 +76,23 @@ instance : Distinguish Event Auth Socket := ⟨fun _ _ => rfl⟩
 section Models
 variable [Clients]
 
-instance : Model Stdin stdinP Event where
+instance : PureModel Stdin stdinP Event where
   call t ch o := stdinModel (t.traceOf ch) o
   call_ok _ ch o := stdinModel_ok ch _ o
 
-instance : Model Stdout stdoutP Event where
+instance : PureModel Stdout stdoutP Event where
   call _ _ o := stdoutModel o
   call_ok _ ch o := stdoutModel_ok ch _ o
 
-instance : Model Log logP Event where
+instance : PureModel Log logP Event where
   call t ch o := logModel (t.traceOf ch) o
   call_ok _ ch o := logModel_ok ch _ o
 
-instance : Model Socket reqResp Event where
+instance : PureModel Socket reqResp Event where
   call t s o := socketModel s (t.traceOf s) o
   call_ok _ s o := socketModel_ok s _ o
 
-instance : Model Auth authP Event where
+instance : PureModel Auth authP Event where
   call t a o := authModel a (t.traceOf a) o
   call_ok _ a o := authModel_ok a _ o
 

@@ -81,7 +81,7 @@ def connModel [ConnClients] (c : Conn) (h : List (IOEvent Req Nat IOErr)) : Stre
   | .read => nextInput (ConnClients.requests c) h
   | .write _ => .ok ()
 
-instance [ConnClients] : Model Conn connP ConnEv where
+instance [ConnClients] : PureModel Conn connP ConnEv where
   call t c o := connModel c (t.traceOf c) o
   call_ok t c o := by
     cases o with

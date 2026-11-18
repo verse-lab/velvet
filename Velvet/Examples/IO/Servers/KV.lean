@@ -90,7 +90,7 @@ def kvModel [KVClients] (c : KV) (h : List (IOEvent KVReq KVResp IOErr)) :
   | .read => nextInput (KVClients.requests c) h
   | .write _ => .ok ()
 
-instance [KVClients] : Model KV kvP KVEv where
+instance [KVClients] : PureModel KV kvP KVEv where
   call t c o := kvModel c (t.traceOf c) o
   call_ok t c o := by
     cases o with

@@ -9,7 +9,7 @@ namespace Velvet.Examples.IO.Generic
 
 abbrev SockEvent := Socket × IOEvent Request Response IOErr
 
-instance [Clients] : Model Socket reqResp SockEvent where
+instance [Clients] : PureModel Socket reqResp SockEvent where
   call t s o := socketModel s (t.traceOf s) o
   call_ok _ s o := socketModel_ok s _ o
 
@@ -22,7 +22,7 @@ method reply [Clients] (s : Socket) returns (q : Request) in IOProg SockEvent IO
     (e = .eof ∨ e = .reset) ∧
       (h.events = h₀.events ++ [(s, .read (.error e))] ∨
         ∃ q : Request, h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.error e))])
-  signals False
+  signals True
   ensures (h : Trace SockEvent) => h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.ok ()))]
 do
   let q ← read s
@@ -34,11 +34,11 @@ prove_correct reply by
 
 abbrev StdoutSockEvent := (Stdout × IOEvent String String IOErr) ⊕ SockEvent
 
-instance : Model Stdout stdoutP StdoutSockEvent where
+instance : PureModel Stdout stdoutP StdoutSockEvent where
   call _ _ o := stdoutModel o
   call_ok _ ch o := stdoutModel_ok ch _ o
 
-instance [Clients] : Model Socket reqResp StdoutSockEvent where
+instance [Clients] : PureModel Socket reqResp StdoutSockEvent where
   call t s o := socketModel s (t.traceOf s) o
   call_ok _ s o := socketModel_ok s _ o
 
@@ -54,7 +54,7 @@ method replyAndLog [Clients] (s : Socket) returns (q : Request) in IOProg Stdout
         (∃ q : Request, h.events = h₀.events ++ [.inr (s, .read (.ok q)), .inr (s, .write ⟨q.id⟩ (.error e))]) ∨
         ∃ q : Request, h.events = h₀.events ++
           [.inr (s, .read (.ok q)), .inr (s, .write ⟨q.id⟩ (.ok ())), .inl (⟨⟩, .write "replied" (.error e))])
-  signals False
+  signals True
   ensures (h : Trace StdoutSockEvent) =>
     h.events = h₀.events ++
       [.inr (s, .read (.ok q)), .inr (s, .write ⟨q.id⟩ (.ok ())), .inl (⟨⟩, .write "replied" (.ok ()))]

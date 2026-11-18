@@ -33,11 +33,11 @@ theorem inj_stdin (e : IOEvent String String IOErr) : (Provide.inj Stdin.mk e : 
 @[simp, grind =]
 theorem inj_stdout (e : IOEvent String String IOErr) : (Provide.inj Stdout.mk e : Console) = .stdout e := rfl
 
-instance [Clients] : Model Stdin stdinP Console where
+instance [Clients] : PureModel Stdin stdinP Console where
   call t ch o := stdinModel (t.traceOf ch) o
   call_ok _ ch o := stdinModel_ok ch _ o
 
-instance : Model Stdout stdoutP Console where
+instance : PureModel Stdout stdoutP Console where
   call _ _ o := stdoutModel o
   call_ok _ ch o := stdoutModel_ok ch _ o
 
@@ -65,7 +65,7 @@ method echo [Clients] returns (line : String) in Prog
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) =>
     e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk)
-  signals False
+  signals True
   ensures (h : Trace Console) =>
     ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok line)] ∧
@@ -83,7 +83,7 @@ method greet [Clients] returns (name : String) in Prog
   requires (h : Trace Console) => h = h₀ ∧ ¬ inputClosed h
   signals (e : IOErr) (h : Trace Console) =>
     e = .eof ∧ (inputClosed h → h.traceOf Stdout.mk = h₀.traceOf Stdout.mk ++ [.write "name?" (.ok ())])
-  signals False
+  signals True
   ensures (h : Trace Console) =>
     ¬ inputClosed h ∧
     h.traceOf Stdin.mk = h₀.traceOf Stdin.mk ++ [.read (.ok name)] ∧
