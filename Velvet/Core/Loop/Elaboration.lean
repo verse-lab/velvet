@@ -27,6 +27,14 @@ syntax (name := doWhileVelvet) (priority := high) "while " (atomic(ident " : "))
   (" done_with " (atomic(ident " : "))? velvSpecTerm)?
   " do " doSeq : doElem
 
+/-- What `while` expands to: the condition sits inside the body as `if cond then body else break`,
+so its nested actions `(← …)` run on every iteration instead of once before the loop. -/
+syntax (name := doWhileVelvetCore) "velvet_while% "
+  (" invariant " (atomic(ident " : "))? velvSpecTerm)*
+  (" decreasing " (atomic(ident " : "))? velvSpecTerm)?
+  (" done_with " (atomic(ident " : "))? velvSpecTerm)?
+  " do " doSeq : doElem
+
 /--
 A finite range loop with inline state invariants. Like Lean's built-in `for`,
 the collection controls termination; the initial version supports one binder
@@ -335,16 +343,23 @@ public meta def elabDoForVelvet : DoElab := fun stx dec => do
         else ``Loop.Gadget.forLoopWithInvariantAndDone
       g.mkCall gadget (loopArgs ++ #[invLam, doneLam])
 
-@[doElem_control_info doWhileVelvet]
+macro_rules
+  | `(doElem| while $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) => do
+    let ifElem ← match hcond with
+      | some h => `(doElem| if $h:ident : $cond then $body else break)
+      | none => `(doElem| if $cond then $body else break)
+    `(doElem| velvet_while% $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $ifElem:doElem)
+
+@[doElem_control_info doWhileVelvetCore]
 public meta def controlInfoDoWhileVelvet : ControlInfoHandler := fun stx => do
-  let `(doElem| while $[$_hcond : ]? $_cond $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
+  let `(doElem| velvet_while% $[ invariant $[$_ns : ]? $_invs]* $[decreasing $[$_hm : ]? $_m]? $[done_with $[$_h_done : ]? $_d]? do $body) := stx
     | throwUnsupportedSyntax
   let bodyInfo ← InferControlInfo.ofSeq body
   return { reassigns := bodyInfo.reassigns, returnsEarly := bodyInfo.returnsEarly }
 
-@[doElem_elab doWhileVelvet]
+@[doElem_elab doWhileVelvetCore]
 public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
-  let `(doElem| while $[$hcond : ]? $cond $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
+  let `(doElem| velvet_while% $[ invariant $[$ns : ]? $invs]* $[decreasing $[$hm : ]? $m]? $[done_with $[$h_done : ]? $d]? do $body) := stx
     | throwUnsupportedSyntax
   let isPartial : Bool := match (← getOptions).get? `velvet.semantics.termination with
     | some (Lean.DataValue.ofString s) => s == "partial"
@@ -352,23 +367,18 @@ public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
   -- A loop without Velvet clauses is Lean's own `while`, which expands to `repeat`. Partial
   -- correctness keeps it, since its fixed-point loop is what makes the loop verifiable.
   if invs.isEmpty && m.isNone && d.isNone && isPartial == false then
-    let ifElem ← match hcond with
-      | some h => `(doElem| if $h:ident : $cond then $body else break)
-      | none => `(doElem| if $cond then $body else break)
-    let expanded ← `(doElem| repeat $ifElem:doElem)
+    let expanded ← `(doElem| repeat $body:doSeq)
     return ← Term.withMacroExpansion stx expanded <| withRef expanded <|
       elabDoElem ⟨expanded⟩ dec
   let invs ← liftMacroM <| invs.mapM specTermToTerm
   let d ← liftMacroM <| d.mapM specTermToTerm
   let m ← liftMacroM <| m.mapM specTermToTerm
   let dec ← dec.ensureUnitAt stx
-  let defaultLoopIdent := mkIdent `h_loop
-  let loopIdent := hcond.getD defaultLoopIdent
-  let loopBody ← `(doSeq|
-    if $loopIdent:ident : $cond then
-      do $body
-    else
-      break)
+  -- The verified loop always names the condition hypothesis, `h_loop` unless the user chose one.
+  let mut loopBody := body
+  if let #[elem] := getDoElems body then
+    if let `(doElem| if $cond:term then $b else break) := elem then
+      loopBody ← `(doSeq| if $(mkIdent `h_loop):ident : $cond then $b else break)
   let binders : Array (Name × (Array Expr → DoElabM Expr)) :=
     #[(← mkFreshUserName `__u, fun _ => pure (Lean.mkConst ``Unit))]
   elabLoop dec loopBody binders (fun _ => pure ()) fun g => do
