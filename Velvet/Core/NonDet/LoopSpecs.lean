@@ -87,7 +87,7 @@ public theorem Spec.whileLoopTotal
     {Q : β → Pred} (inv : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure Q b) einv) :
-    Triple (Gadget.whileLoopTotal init f inv none measure) (inv init) Q einv :=
+    Triple (Gadget.whileLoopTotal init f inv none (Ghost.mk measure)) (inv init) Q einv :=
   triple_iff_toFreer.2 <| FreerMonad.Spec.whileLoopTotal (f := fun u b => (f u b).toFreer)
     inv measure fun b => triple_iff_toFreer.1 (step b)
 
@@ -99,7 +99,7 @@ public theorem Spec.whileLoopTotalAndDone
     (inv done : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure done b) einv) :
-    Triple (Gadget.whileLoopTotal init f inv (some done) measure) (inv init)
+    Triple (Gadget.whileLoopTotal init f inv (some done) (Ghost.mk measure)) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   triple_iff_toFreer.2 <| FreerMonad.Spec.whileLoopTotalAndDone (f := fun u b => (f u b).toFreer)
     inv done measure fun b => triple_iff_toFreer.1 (step b)
@@ -115,7 +115,7 @@ public theorem Spec.whileLoopTotalAndDoneReturning
       Triple (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) (none, s)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple (Gadget.whileLoopTotalReturning init f inv (some done) measure) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopTotalReturning init f inv (some done) (Ghost.mk measure)) (noReturn inv init) Q einv :=
   triple_iff_toFreer.2 <| FreerMonad.Spec.whileLoopTotalAndDoneReturning (f := fun u b => (f u b).toFreer)
     inv done measure (fun s => triple_iff_toFreer.1 (step s)) hD
 
@@ -129,7 +129,7 @@ public theorem Spec.whileLoopTotalReturning
     (step : ∀ s,
       Triple (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q (none, s)) einv) :
-    Triple (Gadget.whileLoopTotalReturning init f inv none measure) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopTotalReturning init f inv none (Ghost.mk measure)) (noReturn inv init) Q einv :=
   triple_iff_toFreer.2 <| FreerMonad.Spec.whileLoopTotalReturning (f := fun u b => (f u b).toFreer)
     inv measure fun s => triple_iff_toFreer.1 (step s)
 

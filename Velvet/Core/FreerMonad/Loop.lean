@@ -128,7 +128,7 @@ theorem Spec.whileLoopTotal
     {Q : β → Pred} (inv : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple m (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure Q b) einv) :
-    Triple m (Gadget.whileLoopTotal init f inv none measure) (inv init) Q einv :=
+    Triple m (Gadget.whileLoopTotal init f inv none (Ghost.mk measure)) (inv init) Q einv :=
   whileLoopTotal_core inv Q measure step
 
 /-- A total-correctness `while` loop with `done_with`. -/
@@ -137,7 +137,7 @@ theorem Spec.whileLoopTotalAndDone
     (inv done : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple m (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure done b) einv) :
-    Triple m (Gadget.whileLoopTotal init f inv (some done) measure) (inv init)
+    Triple m (Gadget.whileLoopTotal init f inv (some done) (Ghost.mk measure)) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   whileLoopTotal_core inv done measure step
 
@@ -150,7 +150,7 @@ theorem Spec.whileLoopTotalAndDoneReturning
       Triple m (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) (none, s)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple m (Gadget.whileLoopTotalReturning init f inv (some done) measure) (noReturn inv init) Q einv :=
+    Triple m (Gadget.whileLoopTotalReturning init f inv (some done) (Ghost.mk measure)) (noReturn inv init) Q einv :=
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   triple_onExit (whileLoopTotal_core (noReturn inv) _ (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
@@ -165,7 +165,7 @@ theorem Spec.whileLoopTotalReturning
     (step : ∀ s,
       Triple m (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q (none, s)) einv) :
-    Triple m (Gadget.whileLoopTotalReturning init f inv none measure) (noReturn inv init) Q einv :=
+    Triple m (Gadget.whileLoopTotalReturning init f inv none (Ghost.mk measure)) (noReturn inv init) Q einv :=
   letI := wpMonadInst (m := m) (e := e) (div_post := div_post) (div_pre := div_pre)
   whileLoopTotal_core (noReturn inv) Q (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())

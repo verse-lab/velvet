@@ -32,7 +32,9 @@ public theorem Ghost.exists_unique (s : Ghost α) : ∃ x, ∀ y, s.toSet.mem y 
   rcases s.isSingleton with ⟨x, hx⟩
   exact ⟨x, hx⟩
 
-public def Ghost.mk (x : α) : Ghost α := ⟨Set.mkSingleton x, Set.mk_singleton_is_singleton x⟩
+/-- `macro_inline` leaves `x` only in erased fields, so building a ghost never computes `x`. -/
+@[expose, macro_inline] public def Ghost.mk (x : α) : Ghost α :=
+  ⟨Set.mkSingleton x, Set.mk_singleton_is_singleton x⟩
 
 public instance Ghost.instNonempty [Nonempty α] : Nonempty (Ghost α) :=
   ⟨Ghost.mk Classical.ofNonempty⟩
