@@ -19,3 +19,8 @@ leanOptions = { sym.debug = true }
 [[lean_exe]]
 name = "velvet"
 root = "Main"
+
+[[require]]
+name = "Colean"
+git = "https://github.com/verse-lab/colean"
+rev = "77ad65dac0186b6b6a5a7dce3afa667dbfc1cf0c"
