@@ -41,6 +41,22 @@ def PingsAnswered (σ : CoTrace Term) : Prop :=
 
 /-! ## The program -/
 
+/-- Read a line from the terminal. -/
+def getLine : ITree Term String := ITree.trigger .getLine
+
+/-- Print a line to the terminal. -/
+def putLine (s : String) : ITree Term Unit := ITree.trigger (.putLine s)
+
+/-- Any line may be read, and the read is recorded in the trace. -/
+@[spec] theorem getLine_spec (Q : String → Trace Term → Prop) :
+    ⦃ fun tr => ∀ s, Q s (tr ++ [⟨.getLine, s⟩]) ⦄ getLine ⦃ Q ⦄ :=
+  ITree.trigger_spec _ Q
+
+/-- The print is recorded in the trace. -/
+@[spec] theorem putLine_spec (s : String) (Q : Unit → Trace Term → Prop) :
+    ⦃ fun tr => Q () (tr ++ [⟨.putLine s, ()⟩]) ⦄ putLine s ⦃ Q ⦄ :=
+  Loop.triple_pre_le (fun _ h _ => h) (ITree.trigger_spec _ Q)
+
 set_option velvet.semantics.termination "partial" in
 /-- Answer every `ping` with `pong`, ignore other lines, stop at `quit`. -/
 method pingServer returns (r : Unit) in ITree Term
@@ -51,9 +67,9 @@ do
   while true
     invariant answered : (fun tr : Trace Term => PingsAnswered ↑tr)
   do
-    let line ← ITree.trigger .getLine
+    let line ← getLine
     if line = "quit" then break
-    if line = "ping" then ITree.trigger (.putLine "pong")
+    if line = "ping" then putLine "pong"
   return ()
 
 /-! ## The proof -/
