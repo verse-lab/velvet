@@ -32,7 +32,17 @@ public theorem Ghost.exists_unique (s : Ghost α) : ∃ x, ∀ y, s.toSet.mem y 
   rcases s.isSingleton with ⟨x, hx⟩
   exact ⟨x, hx⟩
 
-/-- `macro_inline` leaves `x` only in erased fields, so building a ghost never computes `x`. -/
+-- Suppose computable code builds one ghost from another:
+--
+--   def f : Nat := Id.run do
+--     let ghost x := 10
+--     let ghost y := x.reveal
+--     return 0
+--
+-- Without `macro_inline`, the compiler evaluates `x.reveal` before calling `Ghost.mk`, and `f`
+-- fails to compile because `reveal` is noncomputable. With it, the compiler first replaces
+-- `Ghost.mk x` by this body, so `x` only ends up in the predicate and the proof, which are erased
+-- and never run.
 @[expose, macro_inline] public def Ghost.mk (x : α) : Ghost α :=
   ⟨Set.mkSingleton x, Set.mk_singleton_is_singleton x⟩
 

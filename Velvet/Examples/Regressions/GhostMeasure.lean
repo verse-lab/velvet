@@ -40,6 +40,7 @@ method findWithGhost (n : Nat) returns (res : Nat)
 do
   let mut i := 0
   let ghost ctr := 0
+  let ghost ctr' := ctr.reveal
   while loop_cond: i < n
     invariant ghost_ctr: ctr.reveal = i ∧ i ≤ n
     decreasing rem: n - ctr.reveal
@@ -55,5 +56,7 @@ prove_correct findWithGhost by
 /-- info: some 3 -/
 #guard_msgs in
 #eval findWithGhost 5
+
+
 
 end Velvet.Examples.Regressions.GhostMeasure
