@@ -35,7 +35,7 @@ lemma monoid_assoc (a b c : β) : a * b * c = a * (b * c) := by simp [mb.mul_ass
 set_option maxHeartbeats 1000000
 
 prove_correct buildTreeMethod by
-  intro arr l r
+  intro α β _ _ _ _ arr l r
   fun_induction buildTreeMethod
   { velvet_vcgen [buildTreeMethod]
     all_goals grind [arrFold] }
@@ -86,7 +86,7 @@ lemma foldZeroRight (val : α) (arr : Array α) (l r : Nat) (h : r < l) :
     simp
 
 prove_correct queryTreeMethod by
-  intro l r tree
+  intro α β _ _ _ _ l r tree
   induction tree generalizing l r <;>
   { velvet_vcgen [queryTreeMethod]
     all_goals try grind [arrFold] }
@@ -155,5 +155,5 @@ termination_by (getBnds tree).2 - (getBnds tree).1
 decreasing_by all_goals grind
 
 prove_correct updateTreeMethod by
-  intro l r tree arr nval
+  intro α β _ _ _ _ l r tree arr nval
   fun_induction updateTreeMethod <;> velvet_vcgen <;> grind

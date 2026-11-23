@@ -42,16 +42,8 @@ public structure MethodElabContext where
   signalsClauses : Array AssertionInfo
   ensuresClauses : Array AssertionInfo
 
-/-- Persisted contract statement, keyed by the fully qualified method name. -/
-public structure MethodSpecEntry where
-  name : Name
-  statement : Syntax
-
-private def addMethodSpecEntry (state : Std.HashMap Name Syntax) (entry : MethodSpecEntry) :=
-  state.insert entry.name entry.statement
-
-public initialize methodSpecExt : SimplePersistentEnvExtension MethodSpecEntry (Std.HashMap Name Syntax) ←
+/-- Fully qualified names of the declarations made with `method`. -/
+public initialize methodsExt : SimplePersistentEnvExtension Name NameSet ←
   registerSimplePersistentEnvExtension {
-    addEntryFn := addMethodSpecEntry
-    addImportedFn := fun entries =>
-      mkStateFromImportedEntries addMethodSpecEntry {} entries }
+    addEntryFn := NameSet.insert
+    addImportedFn := fun entries => mkStateFromImportedEntries NameSet.insert {} entries }

@@ -29,13 +29,13 @@ open Lean.Elab.Do
 
 set_option linter.unusedVariables false in
 /-- Generate the `def`/`spec` command syntax for a parsed `method`, elaborate them, and register
-the spec statement. All the method-generation logic lives here; the `elab_rules` only builds the
+the method. All the method-generation logic lives here; the `elab_rules` only builds the
 `MethodElabContext` from the syntax. -/
 public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit := do
   match ctx.termination with
   | .totalCorrectness => checkWhileTermination ctx.body.raw
   | .partialCorrectness => pure ()
-  let (defCmd, specCmd, statement) ← Command.runTermElabM fun _vs => do
+  let (defCmd, specCmd) ← Command.runTermElabM fun _vs => do
     let ids := ctx.binders.flatMap (fun b => contractBinderIdents b.raw)
     let binderStxs := ctx.binders
     let allBinderStxs := binderStxs ++ ctx.givenBinders
@@ -142,11 +142,11 @@ public meta def elaborateMethod (ctx : MethodElabContext) : CommandElabM Unit :=
       open scoped Std.WP Lean.Order in
       set_option linter.unusedVariables false in
       public abbrev $specId := $statement)
-    return (defCmd, specCmd, statement)
+    return (defCmd, specCmd)
   elabCommand defCmd
   elabCommand specCmd
   let methodName ← liftCoreM <| realizeGlobalConstNoOverload ctx.name
-  modifyEnv (methodSpecExt.addEntry · { name := methodName, statement := statement })
+  modifyEnv (methodsExt.addEntry · methodName)
   let verifyOnDefinition := (← getOptions).getBool `velvet.verifyOnDefinition false
   if verifyOnDefinition then
     let lem : TSyntax `Lean.Parser.Tactic.simpLemma ← `(Lean.Parser.Tactic.simpLemma| $(ctx.name):ident)

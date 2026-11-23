@@ -87,7 +87,7 @@ private meta def withContract (name : Ident)
     TermElabM Expr := do
   let methodName ← realizeGlobalConstNoOverload name
   let specName := methodName ++ `spec_triple
-  unless (methodSpecExt.getState (← getEnv)).contains methodName do
+  unless (methodsExt.getState (← getEnv)).contains methodName do
     throwErrorAt name "no method contract metadata found for `{methodName}`"
   let spec ← mkConstWithFreshMVarLevels specName
   forallTelescopeReducing spec fun args body => do
