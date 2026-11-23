@@ -24,14 +24,17 @@ instance instModelOfPure {P : Protocol c op Ev Err} [PureModel c P E] : Model c 
   call t ch o := pure (PureModel.call (P := P) t ch o)
   call_ok t ch o := ModelBase.yields_pure (PureModel.call_ok t ch o)
 
-/-- Any implementation, its replies checked against `P`: one `P` does not allow stops the run. -/
-@[instance_reducible] def Model.monitored [CanStop m] (P : Protocol c op Ev Err)
+/-- Any `IO` implementation as a model. An exception `e` it throws is answered as `fail e`, or
+rethrown on `none`; an answer `P` does not allow stops the run. -/
+@[instance_reducible] def Model.caught (P : Protocol c op Ev Err)
     [∀ (α : Type) (ch : c) (h : List Ev) (o : op α) (r : Except Err α), Decidable (P.onReply ch h o r)]
-    (impl : ∀ {α : Type}, Trace E → c → op α → m (Except Err α))
-    (free : ∀ {α : Type} t ch (o : op α), yields (impl t ch o) fun _ => True := by intros; simp) :
-    Model c P E m where
-  call t ch o := ModelBase.monitor (P.onReply ch (t.traceOf ch) o) (impl t ch o)
-  call_ok t ch o := ModelBase.yields_monitor _ _ (free t ch o)
+    (fail : IO.Error → Option Err) (impl : ∀ {α : Type}, Trace E → c → op α → IO (Except Err α)) :
+    Model c P E IO where
+  call t ch o := ModelBase.monitor (P.onReply ch (t.traceOf ch) o) do
+    try impl t ch o catch e => match fail e with
+      | some err => pure (.error err)
+      | none => throw e
+  call_ok _ _ _ := ModelBase.yields_monitor _ _ (ModelBase.yields_true_io _)
 
 end
 

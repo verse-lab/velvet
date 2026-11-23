@@ -30,13 +30,16 @@ prove_correct serveOne by
   velvet_vcgen [serveOne] with finish
 
 /-- What the proof gives a real run, with any model and in any state of the world: if it returns a
-request, the trace is one read of it and one reply; a protocol error is the client hanging up; an
-`IO` error, including the monitor stopping the run, promises nothing. -/
+request, the trace is one read of it and one reply; if the socket fails, the trace is the failed
+read, or one read and the failed reply to it; an `IO` error, including the monitor stopping the run,
+promises nothing. -/
 theorem serveOne_run (model : Model Socket reqResp SockEvent IO) (s : Socket) (h₀ : Trace SockEvent)
     (hp : pending (h₀.traceOf s) = none) (w : Void IO.RealWorld) :
     match ((@serveOne model s).interp (m := IOModelT SockEvent IOErr IO)).run.run h₀ w with
     | .ok (.ok q, h) _ => h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.ok ()))]
-    | .ok (.error e, _) _ => e = .eof ∨ e = .reset
+    | .ok (.error e, h) _ => (e = .eof ∨ e = .reset) ∧
+        (h.events = h₀.events ++ [(s, .read (.error e))] ∨
+          ∃ q : Request, h.events = h₀.events ++ [(s, .read (.ok q)), (s, .write ⟨q.id⟩ (.error e))])
     | .error _ _ => True := by
   have := (IOModelT.refines (@serveOne.spec model s h₀)).le_wp h₀ (by simp [Named.mk_eq, hp]) w
   revert this
@@ -46,7 +49,7 @@ theorem serveOne_run (model : Model Socket reqResp SockEvent IO) (s : Socket) (h
   | error => trivial
   | ok p _ =>
     obtain ⟨_ | q, h⟩ := p
-    · simp only [IO.outPost, pushExcept, Named.mk_eq, ofProp_prop_eq] at this; exact this.1
+    · simpa only [IO.outPost, pushExcept, Named.mk_eq, ofProp_prop_eq] using this
     · simpa only [IO.outPost, pushExcept, Named.mk_eq, ofProp_prop_eq] using this
 
 instance (α : Type) (ch : Socket) (h) (o : StreamOp Request Response α) (r : Except IOErr α) :
@@ -56,13 +59,13 @@ instance (α : Type) (ch : Socket) (h) (o : StreamOp Request Response α) (r : E
 
 /-- Answers every read with request 7, and prints each reply. -/
 @[instance_reducible] def honest : Model Socket reqResp SockEvent IO :=
-  Model.monitored reqResp fun _ _ o => match o with
+  Model.caught reqResp (fun _ => none) fun _ _ o => match o with
     | .read => pure (.ok ⟨7⟩)
     | .write r => do IO.println s!"replying to {r.id}"; pure (.ok ())
 
 /-- Fails reads with `full`, an error the protocol never allows. -/
 @[instance_reducible] def liar : Model Socket reqResp SockEvent IO :=
-  Model.monitored reqResp fun _ _ o => match o with
+  Model.caught reqResp (fun _ => none) fun _ _ o => match o with
     | .read => pure (.error .full)
     | .write _ => pure (.ok ())
 
@@ -70,7 +73,7 @@ def run (model : Model Socket reqResp SockEvent IO) : IO String := do
   try
     match ← ((@serveOne model ⟨1⟩).interp (m := IOModelT SockEvent IOErr IO)).run.run ⟨[]⟩ with
     | (.ok q, h) => pure s!"request {q.id}, {h.events.length} events"
-    | (.error _, _) => pure "error"
+    | (.error _, h) => pure s!"error after {h.events.length} events"
   catch e => pure s!"stopped: {e}"
 
 /--
@@ -84,6 +87,25 @@ info: "request 7, 2 events"
 /-- info: "stopped: protocol violation" -/
 #guard_msgs in
 #eval run liar
+
+/-- A socket whose write throws, as real `IO` does on a broken pipe. -/
+def brokenPipe : ∀ {α : Type}, Trace SockEvent → Socket → StreamOp Request Response α → IO (Except IOErr α) :=
+  fun _ _ o => match o with
+    | .read => pure (.ok ⟨7⟩)
+    | .write _ => throw (.resourceVanished 32 "broken pipe")
+
+/-- The exceptions the protocol has an error for; the rest are rethrown. -/
+def sockError : IO.Error → Option IOErr
+  | .resourceVanished .. => some .reset
+  | _ => none
+
+/-- info: "stopped: resource vanished (error code: 32, broken pipe)" -/
+#guard_msgs in
+#eval run (Model.caught reqResp (fun _ => none) brokenPipe)
+
+/-- info: "error after 2 events" -/
+#guard_msgs in
+#eval run (Model.caught reqResp sockError brokenPipe)
 
 section Pure
 
@@ -126,7 +148,7 @@ prove_correct serveAll by
 
 /-- Hands out requests 1, 2 and 3, then the end of input. -/
 @[instance_reducible] def three : Model Socket reqResp SockEvent IO :=
-  Model.monitored reqResp fun t s o => match o with
+  Model.caught reqResp (fun _ => none) fun t s o => match o with
     | .read => let n := (t.traceOf s).length / 2; pure (if n < 3 then .ok ⟨n + 1⟩ else .error .eof)
     | .write r => do IO.println s!"replying to {r.id}"; pure (.ok ())
 

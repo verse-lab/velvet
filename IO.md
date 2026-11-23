@@ -246,25 +246,44 @@ wp x post epost := ∀ w, match x w with
   | .error e _ => epost e
 ```
 
-A model over `IO` is ordinary `IO` code. `Model.monitored` turns any implementation into a model,
-with no proof, by checking each answer against the protocol and throwing on one it does not allow:
+A model over `IO` is ordinary `IO` code. `Model.caught` turns any implementation into a model, with
+no proof. It checks each answer against the protocol and throws on one it does not allow. An
+exception the implementation throws is answered as the protocol error `fail` gives for it, or
+rethrown on `none`:
 
 ```lean
-def Model.monitored [CanStop m] (P : Protocol c op Ev Err)
+def Model.caught (P : Protocol c op Ev Err)
     [∀ α ch h (o : op α) r, Decidable (P.onReply ch h o r)]
-    (impl : ∀ {α : Type}, Trace E → c → op α → m (Except Err α)) : Model c P E m
+    (fail : IO.Error → Option Err)
+    (impl : ∀ {α : Type}, Trace E → c → op α → IO (Except Err α)) : Model c P E IO
 
 def honest : Model Socket reqResp SockEvent IO :=
-  Model.monitored reqResp fun _ _ o => match o with
+  Model.caught reqResp (fun _ => none) fun _ _ o => match o with
     | .read => pure (.ok ⟨7⟩)
     | .write r => do IO.println s!"replying to {r.id}"; pure (.ok ())
 ```
 
 `Monitor.lean` proves `serveOne` over `IO`, with `signals (e : IO.Error) => True`, and derives for
 every model and every state of the world: if the run returns a request, the trace is one read of
-it and one reply. An `IO` error promises nothing; that covers a real failure, the monitor stopping
-the run, and running forever. The same program runs with an honest model, a lying one (stopped),
-or a pure test model.
+it and one reply; if the socket fails, the trace is the failed read, or one read and the failed
+reply to it. An `IO` error promises nothing; that covers an exception, the monitor stopping the
+run, and running forever. The same program runs with an honest model, a lying one (stopped), or a
+pure test model.
+
+Real `IO` fails by throwing, and a throw loses the trace. An exception that `fail` maps to a
+protocol error is recorded like any other answer, so the spec's `signals (e : IOErr) (h : Trace)`
+describes the run:
+
+```lean
+def sockError : IO.Error → Option IOErr
+  | .resourceVanished .. => some .reset
+  | _ => none
+```
+
+With `brokenPipe`, a socket whose write throws, a run of `serveOne` that rethrows stops with nothing
+known. Under `Model.caught reqResp sockError brokenPipe` it ends in `reset` with a trace of the read
+and the failed reply. If `fail` gives an error the protocol does not allow there, the monitor stops
+the run.
 
 What is trusted: compiled `IO` behaves like its definition, and implementations do what they
 report. The monitor checks answers, not effects: a `write` that answers `ok` without writing goes
