@@ -395,7 +395,7 @@ public theorem Spec.whileLoopTotal
     (inv : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure Q b) einv) :
-    Triple (Gadget.whileLoopTotal init f inv none measure) (inv init) Q einv :=
+    Triple (Gadget.whileLoopTotal init f inv none (Ghost.mk measure)) (inv init) Q einv :=
   whileLoopTotal_core inv Q measure step
 
 /-- The spec for `Gadget.whileLoopTotal` with `done_with`: every exit establishes `done`, which the
@@ -410,7 +410,7 @@ public theorem Spec.whileLoopTotalAndDone
     (inv done : β → Pred) (measure : β → Named.Measure)
     (step : ∀ b,
       Triple (f () b) (binderNameHint b inv <| inv b) (stepPostDecreasing inv measure done b) einv) :
-    Triple (Gadget.whileLoopTotal init f inv (some done) measure) (inv init)
+    Triple (Gadget.whileLoopTotal init f inv (some done) (Ghost.mk measure)) (inv init)
       (fun b => binderNameHint b done <| done b) einv :=
   whileLoopTotal_core inv done measure step
 
@@ -429,7 +429,7 @@ public theorem Spec.whileLoopTotalAndDoneReturning
       Triple (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) (none, s)) einv)
     (hD : ∀ s, binderNameHint s done (done s) ⊑ Q (none, s)) :
-    Triple (Gadget.whileLoopTotalReturning init f inv (some done) measure) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopTotalReturning init f inv (some done) (Ghost.mk measure)) (noReturn inv init) Q einv :=
   triple_onExit (whileLoopTotal_core (noReturn inv) _ (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
       (post := fun b => stepPostDecreasing (noReturn inv) (fun b => measure b.2) (onExit Q done) b) step)) hD
@@ -448,7 +448,7 @@ public theorem Spec.whileLoopTotalReturning
     (step : ∀ s,
       Triple (f () (none, s)) (binderNameHint s inv <| inv s)
         (stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q (none, s)) einv) :
-    Triple (Gadget.whileLoopTotalReturning init f inv none measure) (noReturn inv init) Q einv :=
+    Triple (Gadget.whileLoopTotalReturning init f inv none (Ghost.mk measure)) (noReturn inv init) Q einv :=
   whileLoopTotal_core (noReturn inv) Q (fun b => measure b.2)
     (noReturn_step (inv := inv) (x := f ())
       (post := fun b => stepPostDecreasing (noReturn inv) (fun b => measure b.2) Q b) step)

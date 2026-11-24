@@ -410,4 +410,4 @@ public meta def elabDoWhileVelvet : DoElab := fun stx dec => do
       let measureNameTerm : TSyntax `term ← `(Lean.Name.mkSimple $measureNameStr)
       let measureStx ← liftMacroM <| Named.sourceRefTerm m.raw
       let measureTerm ← `(Named.Measure.mk $measureNameTerm $measureStx $m)
-      g.mkCall gadget (loopArgs.push (← g.mkStateFun measureTerm))
+      g.mkCall gadget (loopArgs.push (← `(_root_.Ghost.mk $(← g.mkStateFun measureTerm))))

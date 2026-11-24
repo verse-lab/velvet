@@ -1,6 +1,7 @@
 module
 
 public import Velvet.Core.Specs
+public import Velvet.Core.Ghost
 public import Velvet.Core.Partial
 public import Std.WP
 public import Std.WP.Gadget.ForIn
@@ -203,10 +204,10 @@ becomes
     whileLoopTotal i
       (fun () i => if h_loop : i < n then pure (ForInStep.yield (i + 1)) else pure (ForInStep.done i))
       (fun i => ⌜⟪bound : i ≤ n⟫⌝) (some fun i => ⌜⟪bound : i ≤ n⟫⌝ ⊓ ⌜⟪fin : i = n⟫⌝)
-      (fun i => ⟪termination : n - i⟫) -/
+      (Ghost.mk fun i => ⟪termination : n - i⟫) -/
 @[expose, inline] public def whileLoopTotal {β : Type u} {Pred : Type u₁} {m : Type u → Type v} [ForIn m Lean.Loop Unit]
     (init : β) (f : Unit → β → m (ForInStep β))
-    (inv : β → Pred) (done? : Option (β → Pred)) (measure : β → Named.Measure) : m β :=
+    (inv : β → Pred) (done? : Option (β → Pred)) (measure : Ghost (β → Named.Measure)) : m β :=
   forIn Lean.Loop.mk init f
 
 set_option linter.unusedVariables false in
@@ -226,12 +227,12 @@ becomes
         if h_loop : i < n then
           if i = 5 then pure (ForInStep.done (some 5, i)) else pure (ForInStep.yield (none, i + 1))
         else pure (ForInStep.done (none, i)))
-      (fun i => ⌜⟪bound : i ≤ n⟫⌝) none (fun i => ⟪termination : n - i⟫) -/
+      (fun i => ⌜⟪bound : i ≤ n⟫⌝) none (Ghost.mk fun i => ⟪termination : n - i⟫) -/
 @[expose, inline] public def whileLoopTotalReturning {γ τ : Type u} {Pred : Type u₁} {m : Type u → Type v}
     [ForIn m Lean.Loop Unit]
     (init : Option γ × τ) (f : Unit → Option γ × τ → m (ForInStep (Option γ × τ)))
     (inv : τ → Pred) (done? : Option (τ → Pred))
-    (measure : τ → Named.Measure) : m (Option γ × τ) :=
+    (measure : Ghost (τ → Named.Measure)) : m (Option γ × τ) :=
   forIn Lean.Loop.mk init f
 
 end Gadget
